@@ -23,6 +23,9 @@ func main() {
 	// Swagger docs
 	app.Get("/docs/*", swagger.HandlerDefault)
 
+	// 
+	app.Get("/Post", routes.GetUsersHandler(client))
+
 	// Register routes
 	routes.RegisterRoutes(app, client)
 
