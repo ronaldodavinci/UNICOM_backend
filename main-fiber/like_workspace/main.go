@@ -8,8 +8,8 @@ import (
 	"github.com/gofiber/swagger"
 	_ "github.com/pllus/main-fiber/docs"
 
-	"/main-fiber/like_workspace/configs"
-	"/main-fiber/like_workspace/internal/routes"
+	_ "github.com/pllus/main-fiber/like_workspace/configs"
+	_ "github.com/pllus/main-fiber/like_workspace/internal/routes"
 )
 
 func main() {

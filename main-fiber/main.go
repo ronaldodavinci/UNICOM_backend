@@ -69,9 +69,7 @@ func getHello(c *fiber.Ctx) error {
 	return c.SendString("Hello, World!")
 }
 
-// getUserHandler handles the GET request to fetch data from the User collection.
 func getUserHandler(c *fiber.Ctx) error {
-	// Access the database and collection
 	db := client.Database("User_1")
 	collection := db.Collection("User")
 
