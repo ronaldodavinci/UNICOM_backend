@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"log"
 
-	"go.mongodf.org/mongo-driver/v2/mongo"
+	"go.mongodb.org/mongo-driver/v2/mongo"
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
 	"go.mongodb.org/mongo-driver/v2/mongo/readpref"
 )
@@ -15,11 +15,11 @@ func ConnectMongo(uri string) *mongo.Client {
 
 	client, err := mongo.Connect(opts)
 	if err != nil {
-		log.Fetal("MongoDB connection error:", err)
+		log.Fatal("MongoDB connection error:", err)
 	}
 
 	if err := client.Ping(context.TODO(), readpref.Primary()); err != nil {
-		log.Fetal("Failed to ping MongoDB:", err)
+		log.Fatal("Failed to ping MongoDB:", err)
 	}
 
 	fmt.Println("Connected to MongoDB")

@@ -1,4 +1,4 @@
-package controllers
+package handlers
 
 import (
 	"context"
@@ -7,7 +7,7 @@ import (
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
 
-	"big_workspace/internal/api/models"
+	"main-fiber/big_workspace/internal/api/models"
 )
 
 func GetAllUsers(client *mongo.Client) ([]models.User, error) {
