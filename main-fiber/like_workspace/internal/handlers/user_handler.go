@@ -7,6 +7,16 @@ import (
 	"github.com/pllus/main-fiber/like_workspace/internal/repository"
 )
 
+// GetUserHandler godoc
+// @Summary Get all users
+// @Description Get all users from MongoDB User collection
+// @Tags users
+// @Accept  json
+// @Produce  json
+// @Success 200 {object} map[string]interface{}
+// @Failure 500 {object} map[string]interface{}
+// @Router /Post [get]
+
 func GetUserHandler(c *fiber.Ctx, client *mongo.Client) error {
 	users, err := repository.FetchUsers(client)
 	if err != nil {
