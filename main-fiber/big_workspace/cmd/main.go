@@ -30,7 +30,7 @@ func main() {
 	app.Get("/docs/*", swagger.HandlerDefault)
 
 	// Routes
-	routes.SetupRoutes(app, client)
+	routes.SetupRoutesUser(app, client)
 
 	// RUN SERVER
 	log.Fatal(app.Listen(":" + cfg.Port))
