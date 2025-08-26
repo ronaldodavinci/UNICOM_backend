@@ -8,8 +8,9 @@ import (
 	"github.com/gofiber/swagger"
 	_ "like_workspace/docs"
 
-	"like_workspace/configs"
+	"like_workspace/database"
 	"like_workspace/internal/routes"
+	"like_workspace/internal/handlers"
 )
 
 func main() {
@@ -23,7 +24,9 @@ func main() {
 	// Swagger docs
 	app.Get("/docs/*", swagger.HandlerDefault)
 
-	// 
+	app.Get("/db", handlers.GetPostsLimit(client))
+
+
 	app.Get("/Post", routes.GetUsersHandler(client))
 
 	// Register routes
