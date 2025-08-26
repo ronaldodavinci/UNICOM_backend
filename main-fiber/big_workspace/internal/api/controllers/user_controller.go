@@ -64,21 +64,27 @@ func GetAllUser(c *fiber.Ctx, client *mongo.Client) error {
 	})
 }
 
-// GET 1 USERS
-func GetUserByID(c *fiber.Ctx, client *mongo.Client) error {
+// GET 1 USERS by ANYTHING
+func GetUserBy(c *fiber.Ctx, client *mongo.Client, field string) error {
 	collection := client.Database("big_workspace").Collection("user")
-	id := c.Params("id")
+	value := c.Params("value")
 
-	objID, err := bson.ObjectIDFromHex(id)
-	if err != nil {
-		return c.Status(400).JSON(fiber.Map{"error": "Invalid ID"})
+	var filter bson.M
+	if field == "_id" {
+		objID, err := bson.ObjectIDFromHex(value)
+		if err != nil {
+			return c.Status(400).JSON(fiber.Map{"error": "Invalid ID"})
+		}
+		filter = bson.M{"_id": objID}
+	} else {
+		filter = bson.M{field: value}
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
 	var user models.User
-	err = collection.FindOne(ctx, bson.M{"_id": objID}).Decode(&user)
+	err := collection.FindOne(ctx, filter).Decode(&user)
 	if err != nil {
 		return c.Status(404).JSON(fiber.Map{"error": "User not found"})
 	}
