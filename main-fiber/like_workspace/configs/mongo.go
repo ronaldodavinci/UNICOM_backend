@@ -13,7 +13,7 @@ import (
 func ConnectMongo() *mongo.Client {
 	serverAPI := options.ServerAPI(options.ServerAPIVersion1)
 	opts := options.Client().
-		ApplyURI("mongodb+srv://nitisarath:p5U424lf6bmlFCBw@cluster0.m01vueg.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0").
+		ApplyURI("mongodb+srv://root:971397@cluster01.wawl1f9.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0").
 		SetServerAPIOptions(serverAPI)
 
 	client, err := mongo.Connect(opts)

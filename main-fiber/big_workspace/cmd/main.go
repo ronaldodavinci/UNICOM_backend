@@ -5,11 +5,12 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/swagger"
-	_ "github.com/pllus/main-fiber/docs"
+	//_ "github.com/pllus/main-fiber/docs"
 
-	"/main-fiber/big_workspace/internal/config"
-	"/main-fiber/big_workspace/internal/api/routes"
-	"/main-fiber/big_workspace/internal/database"
+	"main-fiber/big_workspace/internal/config"
+	"main-fiber/big_workspace/internal/api/routes"
+	"main-fiber/big_workspace/internal/database"
+	"go.mongodb.org/mongo-driver/mongo"
 )
 
 var client *mongo.Client
@@ -29,8 +30,8 @@ func main() {
 	app.Get("/docs/*", swagger.HandlerDefault)
 
 	// Routes
-	routes.SetupRoutes(app, client)
+	routes.SetupRoutesUser(app, client)
 
 	// RUN SERVER
-	log.Fetal(app.Listen(":" + cfg.Port))
+	log.Fatal(app.Listen(":" + cfg.Port))
 }

@@ -8,8 +8,8 @@ import (
 	"github.com/gofiber/swagger"
 	_ "github.com/pllus/main-fiber/docs"
 
-	_ "github.com/pllus/main-fiber/like_workspace/configs"
-	_ "github.com/pllus/main-fiber/like_workspace/internal/routes"
+	"github.com/pllus/main-fiber/like_workspace/configs"
+	"github.com/pllus/main-fiber/like_workspace/internal/routes"
 )
 
 func main() {
@@ -22,6 +22,9 @@ func main() {
 
 	// Swagger docs
 	app.Get("/docs/*", swagger.HandlerDefault)
+
+	// 
+	app.Get("/Post", routes.GetUsersHandler(client))
 
 	// Register routes
 	routes.RegisterRoutes(app, client)
