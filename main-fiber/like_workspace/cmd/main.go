@@ -6,10 +6,10 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/swagger"
-	_ "github.com/pllus/main-fiber/docs"
+	_ "like_workspace/docs"
 
-	"github.com/pllus/main-fiber/like_workspace/configs"
-	"github.com/pllus/main-fiber/like_workspace/internal/routes"
+	"like_workspace/configs"
+	"like_workspace/internal/routes"
 )
 
 func main() {

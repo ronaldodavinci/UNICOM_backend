@@ -4,7 +4,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"go.mongodb.org/mongo-driver/v2/mongo"
 
-	"github.com/pllus/main-fiber/like_workspace/internal/repository"
+	"like_workspace/internal/repository"
 )
 
 // GetUserHandler godoc
