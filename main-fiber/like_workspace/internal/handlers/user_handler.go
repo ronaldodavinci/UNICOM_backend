@@ -42,23 +42,23 @@ func GetUserHandler(c *fiber.Ctx, client *mongo.Client) error {
 }
 
 func GetPostsLimit(client *mongo.Client) fiber.Handler {
-    return func(c *fiber.Ctx) error {
-        const limit int64 = 5 // 🔒 locked limit
+	return func(c *fiber.Ctx) error {
+		const limit int64 = 5 // 🔒 locked limit
 
-        collection := client.Database("test").Collection("Posts")
-        opts := options.Find().SetLimit(limit).SetSort(bson.M{"timestamp": -1})
+		collection := client.Database("lll_workspace").Collection("posts")
+		opts := options.Find().SetLimit(limit).SetSort(bson.M{"timestamp": -1})
 
-        cursor, err := collection.Find(c.Context(), bson.M{}, opts)
-        if err != nil {
-            return c.Status(500).SendString(err.Error())
-        }
-        defer cursor.Close(c.Context())
+		cursor, err := collection.Find(c.Context(), bson.M{}, opts)
+		if err != nil {
+			return c.Status(500).SendString(err.Error())
+		}
+		defer cursor.Close(c.Context())
 
-        var results []map[string]interface{}
-        if err := cursor.All(c.Context(), &results); err != nil {
-            return c.Status(500).SendString(err.Error())
-        }
+		var results []map[string]interface{}
+		if err := cursor.All(c.Context(), &results); err != nil {
+			return c.Status(500).SendString(err.Error())
+		}
 
-        return c.JSON(results)
-    }
+		return c.JSON(results)
+	}
 }

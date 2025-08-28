@@ -4,6 +4,7 @@ import (
 	"log"
 	"os"
 
+	
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/swagger"
 	_ "like_workspace/docs"
@@ -16,7 +17,7 @@ import (
 func main() {
 	// --- MongoDB Connection ---
 	client := configs.ConnectMongo()
-	defer configs.DisconnectMongo(client)
+	// defer database.DisconnectMongo()
 
 	// --- Fiber App Setup ---
 	app := fiber.New()
@@ -28,6 +29,8 @@ func main() {
 
 
 	app.Get("/Post", routes.GetUsersHandler(client))
+
+	app.Post("/postblog", handlers.CreatePostHandler(client))
 
 	// Register routes
 	routes.RegisterRoutes(app, client)
