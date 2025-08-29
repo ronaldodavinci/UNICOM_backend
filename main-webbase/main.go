@@ -1,3 +1,9 @@
+// @title Fiber MongoDB API
+// @version 1.0
+// @description This is a sample server for user management.
+// @host localhost:8000
+// @BasePath /
+
 package main
 
 import (
@@ -5,12 +11,12 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/swagger"
-	//_ "github.com/pllus/main-fiber/docs"
+	_ "main-webbase/docs"
 
-	"main-fiber/big_workspace/internal/config"
-	"main-fiber/big_workspace/internal/api/routes"
-	"main-fiber/big_workspace/internal/database"
 	"go.mongodb.org/mongo-driver/mongo"
+	"main-webbase/config"
+	"main-webbase/database"
+	"main-webbase/internal/routes"
 )
 
 var client *mongo.Client

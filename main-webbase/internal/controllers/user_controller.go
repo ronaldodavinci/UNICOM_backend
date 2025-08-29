@@ -8,10 +8,20 @@ import (
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
 
-	"main-fiber/big_workspace/internal/api/models"
+	"main-webbase/internal/models"
 )
 
-// POST
+// CreateUser godoc
+// @Summary Create a new user
+// @Description Create user with first name, last name, etc.
+// @Tags users
+// @Accept json
+// @Produce json
+// @Param user body models.User true "User Data"
+// @Success 201 {object} map[string]interface{}
+// @Failure 400 {object} map[string]interface{}
+// @Failure 500 {object} map[string]interface{}
+// @Router /users [post]
 func CreateUser(c *fiber.Ctx, client *mongo.Client) error {
 	collection := client.Database("big_workspace").Collection("user")
 
@@ -37,7 +47,14 @@ func CreateUser(c *fiber.Ctx, client *mongo.Client) error {
 	})
 }
 
-// GET ALL USERS
+// GetAllUser godoc
+// @Summary Get all users
+// @Description Returns all users in database
+// @Tags users
+// @Produce json
+// @Success 200 {object} map[string]interface{}
+// @Failure 500 {object} map[string]interface{}
+// @Router /users [get]
 func GetAllUser(c *fiber.Ctx, client *mongo.Client) error {
 	collection := client.Database("big_workspace").Collection("user")
 
@@ -64,7 +81,16 @@ func GetAllUser(c *fiber.Ctx, client *mongo.Client) error {
 	})
 }
 
-// GET 1 USERS by ANYTHING
+// GetUserBy godoc
+// @Summary Get user by field
+// @Description Get a user by ID, firstname, lastname, etc.
+// @Tags users
+// @Produce json
+// @Param value path string true "Search value"
+// @Success 200 {object} map[string]interface{}
+// @Failure 400 {object} map[string]interface{}
+// @Failure 404 {object} map[string]interface{}
+// @Router /user/{field}/{value} [get]
 func GetUserBy(c *fiber.Ctx, client *mongo.Client, field string) error {
 	collection := client.Database("big_workspace").Collection("user")
 	value := c.Params("value")
@@ -95,7 +121,17 @@ func GetUserBy(c *fiber.Ctx, client *mongo.Client, field string) error {
 	})
 }
 
-// DELETE
+// DeleteUser godoc
+// @Summary Delete user by ID
+// @Description Delete a user with given ID
+// @Tags users
+// @Param id path string true "User ID"
+// @Produce json
+// @Success 200 {object} map[string]interface{}
+// @Failure 400 {object} map[string]interface{}
+// @Failure 404 {object} map[string]interface{}
+// @Failure 500 {object} map[string]interface{}
+// @Router /users/{id} [delete]
 func DeleteUser(c *fiber.Ctx, client *mongo.Client) error {
 	collection := client.Database("big_workspace").Collection("user")
 	id := c.Params("id")

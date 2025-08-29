@@ -3,7 +3,7 @@ package routes
 import (
 	"github.com/gofiber/fiber/v2"
 	"go.mongodb.org/mongo-driver/v2/mongo"
-	"main-fiber/big_workspace/internal/api/controllers"
+	"main-webbase/internal/controllers"
 )
 
 func SetupRoutesUser(app *fiber.App, client *mongo.Client) {
