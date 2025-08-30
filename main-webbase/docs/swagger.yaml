@@ -1,5 +1,24 @@
 basePath: /
 definitions:
+  models.Role:
+    properties:
+      id:
+        type: string
+      perm_blog:
+        type: boolean
+      perm_childrole:
+        type: boolean
+      perm_comment:
+        type: boolean
+      perm_event:
+        type: boolean
+      perm_siblingrole:
+        type: boolean
+      role_name:
+        type: string
+      role_path:
+        type: string
+    type: object
   models.User:
     properties:
       advisor_id:
@@ -19,6 +38,20 @@ definitions:
       type_person:
         type: string
     type: object
+  models.User_Role:
+    properties:
+      id:
+        type: string
+      role_id:
+        type: string
+      user_id:
+        type: string
+    type: object
+  models.UserRoleRequest:
+    properties:
+      role_id:
+        type: string
+    type: object
 host: localhost:8000
 info:
   contact: {}
@@ -26,6 +59,162 @@ info:
   title: Fiber MongoDB API
   version: "1.0"
 paths:
+  /roles:
+    get:
+      description: Retrieve all roles in the system
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Get all roles
+      tags:
+      - roles
+    post:
+      consumes:
+      - application/json
+      description: Create a new role with permissions
+      parameters:
+      - description: Role object
+        in: body
+        name: role
+        required: true
+        schema:
+          $ref: '#/definitions/models.Role'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Create a new role
+      tags:
+      - roles
+  /roles/{field}/{value}:
+    get:
+      description: Get a role by ID, name, or path
+      parameters:
+      - description: Field to search (e.g., _id, name, path)
+        in: path
+        name: field
+        required: true
+        type: string
+      - description: Value to search for
+        in: path
+        name: value
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Get role by field
+      tags:
+      - roles
+  /roles/{id}:
+    delete:
+      description: Delete a role from the system by its ID
+      parameters:
+      - description: Role ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Delete role by ID
+      tags:
+      - roles
+  /roles/{role_id}/users:
+    get:
+      description: Retrieve all users (with details) containing this role
+      parameters:
+      - description: Role ID
+        in: path
+        name: role_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Get all users from one role
+      tags:
+      - user_roles
   /user/{field}/{value}:
     get:
       description: Get a user by ID, firstname, lastname, etc.
@@ -142,4 +331,110 @@ paths:
       summary: Delete user by ID
       tags:
       - users
+  /users/{user_id}/roles:
+    get:
+      description: Retrieve all roles (with details) assigned to a user
+      parameters:
+      - description: User ID
+        in: path
+        name: user_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Get all roles for a user
+      tags:
+      - user_roles
+    post:
+      consumes:
+      - application/json
+      description: Assign an existing role to a user
+      parameters:
+      - description: User ID
+        in: path
+        name: user_id
+        required: true
+        type: string
+      - description: Role assignment payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/models.UserRoleRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/models.User_Role'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Assign role to user
+      tags:
+      - user_roles
+  /users/roles/{id}:
+    delete:
+      description: Remove a role assignment from a user
+      parameters:
+      - description: UserRole ID (document _id)
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Unassign role from user
+      tags:
+      - user_roles
 swagger: "2.0"

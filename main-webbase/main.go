@@ -37,6 +37,8 @@ func main() {
 
 	// Routes
 	routes.SetupRoutesUser(app, client)
+	routes.SetupRoutesRole(app, client)
+	routes.SetupRoutesUser_Role(app, client)
 
 	// RUN SERVER
 	log.Fatal(app.Listen(":" + cfg.Port))

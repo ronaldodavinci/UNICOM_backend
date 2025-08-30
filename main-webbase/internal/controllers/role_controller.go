@@ -11,7 +11,17 @@ import (
 	"main-webbase/internal/models"
 )
 
-// CREATE ROLE
+// CreateRole godoc
+// @Summary Create a new role
+// @Description Create a new role with permissions
+// @Tags roles
+// @Accept json
+// @Produce json
+// @Param role body models.Role true "Role object"
+// @Success 201 {object} map[string]interface{}
+// @Failure 400 {object} map[string]interface{}
+// @Failure 500 {object} map[string]interface{}
+// @Router /roles [post]
 func CreateRole(c *fiber.Ctx, client *mongo.Client) error {
 	collection := client.Database("big_workspace").Collection("role")
 
@@ -37,7 +47,14 @@ func CreateRole(c *fiber.Ctx, client *mongo.Client) error {
 	})
 }
 
-// GET ALL ROLES
+// GetAllRole godoc
+// @Summary Get all roles
+// @Description Retrieve all roles in the system
+// @Tags roles
+// @Produce json
+// @Success 200 {object} map[string]interface{}
+// @Failure 500 {object} map[string]interface{}
+// @Router /roles [get]
 func GetAllRole(c *fiber.Ctx, client *mongo.Client) error {
 	collection := client.Database("big_workspace").Collection("role")
 
@@ -64,15 +81,70 @@ func GetAllRole(c *fiber.Ctx, client *mongo.Client) error {
 
 // GET ROLE BY PATH
 // func GetRoleByPath(c *fiber.Ctx, client *mongo.Client, rolePath string) error {
-	
+
 // }
 
+// GetRoleBy godoc
+// @Summary Get role by field
+// @Description Get a role by ID, name, or path
+// @Tags roles
+// @Produce json
+// @Param field path string true "Field to search (e.g., _id, name, path)"
+// @Param value path string true "Value to search for"
+// @Success 200 {object} map[string]interface{}
+// @Failure 400 {object} map[string]interface{}
+// @Failure 404 {object} map[string]interface{}
+// @Router /roles/{field}/{value} [get]
+func GetRoleBy(c *fiber.Ctx, client *mongo.Client, field string) error {
+	collection := client.Database("big_workspace").Collection("role")
+	value := c.Params("value")
 
-// GET ROLE BY FIELD
+	var filter bson.M
+	if field == "_id" {
+		objID, err := bson.ObjectIDFromHex(value)
+		if err != nil {
+			return c.Status(400).JSON(fiber.Map{"error": "Invalid ID"})
+		}
+		filter = bson.M{"_id": objID}
+	} else {
+		filter = bson.M{field: value}
+	}
 
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
 
+	cursor, err := collection.Find(ctx, filter)
+	if err != nil {
+		return c.Status(500).JSON(fiber.Map{"error": err.Error()})
+	}
+	defer cursor.Close(ctx)
 
-// DELETE ROLE BY ID
+	var roles []models.Role
+	if err := cursor.All(ctx, &roles); err != nil {
+		return c.Status(500).JSON(fiber.Map{"error": err.Error()})
+	}
+
+	if len(roles) == 0 {
+		return c.Status(404).JSON(fiber.Map{"error": "No roles found"})
+	}
+
+	return c.JSON(fiber.Map{
+		"success": true,
+		"data":    roles,
+	})
+}
+
+// DeleteRole godoc
+// @Summary Delete role by ID
+// @Description Delete a role from the system by its ID
+// @Tags roles
+// @Produce json
+// @Param id path string true "Role ID"
+// @Success 200 {object} map[string]interface{}
+// @Failure 400 {object} map[string]interface{}
+// @Failure 404 {object} map[string]interface{}
+// @Failure 500 {object} map[string]interface{}
+// @Router /roles/{id} [delete]
 func DeleteRole(c *fiber.Ctx, client *mongo.Client) error {
 	collection := client.Database("big_workspace").Collection("role")
 	id := c.Params("id")

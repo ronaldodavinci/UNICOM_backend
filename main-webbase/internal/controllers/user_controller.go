@@ -109,15 +109,23 @@ func GetUserBy(c *fiber.Ctx, client *mongo.Client, field string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	var user models.User
-	err := collection.FindOne(ctx, filter).Decode(&user)
+	cursor, err := collection.Find(ctx, filter)
 	if err != nil {
-		return c.Status(404).JSON(fiber.Map{"error": "User not found"})
+		return c.Status(500).JSON(fiber.Map{"error": err.Error()})
+	}
+
+	var users []models.User
+	if err := cursor.All(ctx, &users); err != nil {
+		return c.Status(500).JSON(fiber.Map{"error": err.Error()})
+	}
+
+	if len(users) == 0 {
+		return c.Status(404).JSON(fiber.Map{"error": "No users found"})
 	}
 
 	return c.JSON(fiber.Map{
 		"success": true,
-		"data":    user,
+		"data":    users,
 	})
 }
 
