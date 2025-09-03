@@ -1,9 +1,10 @@
 package routes
 
 import (
+	"main-webbase/internal/controllers"
+
 	"github.com/gofiber/fiber/v2"
 	"go.mongodb.org/mongo-driver/v2/mongo"
-	"main-webbase/internal/controllers"
 )
 
 func SetupRoutesUser(app *fiber.App, client *mongo.Client) {
@@ -26,7 +27,6 @@ func SetupRoutesUser(app *fiber.App, client *mongo.Client) {
 	// 	"student_id": "65012345",
 	// 	"advisor_id": "123"
 	// }'
-
 
 	app.Get("/users", func(c *fiber.Ctx) error {
 		return controllers.GetAllUser(c, client)
@@ -68,5 +68,8 @@ func SetupRoutesUser(app *fiber.App, client *mongo.Client) {
 
 	app.Get("/user/advisorid/:value", func(c *fiber.Ctx) error {
 		return controllers.GetUserBy(c, client, "advisorid")
+	})
+	app.Post("/auth/login", func(c *fiber.Ctx) error {
+		return controllers.Login(c, client)
 	})
 }
