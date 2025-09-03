@@ -2,21 +2,24 @@ package main
 
 import (
 	"log"
-	"os"
-
+	// "os"
 	
 	"github.com/gofiber/fiber/v2"
+	// "github.com/gofiber/fiber/v2/middleware/cors"
+	// "github.com/gofiber/fiber/v2/middleware/logger"
+	// "github.com/gofiber/fiber/v2/middleware/recover"
 	"github.com/gofiber/swagger"
 	_ "like_workspace/docs"
 
 	"like_workspace/database"
 	"like_workspace/internal/routes"
-	"like_workspace/internal/handlers"
+	// "like_workspace/internal/handlers"
 )
 
 func main() {
 	// --- MongoDB Connection ---
-	client := configs.ConnectMongo()
+	client := database.ConnectMongo()
+	cfg := database.LoadConfig()
 	// defer database.DisconnectMongo()
 
 	// --- Fiber App Setup ---
@@ -25,22 +28,25 @@ func main() {
 	// Swagger docs
 	app.Get("/docs/*", swagger.HandlerDefault)
 
-	app.Get("/db", handlers.GetPostsLimit(client))
+	// app.Get("/limit", handlers.GetPostsLimit(client))
 
-	routes.GetUsersHandler(app, client)
+	// routes.GetUsersHandler(app, client)
 
-	app.Post("/postblog", handlers.CreatePostHandler(client))
+	// app.Post("/postblog", handlers.CreatePostHandler(client))
 
-	// Register routes
-	routes.RegisterRoutes(app, client)
+	// // Register routes
+	// routes.RegisterRoutes(app, client)
 
-	app.Get("/posts/limit-role", handlers.GetPostsLimitrole(client))
+	// app.Get("/posts/limit-role", handlers.GetPostsLimitrole(client))
+	routes.Register(app, routes.Deps{
+		Client: client,
+	})
 
-	// --- Server variables ---
-	port := os.Getenv("PORT")
-	if port == "" {
-		port = "3000"
+	log.Printf("listening at http://localhost:%s", cfg.Port)
+	if err := app.Listen(":" + cfg.Port); err != nil {
+		log.Fatal(err)
 	}
 
-	log.Fatal(app.Listen(":" + port))
+
+	// log.Fatal(app.Listen(":" + port))
 }
