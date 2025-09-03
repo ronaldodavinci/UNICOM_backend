@@ -9,14 +9,16 @@ package main
 import (
 	"log"
 
-	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/swagger"
 	_ "main-webbase/docs"
 
-	"go.mongodb.org/mongo-driver/mongo"
+	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/swagger"
+
 	"main-webbase/config"
 	"main-webbase/database"
 	"main-webbase/internal/routes"
+
+	"go.mongodb.org/mongo-driver/mongo"
 )
 
 var client *mongo.Client

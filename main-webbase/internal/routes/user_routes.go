@@ -69,7 +69,7 @@ func SetupRoutesUser(app *fiber.App, client *mongo.Client) {
 	app.Get("/user/advisorid/:value", func(c *fiber.Ctx) error {
 		return controllers.GetUserBy(c, client, "advisorid")
 	})
-	app.Post("/auth/login", func(c *fiber.Ctx) error {
+	app.Post("/user/auth/login", func(c *fiber.Ctx) error {
 		return controllers.Login(c, client)
 	})
 }
