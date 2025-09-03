@@ -8,8 +8,8 @@ import (
 )
 
 func FetchUsers(client *mongo.Client) ([]bson.M, error) {
-	db := client.Database("User_1")
-	collection := db.Collection("User")
+	
+	collection := client.Database("lll_workspace").Collection("users")
 
 	cursor, err := collection.Find(context.TODO(), bson.D{})
 	if err != nil {

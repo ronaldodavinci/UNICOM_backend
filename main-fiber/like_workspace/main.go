@@ -27,13 +27,14 @@ func main() {
 
 	app.Get("/db", handlers.GetPostsLimit(client))
 
-
-	app.Get("/Post", routes.GetUsersHandler(client))
+	routes.GetUsersHandler(app, client)
 
 	app.Post("/postblog", handlers.CreatePostHandler(client))
 
 	// Register routes
 	routes.RegisterRoutes(app, client)
+
+	app.Get("/posts/limit-role", handlers.GetPostsLimitrole(client))
 
 	// --- Server variables ---
 	port := os.Getenv("PORT")
