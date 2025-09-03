@@ -10,13 +10,13 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
-	"golang.org/x/crypto/bcrypt"
 )
 
 // Define a struct for login data from the request body
+
 type LoginRequest struct {
-	Username string `json:"username"`
-	Password string `json:"password"`
+	Email    string `json:"email"`
+	Password string `json:"password_hash"`
 }
 
 func Login(c *fiber.Ctx, client *mongo.Client) error {
@@ -26,30 +26,32 @@ func Login(c *fiber.Ctx, client *mongo.Client) error {
 	}
 
 	// Find the user in the database by their username
-	collection := client.Database("your_database_name").Collection("users")
+	collection := client.Database("test").Collection("users")
 	var user models.User // Assuming you have a User model
-	filter := bson.M{"username": loginRequest.Username}
+	filter := bson.M{"email": loginRequest.Email}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
 	if err := collection.FindOne(ctx, filter).Decode(&user); err != nil {
 		if err == mongo.ErrNoDocuments {
-			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Invalid credentials"})
+			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Invalid Email credentials"})
 		}
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Database query failed"})
 	}
 
 	// Compare the provided password with the hashed password in the database
-	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(loginRequest.Password)); err != nil {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Invalid credentials"})
+	// if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(loginRequest.Password)); err != nil {
+	// 	return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Invalid Password"})
+	// }
+	if user.Password != loginRequest.Password {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Invalid Password"})
 	}
-
 	// Create JWT Claims
 	claims := jwt.MapClaims{
-		"username": user.Username,
-		"user_id":  user.ID.Hex(),
-		"exp":      time.Now().Add(time.Hour * 72).Unix(), // Token expires in 72 hours
+		"Email":   user.Email,
+		"user_id": user.ID.Hex(),
+		"exp":     time.Now().Add(time.Hour * 72).Unix(), // Token expires in 72 hours
 	}
 
 	// Create token
