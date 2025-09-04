@@ -7,18 +7,18 @@ import (
 	"go.mongodb.org/mongo-driver/v2/mongo"
 )
 
-func FetchUsers(client *mongo.Client) ([]bson.M, error) {
-	db := client.Database("User_1")
-	collection := db.Collection("User")
+func FetchUsers(ctx context.Context, client *mongo.Client) ([]bson.M, error) {
+	
+	collection := client.Database("lll_workspace").Collection("users")
 
-	cursor, err := collection.Find(context.TODO(), bson.D{})
+	cursor, err := collection.Find(ctx, bson.D{})
 	if err != nil {
 		return nil, err
 	}
-	defer cursor.Close(context.TODO())
+	defer cursor.Close(ctx)
 
 	var users []bson.M
-	if err = cursor.All(context.TODO(), &users); err != nil {
+	if err = cursor.All(ctx, &users); err != nil {
 		return nil, err
 	}
 

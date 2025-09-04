@@ -1,19 +1,49 @@
-package configs
+package database
 
 import (
 	"context"
 	"fmt"
 	"log"
+	"os"
+
+	"github.com/joho/godotenv"
 
 	"go.mongodb.org/mongo-driver/v2/mongo"
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
 	"go.mongodb.org/mongo-driver/v2/mongo/readpref"
 )
 
+type Config struct {
+	MongoURI string
+	Port     string
+}
+
+func getEnv(key, fallback string) string {
+	if value, exists := os.LookupEnv(key); exists {
+		return value
+	}
+	return fallback
+}
+
+func LoadConfig() Config {
+	// Load .env file
+	err := godotenv.Load()
+	if err != nil {
+		log.Println("Error loading .env file")
+	}
+
+	cfg := Config{
+		MongoURI: getEnv("MONGO_URI", "mongodf://localhost:27017"),
+		Port:	 getEnv("PORT", "3000"),
+	}
+	return cfg
+}
+
 func ConnectMongo() *mongo.Client {
+	cfg := LoadConfig()
 	serverAPI := options.ServerAPI(options.ServerAPIVersion1)
 	opts := options.Client().
-		ApplyURI("mongodb+srv://root:971397@cluster01.wawl1f9.mongodb.net/").
+		ApplyURI(cfg.MongoURI).
 		SetServerAPIOptions(serverAPI)
 
 	client, err := mongo.Connect(opts)
