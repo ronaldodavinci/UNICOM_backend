@@ -32,11 +32,11 @@ func LoadConfig() Config {
 		log.Println("Error loading .env file")
 	}
 
-	cfg := Config{
-		MongoURI: getEnv("MONGO_URI", "mongodf://localhost:27017"),
-		Port:	 getEnv("PORT", "3000"),
-	}
-	return cfg
+    cfg := Config{
+        MongoURI: getEnv("MONGO_URI", "mongodb://localhost:27017"),
+        Port:	 getEnv("PORT", "3000"),
+    }
+    return cfg
 }
 
 func ConnectMongo() *mongo.Client {
