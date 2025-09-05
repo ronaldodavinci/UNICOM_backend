@@ -43,7 +43,6 @@ func Register(app *fiber.App, d Deps) {
 	//   -H "Content-Type: application/json" \
 	//   -d '{"title":"hello","body":"world"}'
 	posts.Post("/blog", handlers.CreatePostHandler(d.Client))
-
 	// GET /api/posts/limit
 	// Example:
 	//   curl -X GET http://localhost:3000/api/posts/limit
@@ -53,7 +52,20 @@ func Register(app *fiber.App, d Deps) {
 	// Example:
 	//   curl -X GET http://localhost:3000/api/posts/limit-role
 	posts.Get("/limit-role", handlers.GetPostsLimitrole(d.Client))
+	posts.Get("/limit-role/next", handlers.GetPostsLimitroleNext(d.Client))
+	
+	// GET /api/posts/category
+	// Example:
+	//   curl -X GET http://localhost:3000/api/posts/category
+	posts.Get("/category/:categoryID", handlers.GetPostsByCategory(d.Client))
+	posts.Get("/category", handlers.GetPostsByCategoriesCursor(d.Client))
 
+	// WhoAmI debug
+	// GET /api/whoami
+	// Example:
+	//   curl -X GET http://localhost:3000/api/whoami
+	api.Get("/whoami", handlers.WhoAmI())
+	
 	// ============================================================
 	// Misc
 	// ============================================================
