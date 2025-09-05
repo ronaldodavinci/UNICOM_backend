@@ -43,11 +43,23 @@ func Register(app *fiber.App, client *mongo.Client) {
 	app.Delete("/role/:id", func(c *fiber.Ctx) error { return controllers.DeleteRole(c, client) })
 
 	// ===== UserRole routes =====
-	app.Post("/user_roles", func(c *fiber.Ctx) error { return controllers.CreateUserRole(c, client) })
-	app.Get("/user_roles", func(c *fiber.Ctx) error { return controllers.GetAllUserRole(c, client) })
-	app.Get("/user_role/:field/:value", func(c *fiber.Ctx) error {
-		field := c.Params("field")
-		return controllers.GetUserRoleBy(c, client, field)
+	app.Post("/user_roles", func(c *fiber.Ctx) error {
+		return controllers.CreateUserRole(c, client)
 	})
-	app.Delete("/user_role/:id", func(c *fiber.Ctx) error { return controllers.DeleteUserRole(c, client) })
+
+	// Delete user-role pair
+	app.Delete("/user_roles/:id", func(c *fiber.Ctx) error {
+		return controllers.DeleteUserRole(c, client)
+	})
+
+	// List all roles for a specific user
+	app.Get("/users/:user_id/roles", func(c *fiber.Ctx) error {
+		return controllers.ListOneUserRoles(c, client)
+	})
+
+	// List all users for a specific role
+	app.Get("/roles/:role_id/users", func(c *fiber.Ctx) error {
+		return controllers.ListOneRoleUsers(c, client)
+	})
 }
+

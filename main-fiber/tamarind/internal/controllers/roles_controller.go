@@ -81,17 +81,28 @@ func GetRoleBy(c *fiber.Ctx, client *mongo.Client, field string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	var role models.Role
-	err := collection.FindOne(ctx, filter).Decode(&role)
+	// แก้เพิ่ม
+	cursor, err := collection.Find(ctx, filter) // เดิมใช้ FindOne -> Find ดึงข้อมูลได้หลายตัว
 	if err != nil {
-		return c.Status(404).JSON(fiber.Map{"error": "Role not found"})
+		return c.Status(500).JSON(fiber.Map{"error": err.Error()})
+	}
+	defer cursor.Close(ctx) 
+
+	var roles []models.Role 
+	if err := cursor.All(ctx, &roles); err != nil { 
+		return c.Status(500).JSON(fiber.Map{"error": err.Error()})
+	}
+
+	if len(roles) == 0 { 
+		return c.Status(404).JSON(fiber.Map{"error": "No roles found"})
 	}
 
 	return c.JSON(fiber.Map{
 		"success": true,
-		"data":    role,
+		"data":    roles, 
 	})
 }
+
 
 // DELETE ROLE
 func DeleteRole(c *fiber.Ctx, client *mongo.Client) error {
