@@ -1,11 +1,15 @@
 package handlers
 
 import (
-	"github.com/gofiber/fiber/v2"
-	"go.mongodb.org/mongo-driver/v2/mongo"
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/v2/mongo/options"
+	//"log"
+
 	"like_workspace/internal/repository"
+	"like_workspace/internal/utils"
+
+	"github.com/gofiber/fiber/v2"
+	"go.mongodb.org/mongo-driver/v2/bson"
+	"go.mongodb.org/mongo-driver/v2/mongo"
+	"go.mongodb.org/mongo-driver/v2/mongo/options"
 )
 
 // GetPostsLimit godoc
@@ -67,15 +71,82 @@ func userIDFromCtx(c *fiber.Ctx) string {
 // @Success 200 {array} map[string]interface{}
 // @Failure 500 {object} map[string]interface{}
 // @Router /api/posts/limit-role [get]
+// func GetPostsLimitrole(client *mongo.Client) fiber.Handler {
+// 	return func(c *fiber.Ctx) error {
+// 		userID := userIDFromCtx(c)
+// 		roles := rolesFromCtx(c)
+
+// 		results, err := repository.FetchPostsVisible(c.Context(), client, userID, roles, 5)
+// 		if err != nil {
+// 			return c.Status(500).JSON(fiber.Map{"error": err.Error()})
+// 		}
+// 		return c.JSON(results)
+// 	}
+// }
+
+// func GetFirstPostRaw(client *mongo.Client) fiber.Handler {
+// 	return func(c *fiber.Ctx) error {
+// 		var doc bson.M
+// 		if err := client.Database("lll_workspace").
+// 			Collection("posts").
+// 			FindOne(c.Context(), bson.M{}).
+// 			Decode(&doc); err != nil {
+// 			return c.Status(500).JSON(fiber.Map{"error": err.Error()})
+// 		}
+// 		return c.JSON(doc) // ดูว่า _id เป็นแบบไหน
+// 	}
+// }
+
+
+// func GetPostsAllPlainRawHandler(client *mongo.Client) fiber.Handler {
+// 	return func(c *fiber.Ctx) error {
+// 		items, err := repository.FetchPostsAllPlainRaw(c.Context(), client, 10)
+// 		if err != nil { return c.Status(500).JSON(fiber.Map{"error": err.Error()}) }
+// 		return c.JSON(fiber.Map{"items": items})
+// 	}
+// }
+
+const lockedLimit int64 = 5
+
 func GetPostsLimitrole(client *mongo.Client) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		userID := userIDFromCtx(c)
 		roles := rolesFromCtx(c)
 
-		results, err := repository.FetchPostsVisible(c.Context(), client, userID, roles, 5)
+		items, nextCursor, err := repository.FetchPostsVisibleCursor(c.Context(), client, userID, roles, lockedLimit, nil)
 		if err != nil {
 			return c.Status(500).JSON(fiber.Map{"error": err.Error()})
 		}
-		return c.JSON(results)
+
+		// เซ็ตคุ้กกี้ cursor ถ้ามีหน้าถัดไป
+		utils.SetCursorCookie(c, nextCursor)
+
+		return c.JSON(fiber.Map{
+			"items":       items,
+			"next_cursor": utils.TimeToRFC3339(nextCursor), // client จะไม่ต้องใช้ก็ได้ แต่อยากโชว์ไว้
+		})
+	}
+}
+
+// หน้าถัดไป: ก็ไม่รับพารามิเตอร์ อ่าน cursor จากคุ้กกี้อย่างเดียว
+func GetPostsLimitroleNext(client *mongo.Client) fiber.Handler {
+	return func(c *fiber.Ctx) error {
+		userID := userIDFromCtx(c)
+		roles := rolesFromCtx(c)
+
+		after := utils.ReadCursorCookie(c)
+
+		items, nextCursor, err := repository.FetchPostsVisibleCursor(c.Context(), client, userID, roles, lockedLimit, after)
+		if err != nil {
+			return c.Status(500).JSON(fiber.Map{"error": err.Error()})
+		}
+
+		// อัปเดตคุ้กกี้ (หรือเคลียร์ถ้าไม่มีหน้าถัดไป)
+		utils.SetCursorCookie(c, nextCursor)
+
+		return c.JSON(fiber.Map{
+			"items":       items,
+			"next_cursor": utils.TimeToRFC3339(nextCursor),
+		})
 	}
 }

@@ -2,15 +2,12 @@ package main
 
 import (
 	"log"
-	// "os"
-	
 	"github.com/gofiber/fiber/v2"
 	// "github.com/gofiber/fiber/v2/middleware/cors"
 	// "github.com/gofiber/fiber/v2/middleware/logger"
 	// "github.com/gofiber/fiber/v2/middleware/recover"
 	"github.com/gofiber/swagger"
 	_ "like_workspace/docs"
-
 	"like_workspace/database"
 	"like_workspace/internal/routes"
 	// "like_workspace/internal/handlers"
@@ -46,7 +43,4 @@ func main() {
 	if err := app.Listen(":" + cfg.Port); err != nil {
 		log.Fatal(err)
 	}
-
-
-	// log.Fatal(app.Listen(":" + port))
 }
