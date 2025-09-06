@@ -1,10 +1,12 @@
 package handlers
 
 import (
-	"strconv"
+	"fmt"
+	"strings"
 
 	"github.com/gofiber/fiber/v2"
 	"go.mongodb.org/mongo-driver/v2/mongo"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 
 	"like_workspace/internal/repository"
 )
@@ -18,38 +20,48 @@ import (
 // @Failure 500 {object} map[string]interface{}
 // @Router /api/posts/all-joined [get]
 
-func GetPostsByCategoriesCursor(client *mongo.Client) fiber.Handler {
+func GetPostsExistingInPC(client *mongo.Client) fiber.Handler {
 	return func(c *fiber.Ctx) error {
-		// query: ?limit=5&cursor=xxx
-		limit := int64(5)
-		if s := c.Query("limit"); s != "" {
-			if v, err := strconv.ParseInt(s, 10, 64); err == nil && v > 0 {
-				limit = v
-			}
-		}
-		cursor := c.Query("cursor")
-
-		items, next, err := repository.FetchPostsWithCategoriesCursor(c.Context(), client, limit, cursor, nil, nil)
+		items, err := repository.FetchPostsThatExistInPostCategories(c.Context(), client)
 		if err != nil {
 			return c.Status(500).JSON(fiber.Map{"error": err.Error()})
 		}
-		return c.JSON(fiber.Map{
-			"items":       items,
-			"next_cursor": next, // ว่างถ้าไม่มีหน้าถัดไป
-		})
+		return c.JSON(items)
 	}
 }
 
-func GetPostsByCategory(client *mongo.Client) fiber.Handler {
-	return func(c *fiber.Ctx) error {
-		catID := c.Params("categoryID")
-		limitStr := c.Query("limit", "10")
-		limit, _ := strconv.ParseInt(limitStr, 10, 64)
+func ToObjectID(hex string) (primitive.ObjectID, error) {
+    hex = strings.TrimSpace(hex)
+    oid, err := primitive.ObjectIDFromHex(hex)
+    if err != nil {
+        return primitive.NilObjectID, fmt.Errorf("invalid ObjectID: %w", err)
+    }
+    return oid, nil
+}
 
-		items, err := repository.FetchPostsByCategory(c.Context(), client, catID, limit)
-		if err != nil {
-			return c.Status(400).JSON(fiber.Map{"error": err.Error()})
+func GetPostsWantedPC(client *mongo.Client) fiber.Handler {
+	return func(c *fiber.Ctx) error {
+		// รับจาก query param: /api/posts/wanted?id=66c6248b98c56c39f018e7d5
+		idStr := strings.TrimSpace(c.Query("id"))
+		if idStr == "" {
+			return c.Status(400).JSON(fiber.Map{"error": "missing category id"})
 		}
+
+		// แปลง string → ObjectID
+		oid, err := primitive.ObjectIDFromHex(idStr)
+		if err != nil {
+			return c.Status(400).JSON(fiber.Map{
+				"error": "invalid category id (must be 24-hex)",
+				"id":    idStr,
+			})
+		}
+
+		// เรียก repository
+		items, err := repository.FetchPostsWantedCategories(c.Context(), client, oid)
+		if err != nil {
+			return c.Status(500).JSON(fiber.Map{"error": err.Error()})
+		}
+
 		return c.JSON(items)
 	}
 }

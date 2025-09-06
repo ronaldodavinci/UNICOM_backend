@@ -2,14 +2,18 @@ package main
 
 import (
 	"log"
+
 	"github.com/gofiber/fiber/v2"
+
 	// "github.com/gofiber/fiber/v2/middleware/cors"
 	// "github.com/gofiber/fiber/v2/middleware/logger"
 	// "github.com/gofiber/fiber/v2/middleware/recover"
-	"github.com/gofiber/swagger"
-	_ "like_workspace/docs"
 	"like_workspace/database"
+	_ "like_workspace/docs"
+	// "like_workspace/internal/handlers"
 	"like_workspace/internal/routes"
+
+	"github.com/gofiber/swagger"
 	// "like_workspace/internal/handlers"
 )
 
@@ -24,6 +28,7 @@ func main() {
 
 	// Swagger docs
 	app.Get("/docs/*", swagger.HandlerDefault)
+
 
 	// app.Get("/limit", handlers.GetPostsLimit(client))
 
