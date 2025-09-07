@@ -3,5 +3,214 @@
     "info": {
         "contact": {}
     },
-    "paths": {}
+    "paths": {
+        "/api/posts/limit": {
+            "get": {
+                "description": "Fetch latest posts with limit=5",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "posts"
+                ],
+                "summary": "Get latest posts",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "additionalProperties": true
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/posts": {
+            "post": {
+                "description": "Create a new blog post and attach categories",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "posts"
+                ],
+                "summary": "Create a post",
+                "parameters": [
+                    {
+                        "description": "post payload",
+                        "name": "data",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/dto.CreatePostDTO"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/dto.PostResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "definitions": {
+        "dto.CreatePostDTO": {
+            "type": "object",
+            "required": [
+                "postText",
+                "roleId",
+                "userId"
+            ],
+            "properties": {
+                "categoryIds": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "pictureUrl": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "postText": {
+                    "type": "string"
+                },
+                "roleId": {
+                    "type": "string"
+                },
+                "roleIds": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "userId": {
+                    "type": "string"
+                },
+                "videoUrl": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "dto.ErrorResponse": {
+            "type": "object",
+            "properties": {
+                "message": {
+                    "type": "string",
+                    "example": "invalid body"
+                }
+            }
+        },
+        "dto.PostResponse": {
+            "type": "object",
+            "properties": {
+                "categoryIds": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "example": [
+                        "['68bd8d30b98a8dce0eab0db6'",
+                        "'68bd8d30b98a8dce0eab0db7']"
+                    ]
+                },
+                "commentCount": {
+                    "type": "integer",
+                    "example": 0
+                },
+                "createdAt": {
+                    "type": "string",
+                    "example": "2025-09-07T13:47:47Z"
+                },
+                "id": {
+                    "type": "string",
+                    "example": "68bd8d30b98a8dce0eab0db6"
+                },
+                "likeCount": {
+                    "type": "integer",
+                    "example": 0
+                },
+                "pictureUrl": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "example": [
+                        "['https://example.com/pic1.jpg'",
+                        "'https://example.com/pic2.jpg']"
+                    ]
+                },
+                "postText": {
+                    "type": "string",
+                    "example": "สวัสดี KU!"
+                },
+                "roleId": {
+                    "type": "string",
+                    "example": "66c6248b98c56c39f018e7d2"
+                },
+                "updatedAt": {
+                    "type": "string",
+                    "example": "2025-09-07T13:47:47Z"
+                },
+                "userId": {
+                    "type": "string",
+                    "example": "66c6248b98c56c39f018e7d2"
+                },
+                "videoUrl": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "example": [
+                        "['https://example.com/vid1.mp4'",
+                        "'https://example.com/vid2.mp4']"
+                    ]
+                },
+                "visibleRoleIds": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "example": [
+                        "['66c6248b98c56c39f018e7d2'",
+                        "'66c6248b98c56c39f018e7d3']"
+                    ]
+                }
+            }
+        }
+    }
 }

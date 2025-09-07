@@ -44,6 +44,10 @@ func main() {
 		Client: client,
 	})
 
+	routes.PostRoutes(app, client)
+
+
+
 	log.Printf("listening at http://localhost:%s", cfg.Port)
 	if err := app.Listen(":" + cfg.Port); err != nil {
 		log.Fatal(err)
