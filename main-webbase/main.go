@@ -38,6 +38,7 @@ func main() {
 	app.Get("/docs/*", swagger.HandlerDefault)
 
 	// Routes
+	routes.SetupAuth(app, client)
 	routes.SetupRoutesUser(app, client)
 	routes.SetupRoutesRole(app, client)
 	routes.SetupRoutesUser_Role(app, client)
