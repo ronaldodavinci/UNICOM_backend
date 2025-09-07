@@ -6,6 +6,8 @@ import (
 	"os"
 	"time"
 
+	"golang.org/x/crypto/bcrypt"
+
 	"github.com/gofiber/fiber/v2"
 	"github.com/golang-jwt/jwt/v5"
 	"go.mongodb.org/mongo-driver/bson"
@@ -13,10 +15,9 @@ import (
 )
 
 // Define a struct for login data from the request body
-
 type LoginRequest struct {
 	Email    string `json:"email"`
-	Password string `json:"password_hash"`
+	Password string `json:"password"`
 }
 
 func Login(c *fiber.Ctx, client *mongo.Client) error {
@@ -42,9 +43,17 @@ func Login(c *fiber.Ctx, client *mongo.Client) error {
 
 	// Compare the provided password with the hashed password in the database
 	// if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(loginRequest.Password)); err != nil {
+	//  return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Invalid Password"})
+	// }
+
+	// if user.PasswordHash != loginRequest.Password {
+	// 	fmt.Println("User's stored password:", user.PasswordHash)
+	// 	fmt.Println("Provided password:", loginRequest.Password)
+
 	// 	return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Invalid Password"})
 	// }
-	if user.Password != loginRequest.Password {
+	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(loginRequest.Password)); err != nil {
+		// If the comparison fails, it's a password mismatch
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Invalid Password"})
 	}
 	// Create JWT Claims
@@ -67,6 +76,9 @@ func Login(c *fiber.Ctx, client *mongo.Client) error {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Could not sign token"})
 	}
 
-	// Return the token to the client
-	return c.Status(fiber.StatusOK).JSON(fiber.Map{"token": t})
+	// Return the user data and the access token
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"user":        user,
+		"accessToken": t,
+	})
 }
