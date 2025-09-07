@@ -5,7 +5,7 @@ import (
 	"main-webbase/internal/models"
 	"os"
 	"time"
-
+	// "fmt"
 	"golang.org/x/crypto/bcrypt"
 
 	"github.com/gofiber/fiber/v2"
@@ -54,6 +54,8 @@ func Login(c *fiber.Ctx, client *mongo.Client) error {
 	// }
 	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(loginRequest.Password)); err != nil {
 		// If the comparison fails, it's a password mismatch
+		// fmt.Println("User's stored password:", user.PasswordHash) 
+		// fmt.Println("Provided password:", loginRequest.Password)
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Invalid Password"})
 	}
 	// Create JWT Claims
