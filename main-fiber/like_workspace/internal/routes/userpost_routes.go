@@ -54,12 +54,12 @@ func Register(app *fiber.App, d Deps) {
 	posts.Get("/limit-role", handlers.GetPostsLimitrole(d.Client))
 	posts.Get("/limit-role/next", handlers.GetPostsLimitroleNext(d.Client))
 	
-	// GET /api/posts/category
+	// GET /api/posts/category/cursor
 	// Example:
 	//   curl -X GET http://localhost:3000/api/posts/category
+	posts.Get("/category/cursor", handlers.GetPostsInAnyCategoryCursor(d.Client))
+	posts.Get("/category/wanted/cursor", handlers.GetPostsByCategoryCursor(d.Client))
 
-	posts.Get("/category", handlers.GetPostsExistingInPC(d.Client))
-	posts.Get("/category/wanted", handlers.GetPostsWantedPC(d.Client))
 
 	// WhoAmI debug
 	// GET /api/whoami
