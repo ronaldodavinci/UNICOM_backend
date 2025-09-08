@@ -1,4 +1,146 @@
+definitions:
+  dto.CreatePostDTO:
+    properties:
+      categoryIds:
+        items:
+          type: string
+        type: array
+      pictureUrl:
+        items:
+          type: string
+        type: array
+      postText:
+        type: string
+      roleId:
+        type: string
+      roleIds:
+        items:
+          type: string
+        type: array
+      userId:
+        type: string
+      videoUrl:
+        items:
+          type: string
+        type: array
+    required:
+    - postText
+    - roleId
+    - userId
+    type: object
+  dto.ErrorResponse:
+    properties:
+      message:
+        example: invalid body
+        type: string
+    type: object
+  dto.PostResponse:
+    properties:
+      categoryIds:
+        example:
+        - '[''68bd8d30b98a8dce0eab0db6'''
+        - '''68bd8d30b98a8dce0eab0db7'']'
+        items:
+          type: string
+        type: array
+      commentCount:
+        example: 0
+        type: integer
+      createdAt:
+        example: "2025-09-07T13:47:47Z"
+        type: string
+      id:
+        example: 68bd8d30b98a8dce0eab0db6
+        type: string
+      likeCount:
+        example: 0
+        type: integer
+      pictureUrl:
+        example:
+        - '[''https://example.com/pic1.jpg'''
+        - '''https://example.com/pic2.jpg'']'
+        items:
+          type: string
+        type: array
+      postText:
+        example: สวัสดี KU!
+        type: string
+      roleId:
+        example: 66c6248b98c56c39f018e7d2
+        type: string
+      updatedAt:
+        example: "2025-09-07T13:47:47Z"
+        type: string
+      userId:
+        example: 66c6248b98c56c39f018e7d2
+        type: string
+      videoUrl:
+        example:
+        - '[''https://example.com/vid1.mp4'''
+        - '''https://example.com/vid2.mp4'']'
+        items:
+          type: string
+        type: array
+      visibleRoleIds:
+        example:
+        - '[''66c6248b98c56c39f018e7d2'''
+        - '''66c6248b98c56c39f018e7d3'']'
+        items:
+          type: string
+        type: array
+    type: object
 info:
   contact: {}
-paths: {}
+paths:
+  /api/posts/limit:
+    get:
+      description: Fetch latest posts with limit=5
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              additionalProperties: true
+              type: object
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Get latest posts
+      tags:
+      - posts
+  /posts:
+    post:
+      consumes:
+      - application/json
+      description: Create a new blog post and attach categories
+      parameters:
+      - description: post payload
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/dto.CreatePostDTO'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/dto.PostResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      summary: Create a post
+      tags:
+      - posts
 swagger: "2.0"

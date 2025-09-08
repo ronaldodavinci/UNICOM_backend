@@ -3,274 +3,376 @@ package repository
 
 import (
 	"context"
-	"encoding/base64"
-	"encoding/json"
-	"errors"
 	"time"
+	"fmt"
+
+	"like_workspace/internal/cursor"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
-	"go.mongodb.org/mongo-driver/v2/mongo"
+	mongo "go.mongodb.org/mongo-driver/v2/mongo"
+	"go.mongodb.org/mongo-driver/v2/mongo/options"
 )
 
-// Cursor payload ที่เราจะ encode เป็น base64
-type pageCursor struct {
-	T  time.Time          `json:"t"`  // created_at
-	ID primitive.ObjectID `json:"id"` // _id
-}
-
-func encodeCursor(t time.Time, id primitive.ObjectID) (string, error) {
-	b, err := json.Marshal(pageCursor{T: t, ID: id})
-	if err != nil {
-		return "", err
-	}
-	return base64.RawURLEncoding.EncodeToString(b), nil
-}
-
-func decodeCursor(s string) (pageCursor, error) {
-	if s == "" {
-		return pageCursor{}, errors.New("empty")
-	}
-	raw, err := base64.RawURLEncoding.DecodeString(s)
-	if err != nil {
-		return pageCursor{}, err
-	}
-	var c pageCursor
-	if err := json.Unmarshal(raw, &c); err != nil {
-		return pageCursor{}, err
-	}
-	return c, nil
-}
-
-// helper: ดึงเวลาจาก bson.M ให้ได้ time.Time (รองรับทั้ง time.Time และ primitive.DateTime)
-func timeFromAny(v any) (time.Time, bool) {
-	switch x := v.(type) {
-	case time.Time:
-		return x, true
-	case primitive.DateTime:
-		return x.Time(), true
-	}
-	return time.Time{}, false
-}
-
-// FetchPostsWithCategoriesPage ดึงหน้าโพสต์ + categories แบบ cursor pagination (ไม่ใช้ struct)
-// - sort: created_at desc, _id desc
-// - cursor: base64(JSON{t,id}) ของ item สุดท้ายในหน้า
-// รับพารามิเตอร์ฟิลเตอร์ด้วย
-func FetchPostsWithCategoriesCursor(
-	ctx context.Context,
-	client *mongo.Client,
-	limit int64,
-	cursor string,
-	catIDs []primitive.ObjectID, // ฟิลเตอร์ด้วย _id ของหมวด
-	catNames []string,           // หรือฟิลเตอร์ด้วยชื่อหมวด
-) (items []bson.M, nextCursor string, err error) {
-
-	if limit <= 0 {
-		limit = 10
-	}
-	limitPlusOne := limit + 1
-
-	// ===== cursor pre-match =====
-	match := bson.D{}
-	if c, derr := decodeCursor(cursor); derr == nil {
-		match = bson.D{{Key: "$or", Value: bson.A{
-			bson.D{{Key: "created_at", Value: bson.D{{Key: "$lt", Value: c.T}}}},
-			bson.D{
-				{Key: "created_at", Value: c.T},
-				{Key: "_id", Value: bson.D{{Key: "$lt", Value: c.ID}}},
-			},
-		}}}
-	}
-
-	pipeline := mongo.Pipeline{}
-	if len(match) > 0 {
-		pipeline = append(pipeline, bson.D{{Key: "$match", Value: match}})
-	}
-
-	// ===== ฟิลเตอร์ด้วย catIDs ก่อน sort/limit (ประหยัดและถูกต้องกับ cursor) =====
-	if len(catIDs) > 0 {
-		pipeline = append(pipeline,
-			bson.D{
-				{Key: "$lookup", Value: bson.D{
-					{Key: "from", Value: "post_categories"},
-					{Key: "let", Value: bson.D{{Key: "pid", Value: "$_id"}}},
-					{Key: "pipeline", Value: bson.A{
-						bson.D{
-							{Key: "$match", Value: bson.D{
-								{Key: "$expr", Value: bson.D{
-									{Key: "$and", Value: bson.A{
-										bson.D{{Key: "$eq", Value: bson.A{"$post_id", "$$pid"}}},
-										bson.D{{Key: "$in", Value: bson.A{"$category_id", catIDs}}},
-									}},
-								}},
-							}},
-						},
-						bson.D{
-							{Key: "$limit", Value: 1},
-						},
-					}},
-					{Key: "as", Value: "pc_hit"},
-				}},
-			},
-			bson.D{
-				{Key: "$match", Value: bson.D{
-					{Key: "$expr", Value: bson.D{
-						{Key: "$gt", Value: bson.A{
-							bson.D{{Key: "$size", Value: "$pc_hit"}},
-							0,
-						}},
-					}},
-				}},
-			},
-			bson.D{
-				{Key: "$unset", Value: "pc_hit"},
-			},
-		)
-	}
-
-	// ===== sort ตาม created_at/_id เพื่อรองรับ cursor =====
-	pipeline = append(pipeline,
-		bson.D{{Key: "$sort", Value: bson.D{
-			{Key: "created_at", Value: -1},
-			{Key: "_id", Value: -1},
-		}}},
-	)
-
-	// ===== join เพื่อเตรียม categories (ต้องมาก่อน match ด้วยชื่อ) =====
-	pipeline = append(pipeline,
-		bson.D{{Key: "$lookup", Value: bson.D{
-			{Key: "from", Value: "post_categories"},
-			{Key: "localField", Value: "_id"},
-			{Key: "foreignField", Value: "post_id"},
-			{Key: "as", Value: "pc"},
-		}}},
-		bson.D{{Key: "$addFields", Value: bson.D{
-			{Key: "cat_ids", Value: bson.D{{Key: "$ifNull", Value: bson.A{
-				bson.D{{Key: "$map", Value: bson.D{
-					{Key: "input", Value: "$pc"},
-					{Key: "as", Value: "m"},
-					{Key: "in", Value: "$$m.category_id"},
-				}}},
-				bson.A{},
-			}}}},
-		}}},
-		bson.D{{Key: "$lookup", Value: bson.D{
-			{Key: "from", Value: "categories"},
-			{Key: "let", Value: bson.D{{Key: "ids", Value: "$cat_ids"}}},
-			{Key: "pipeline", Value: bson.A{
-				bson.D{{Key: "$match", Value: bson.D{
-					{Key: "$expr", Value: bson.D{{Key: "$in", Value: bson.A{"$_id", "$$ids"}}}},
-				}}},
-				bson.D{{Key: "$project", Value: bson.D{
-					{Key: "_id", Value: 1},
-					{Key: "name", Value: 1},
-				}}},
-				bson.D{{Key: "$sort", Value: bson.D{{Key: "name", Value: 1}}}},
-			}},
-			{Key: "as", Value: "categories"},
-		}}},
-	)
-
-	// ===== ฟิลเตอร์ด้วยชื่อหมวด ต้องทำ "หลัง" มีฟิลด์ categories แล้ว และยังคงทำก่อน limit =====
-	if len(catNames) > 0 {
-		pipeline = append(pipeline,
-			bson.D{{Key: "$match", Value: bson.D{
-				{Key: "categories", Value: bson.D{{Key: "$in", Value: catNames}}},
-			}}},
-		)
-	}
-
-	// ===== สุดท้ายค่อย limit+1 เพื่อเช็กหน้าถัดไป =====
-	pipeline = append(pipeline,
-		bson.D{{Key: "$project", Value: bson.D{
-			{Key: "_id", Value: 1},
-			{Key: "post_text", Value: 1},
-			{Key: "user_id", Value: 1},
-			{Key: "role_id", Value: 1},
-			{Key: "created_at", Value: 1},
-			{Key: "categories", Value: 1},
-		}}},
-		bson.D{{Key: "$limit", Value: limitPlusOne}},
-	)
-
-	col := client.Database("lll_workspace").Collection("posts")
-	cur, err := col.Aggregate(ctx, pipeline)
-	if err != nil {
-		return nil, "", err
-	}
-	defer cur.Close(ctx)
-
-	var rows []bson.M
-	if err := cur.All(ctx, &rows); err != nil {
-		return nil, "", err
-	}
-
-	// มีหน้าถัดไปไหม
-	if int64(len(rows)) > limit {
-		last := rows[limit-1]
-		oid, _ := last["_id"].(primitive.ObjectID)
-
-		var ct time.Time
-		if t, ok := timeFromAny(last["created_at"]); ok {
-			ct = t
-		}
-		if nc, encErr := encodeCursor(ct, oid); encErr == nil {
-			nextCursor = nc
-		}
-		rows = rows[:limit]
-	}
-	return rows, nextCursor, nil
-}
-
-
-// internal/repository/posts_by_category.go
 type Post = bson.M
 
-func FetchPostsByCategory(
+// ListPostsInAnyCategoryNewestFirst
+// ดึง "ทุกโพสต์ที่มีอยู่ใน post_categories อย่างน้อย 1 รายการ" (ไม่กรองตามหมวด)
+// เรียงใหม่ก่อนเก่า และทำ cursor pagination (created_at, _id)
+func ListPostsInAnyCategoryNewestFirst(
 	ctx context.Context,
 	client *mongo.Client,
-	categoryID string,    // รับเป็น string แล้วแปลงเป็น ObjectID
-	limit int64,          // เผื่อจำกัดจำนวน
-) ([]Post, error) {
+	cursorStr string,
+	limit int64,
+) (items []bson.M, next *string, total int64, err error) {
 
-	cid, err := primitive.ObjectIDFromHex(categoryID)
-	if err != nil {
-		return nil, err
+	db := client.Database("lll_workspace")
+	pcColl := db.Collection("post_categories")
+
+	// 1) total (นับเฉพาะโพสต์ที่มีอยู่จริง)
+	countPipe := mongo.Pipeline{
+		{{Key: "$lookup", Value: bson.D{
+			{Key: "from", Value: "posts"},
+			{Key: "localField", Value: "post_id"},
+			{Key: "foreignField", Value: "_id"},
+			{Key: "as", Value: "post"},
+		}}},
+		{{Key: "$unwind", Value: "$post"}},
+		{{Key: "$group", Value: bson.D{{Key: "_id", Value: "$post._id"}}}},
+		{{Key: "$count", Value: "n"}},
+	}
+	{
+		cctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+		defer cancel()
+
+		cur, e := pcColl.Aggregate(cctx, countPipe)
+		if e != nil {
+			err = e
+			return
+		}
+		var row []struct{ N int64 `bson:"n"` }
+		e = cur.All(cctx, &row)
+		if e != nil {
+			err = e
+			return
+		}
+		if len(row) > 0 {
+			total = row[0].N
+		}
 	}
 
-	pipeline := mongo.Pipeline{
-		// (ถ้าข้อมูลใหญ่ แนะนำใช้เวอร์ชัน $lookup + pipeline แบบกรอง cid ตั้งแต่ใน lookup ดูหัวข้อ 3)
-		bson.D{{Key: "$lookup", Value: bson.D{
-			{Key: "from", Value: "post_categories"},
-			{Key: "localField", Value: "_id"},
-			{Key: "foreignField", Value: "post_id"},
-			{Key: "as", Value: "pc"},
+	// 2) cursor match
+	var cursorMatch bson.D
+	if cursorStr != "" {
+		t, oid, e := cursor.DecodePostCursor(cursorStr)
+		if e != nil {
+			err = e
+			return
+		}
+		cursorMatch = bson.D{{
+			Key: "$or",
+			Value: bson.A{
+				bson.D{{Key: "post.created_at", Value: bson.D{{Key: "$lt", Value: t}}}},
+				bson.D{{Key: "post.created_at", Value: t}, {Key: "post._id", Value: bson.D{{Key: "$lt", Value: oid}}}},
+			},
+		}}
+	}
+
+	// 3) pipeline หลัก
+	pipe := mongo.Pipeline{
+		{{Key: "$lookup", Value: bson.D{
+			{Key: "from", Value: "posts"},
+			{Key: "localField", Value: "post_id"},
+			{Key: "foreignField", Value: "_id"},
+			{Key: "as", Value: "post"},
 		}}},
-		bson.D{{Key: "$match", Value: bson.D{
-			{Key: "pc.category_id", Value: cid},
+		{{Key: "$unwind", Value: "$post"}},
+	}
+	if len(cursorMatch) > 0 {
+		pipe = append(pipe, bson.D{{Key: "$match", Value: cursorMatch}})
+	}
+	pipe = append(pipe,
+		bson.D{{Key: "$group", Value: bson.D{
+			{Key: "_id", Value: "$post._id"},
+			{Key: "post", Value: bson.D{{Key: "$first", Value: "$post"}}},
+			{Key: "matched_category_ids", Value: bson.D{{Key: "$addToSet", Value: "$category_id"}}},
 		}}},
-		// sort ใหม่สุดก่อน เผื่อทำฟีด
+		bson.D{{Key: "$replaceRoot", Value: bson.D{
+			{Key: "newRoot", Value: bson.D{
+				{Key: "$mergeObjects", Value: bson.A{
+					"$post",
+					bson.D{{Key: "matched_category_ids", Value: "$matched_category_ids"}},
+				}},
+			}},
+		}}},
+		bson.D{{Key: "$addFields", Value: bson.D{
+			{Key: "created_at", Value: bson.D{{Key: "$toDate", Value: "$created_at"}}},
+			{Key: "like_count", Value: bson.D{{Key: "$ifNull", Value: bson.A{"$like_count", 0}}}},
+			{Key: "comment_count", Value: bson.D{{Key: "$ifNull", Value: bson.A{"$comment_count", 0}}}},
+		}}},
 		bson.D{{Key: "$sort", Value: bson.D{{Key: "created_at", Value: -1}, {Key: "_id", Value: -1}}}},
-		// จำกัดฟิลด์ที่จะส่งออก (ปรับตามต้องการ)
-		bson.D{{Key: "$project", Value: bson.D{
-			{Key: "pc", Value: 0}, // ไม่ส่ง pc ออกไปถ้าไม่จำเป็น
+		bson.D{{Key: "$limit", Value: limit + 1}},
+	)
+
+	cctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+
+	cur, e := pcColl.Aggregate(cctx, pipe, options.Aggregate())
+	if e != nil {
+		err = e
+		return
+	}
+	defer cur.Close(cctx)
+
+	var all []bson.M
+	e = cur.All(cctx, &all)
+	if e != nil {
+		err = e
+		return
+	}
+
+	// 4) ตัดหน้า + next cursor
+	if int64(len(all)) > limit {
+		items = all[:limit]
+		last := items[len(items)-1]
+
+		// created_at: รองรับหลายชนิด (bson.DateTime/time.Time/string/primitive.DateTime)
+		var tm time.Time
+		switch v := last["created_at"].(type) {
+		case time.Time:
+			tm = v.UTC()
+		case bson.DateTime:
+			tm = time.UnixMilli(int64(v)).UTC()
+		case primitive.DateTime:
+			tm = v.Time().UTC()
+		case string:
+			if t, perr := time.Parse(time.RFC3339Nano, v); perr == nil {
+				tm = t.UTC()
+			} else if t, perr := time.Parse(time.RFC3339, v); perr == nil {
+				tm = t.UTC()
+			} else {
+				err = fmt.Errorf("invalid created_at string: %q", v)
+				return
+			}
+		default:
+			err = fmt.Errorf("unknown created_at type: %T", v)
+			return
+		}
+
+		// _id: รองรับ primitive.ObjectID / bson.ObjectID / string(hex)
+		var lastID primitive.ObjectID
+		switch v := last["_id"].(type) {
+		case primitive.ObjectID:
+			lastID = v
+		case bson.ObjectID:
+			if oid, perr := primitive.ObjectIDFromHex(v.Hex()); perr == nil {
+				lastID = oid
+			} else {
+				err = fmt.Errorf("cannot convert bson.ObjectID: %v", perr)
+				return
+			}
+		case string:
+			if oid, perr := primitive.ObjectIDFromHex(v); perr == nil {
+				lastID = oid
+			} else {
+				err = fmt.Errorf("invalid _id hex in page item: %q", v)
+				return
+			}
+		default:
+			err = fmt.Errorf("unknown _id type: %T", v)
+			return
+		}
+
+		s := cursor.EncodePostCursor(tm, lastID)
+		next = &s
+	} else {
+		items = all
+		next = nil
+	}
+
+	return
+}
+
+// ListPostsByCategoryNewestFirst
+// ดึงโพสต์ที่อยู่ใน "ชุดหมวดหมู่ที่กำหนด" อย่างน้อยหนึ่งหมวด
+// ใหม่ก่อนเก่า + cursor (created_at, _id) + total แบบ lookup จริง
+func ListPostsByCategoryNewestFirst(
+	ctx context.Context,
+	client *mongo.Client,
+	categoryIDs []bson.ObjectID,
+	cursorStr string,
+	limit int64,
+) (items []bson.M, next *string, total int64, err error) {
+
+	db := client.Database("lll_workspace")
+	pcColl := db.Collection("post_categories")
+
+	if len(categoryIDs) == 0 {
+		err = fmt.Errorf("empty categoryIDs")
+		return
+	}
+
+	// 1) total (distinct post._id ที่มีอยู่จริง + อยู่ในหมวดที่กำหนด)
+	countPipe := mongo.Pipeline{
+		{{Key: "$match", Value: bson.D{{Key: "category_id", Value: bson.D{{Key: "$in", Value: categoryIDs}}}}}},
+		{{Key: "$lookup", Value: bson.D{
+			{Key: "from", Value: "posts"},
+			{Key: "localField", Value: "post_id"},
+			{Key: "foreignField", Value: "_id"},
+			{Key: "as", Value: "post"},
 		}}},
+		{{Key: "$unwind", Value: "$post"}},
+		{{Key: "$group", Value: bson.D{{Key: "_id", Value: "$post._id"}}}},
+		{{Key: "$count", Value: "n"}},
 	}
-	if limit > 0 {
-		pipeline = append(pipeline, bson.D{{Key: "$limit", Value: limit}})
+	{
+		cctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+		defer cancel()
+
+		cur, e := pcColl.Aggregate(cctx, countPipe)
+		if e != nil {
+			err = e
+			return
+		}
+		var row []struct{ N int64 `bson:"n"` }
+		e = cur.All(cctx, &row)
+		if e != nil {
+			err = e
+			return
+		}
+		if len(row) > 0 {
+			total = row[0].N
+		}
 	}
 
-	col := client.Database("lll_workspace").Collection("posts")
-	cur, err := col.Aggregate(ctx, pipeline)
-	if err != nil {
-		return nil, err
+	// 2) cursor match
+	var cursorMatch bson.D
+	if cursorStr != "" {
+		t, oid, e := cursor.DecodePostCursor(cursorStr)
+		if e != nil {
+			err = e
+			return
+		}
+		cursorMatch = bson.D{{
+			Key: "$or",
+			Value: bson.A{
+				bson.D{{Key: "post.created_at", Value: bson.D{{Key: "$lt", Value: t}}}},
+				bson.D{{Key: "post.created_at", Value: t}, {Key: "post._id", Value: bson.D{{Key: "$lt", Value: oid}}}},
+			},
+		}}
 	}
-	defer cur.Close(ctx)
 
-	var out []Post
-	if err := cur.All(ctx, &out); err != nil {
-		return nil, err
+	// 3) pipeline หลัก
+	pipe := mongo.Pipeline{
+		{{Key: "$match", Value: bson.D{{Key: "category_id", Value: bson.D{{Key: "$in", Value: categoryIDs}}}}}},
+		{{Key: "$lookup", Value: bson.D{
+			{Key: "from", Value: "posts"},
+			{Key: "localField", Value: "post_id"},
+			{Key: "foreignField", Value: "_id"},
+			{Key: "as", Value: "post"},
+		}}},
+		{{Key: "$unwind", Value: "$post"}},
 	}
-	return out, nil
+	if len(cursorMatch) > 0 {
+		pipe = append(pipe, bson.D{{Key: "$match", Value: cursorMatch}})
+	}
+	pipe = append(pipe,
+		bson.D{{Key: "$group", Value: bson.D{
+			{Key: "_id", Value: "$post._id"},
+			{Key: "post", Value: bson.D{{Key: "$first", Value: "$post"}}},
+			{Key: "matched_category_ids", Value: bson.D{{Key: "$addToSet", Value: "$category_id"}}},
+		}}},
+		bson.D{{Key: "$replaceRoot", Value: bson.D{
+			{Key: "newRoot", Value: bson.D{
+				{Key: "$mergeObjects", Value: bson.A{
+					"$post",
+					bson.D{{Key: "matched_category_ids", Value: "$matched_category_ids"}},
+				}},
+			}},
+		}}},
+		// บังคับชนิดเวลา + ค่าเริ่มต้น count
+		bson.D{{Key: "$addFields", Value: bson.D{
+			{Key: "created_at", Value: bson.D{{Key: "$toDate", Value: "$created_at"}}},
+			{Key: "like_count", Value: bson.D{{Key: "$ifNull", Value: bson.A{"$like_count", 0}}}},
+			{Key: "comment_count", Value: bson.D{{Key: "$ifNull", Value: bson.A{"$comment_count", 0}}}},
+		}}},
+		bson.D{{Key: "$sort", Value: bson.D{{Key: "created_at", Value: -1}, {Key: "_id", Value: -1}}}},
+		bson.D{{Key: "$limit", Value: limit + 1}},
+	)
+
+	cctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+
+	cur, e := pcColl.Aggregate(cctx, pipe, options.Aggregate())
+	if e != nil {
+		err = e
+		return
+	}
+	defer cur.Close(cctx)
+
+	var all []bson.M
+	e = cur.All(cctx, &all)
+	if e != nil {
+		err = e
+		return
+	}
+
+	// 4) ตัดหน้า + next cursor (รองรับหลายชนิดเวลา/ไอดี)
+	if int64(len(all)) > limit {
+		items = all[:limit]
+		last := items[len(items)-1]
+
+		var tm time.Time
+		switch v := last["created_at"].(type) {
+		case time.Time:
+			tm = v.UTC()
+		case bson.DateTime:
+			tm = time.UnixMilli(int64(v)).UTC()
+		case primitive.DateTime:
+			tm = v.Time().UTC()
+		case string:
+			if t, perr := time.Parse(time.RFC3339Nano, v); perr == nil {
+				tm = t.UTC()
+			} else if t, perr := time.Parse(time.RFC3339, v); perr == nil {
+				tm = t.UTC()
+			} else {
+				err = fmt.Errorf("invalid created_at string: %q", v)
+				return
+			}
+		default:
+			err = fmt.Errorf("unknown created_at type: %T", v)
+			return
+		}
+
+		var lastID primitive.ObjectID
+		switch v := last["_id"].(type) {
+		case primitive.ObjectID:
+			lastID = v
+		case bson.ObjectID:
+			if oid, perr := primitive.ObjectIDFromHex(v.Hex()); perr == nil {
+				lastID = oid
+			} else {
+				err = fmt.Errorf("cannot convert bson.ObjectID: %v", perr)
+				return
+			}
+		case string:
+			if oid, perr := primitive.ObjectIDFromHex(v); perr == nil {
+				lastID = oid
+			} else {
+				err = fmt.Errorf("invalid _id hex in page item: %q", v)
+				return
+			}
+		default:
+			err = fmt.Errorf("unknown _id type: %T", v)
+			return
+		}
+
+		s := cursor.EncodePostCursor(tm, lastID)
+		next = &s
+	} else {
+		items = all
+		next = nil
+	}
+
+	return
 }

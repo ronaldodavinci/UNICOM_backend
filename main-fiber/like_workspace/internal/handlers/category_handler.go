@@ -1,55 +1,110 @@
 package handlers
 
 import (
-	"strconv"
+	"net/http"
+	"strings"
+
+	"like_workspace/dto"
+	"like_workspace/internal/repository"
 
 	"github.com/gofiber/fiber/v2"
+	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
-
-	"like_workspace/internal/repository"
 )
 
-// GetPostsWithCategories godoc
-// @Summary Get posts with categories
-// @Description ดึงโพสต์ทั้งหมดพร้อมหมวดหมู่ที่เกี่ยวข้อง
-// @Tags posts
-// @Produce json
-// @Success 200 {array} repository.PostWithCategories
-// @Failure 500 {object} map[string]interface{}
-// @Router /api/posts/all-joined [get]
-
-func GetPostsByCategoriesCursor(client *mongo.Client) fiber.Handler {
+// GET /api/posts/category/any/cursor?limit=20&cursor=...
+func GetPostsInAnyCategoryCursor(client *mongo.Client) fiber.Handler {
 	return func(c *fiber.Ctx) error {
-		// query: ?limit=5&cursor=xxx
-		limit := int64(5)
-		if s := c.Query("limit"); s != "" {
-			if v, err := strconv.ParseInt(s, 10, 64); err == nil && v > 0 {
-				limit = v
-			}
+		limit := int64(c.QueryInt("limit", 10))
+		if limit <= 0 {
+			limit = 10
 		}
-		cursor := c.Query("cursor")
+		if limit > 20 {
+			limit = 20
+		}
 
-		items, next, err := repository.FetchPostsWithCategoriesCursor(c.Context(), client, limit, cursor, nil, nil)
+		curStr := c.Query("cursor")
+
+		items, next, total, err := repository.ListPostsInAnyCategoryNewestFirst(c.Context(), client, curStr, limit)
 		if err != nil {
-			return c.Status(500).JSON(fiber.Map{"error": err.Error()})
+			return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 		}
-		return c.JSON(fiber.Map{
-			"items":       items,
-			"next_cursor": next, // ว่างถ้าไม่มีหน้าถัดไป
-		})
+
+		// ใช้ชนิดให้ตรงกับผลลัพธ์ []bson.M เพื่อเลี่ยง type mismatch
+		resp := dto.ListByCategoryResp[bson.M]{
+			Items:      items,
+			NextCursor: next,
+			HasMore:    next != nil,
+			TotalCount: total,
+		}
+		return c.JSON(resp)
 	}
 }
 
-func GetPostsByCategory(client *mongo.Client) fiber.Handler {
+// GET /api/posts/category/cursor?id=<cid1,cid2,...>&limit=20&cursor=...
+func GetPostsByCategoryCursor(client *mongo.Client) fiber.Handler {
 	return func(c *fiber.Ctx) error {
-		catID := c.Params("categoryID")
-		limitStr := c.Query("limit", "10")
-		limit, _ := strconv.ParseInt(limitStr, 10, 64)
-
-		items, err := repository.FetchPostsByCategory(c.Context(), client, catID, limit)
-		if err != nil {
-			return c.Status(400).JSON(fiber.Map{"error": err.Error()})
+		// เหมือนคอมเมนต์: limit จาก config
+		limit := int64(c.QueryInt("limit", 10))
+		if limit <= 0 {
+			limit = 10
 		}
-		return c.JSON(items)
+		if limit > 20 {
+			limit = 20
+		}
+		curStr := c.Query("cursor")
+
+		// ✅ รับได้หลายหมวด (comma-separated) + แปลงด้วย bson.ObjectIDFromHex
+		raw := strings.TrimSpace(c.Query("id"))
+		if raw == "" {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"error": "missing category id(s) in ?id=",
+			})
+		}
+
+		parts := strings.Split(raw, ",")
+		seen := make(map[bson.ObjectID]struct{}, len(parts))
+		cidsB := make([]bson.ObjectID, 0, len(parts))
+
+		for _, s := range parts {
+			s = strings.TrimSpace(s)
+			if s == "" {
+				continue
+			}
+			oid, err := bson.ObjectIDFromHex(s)
+			if err != nil {
+				// ตามสไตล์ตัวอย่างของคุณ: ส่ง oid (zero OID เมื่อพัง)
+				return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+					"error": "invalid category id",
+					"id":    oid,
+				})
+			}
+			// ลบซ้ำ
+			if _, ok := seen[oid]; !ok {
+				seen[oid] = struct{}{}
+				cidsB = append(cidsB, oid)
+			}
+		}
+		if len(cidsB) == 0 {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"error": "no valid category ids",
+			})
+		}
+
+		// เรียกเรโพ (ให้เรโพ decode/encode cursor เองตามแพทเทิร์นเพื่อนคุณ)
+		items, next, total, err := repository.ListPostsByCategoryNewestFirst(
+			c.Context(), client, cidsB, curStr, limit,
+		)
+		if err != nil {
+			return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		}
+
+		resp := dto.ListByCategoryResp[bson.M]{
+			Items:      items,
+			NextCursor: next,
+			HasMore:    next != nil,
+			TotalCount: total,
+		}
+		return c.JSON(resp)
 	}
 }

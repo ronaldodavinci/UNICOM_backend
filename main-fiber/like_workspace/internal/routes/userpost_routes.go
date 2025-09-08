@@ -1,10 +1,10 @@
 package routes
 
 import (
-	"github.com/gofiber/fiber/v2"
-	"go.mongodb.org/mongo-driver/v2/mongo"
+    "github.com/gofiber/fiber/v2"
+    "go.mongodb.org/mongo-driver/v2/mongo"
 
-	"like_workspace/internal/handlers"
+    "like_workspace/internal/handlers"
 )
 
 // Deps holds shared dependencies to inject into handlers.
@@ -54,11 +54,12 @@ func Register(app *fiber.App, d Deps) {
 	posts.Get("/limit-role", handlers.GetPostsLimitrole(d.Client))
 	posts.Get("/limit-role/next", handlers.GetPostsLimitroleNext(d.Client))
 	
-	// GET /api/posts/category
+	// GET /api/posts/category/cursor
 	// Example:
 	//   curl -X GET http://localhost:3000/api/posts/category
-	posts.Get("/category/:categoryID", handlers.GetPostsByCategory(d.Client))
-	posts.Get("/category", handlers.GetPostsByCategoriesCursor(d.Client))
+	posts.Get("/category/cursor", handlers.GetPostsInAnyCategoryCursor(d.Client))
+	posts.Get("/category/wanted/cursor", handlers.GetPostsByCategoryCursor(d.Client))
+
 
 	// WhoAmI debug
 	// GET /api/whoami

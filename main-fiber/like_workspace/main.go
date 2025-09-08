@@ -2,14 +2,18 @@ package main
 
 import (
 	"log"
+
 	"github.com/gofiber/fiber/v2"
+
 	// "github.com/gofiber/fiber/v2/middleware/cors"
 	// "github.com/gofiber/fiber/v2/middleware/logger"
 	// "github.com/gofiber/fiber/v2/middleware/recover"
-	"github.com/gofiber/swagger"
-	_ "like_workspace/docs"
 	"like_workspace/database"
+	_ "like_workspace/docs"
+	// "like_workspace/internal/handlers"
 	"like_workspace/internal/routes"
+
+	"github.com/gofiber/swagger"
 	// "like_workspace/internal/handlers"
 )
 
@@ -25,6 +29,7 @@ func main() {
 	// Swagger docs
 	app.Get("/docs/*", swagger.HandlerDefault)
 
+
 	// app.Get("/limit", handlers.GetPostsLimit(client))
 
 	// routes.GetUsersHandler(app, client)
@@ -38,6 +43,10 @@ func main() {
 	routes.Register(app, routes.Deps{
 		Client: client,
 	})
+
+	routes.PostRoutes(app, client)
+
+
 
 	log.Printf("listening at http://localhost:%s", cfg.Port)
 	if err := app.Listen(":" + cfg.Port); err != nil {

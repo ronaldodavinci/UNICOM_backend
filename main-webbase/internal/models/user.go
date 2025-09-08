@@ -2,21 +2,25 @@ package models
 
 import (
 	"go.mongodb.org/mongo-driver/v2/bson"
+	"time"
 )
 
-// User represents a user in the database.
 type User struct {
-	ID          bson.ObjectID `bson:"_id,omitempty" json:"id,omitempty"`
-	FirstName   string        `bson:"first_name,omitempty" json:"first_name,omitempty"`
-	LastName    string        `bson:"last_name,omitempty" json:"last_name,omitempty"`
-	ThaiPrename string        `bson:"thaiprename,omitempty" json:"thaiprename,omitempty"`
-	Gender      string        `bson:"gender,omitempty" json:"gender,omitempty"`
-	TypePerson  string        `bson:"type_person,omitempty" json:"type_person,omitempty"`
-	StudentID   string        `bson:"student_id,omitempty" json:"student_id,omitempty"`
-	Email       string        `bson:"email" json:"email"`
-	AdvisorID   string        `bson:"advisor_id,omitempty" json:"advisor_id,omitempty"`
-	Username    string        `bson:"username,omitempty" json:"username,omitempty"`
-	Password    string        `bson:"password,omitempty" json:"password,omitempty"` // 🔑 Add this line
+	ID         bson.ObjectID `bson:"_id,omitempty" json:"_id,omitempty"`
+	FirstName  string        `bson:"firstname" json:"firstname"`
+	LastName   string        `bson:"lastname" json:"lastname"`
+	ThaiPrefix string        `bson:"thaiprefix,omitempty" json:"thaiprefix,omitempty"`
+	Gender     string        `bson:"gender,omitempty" json:"gender,omitempty"`
+	TypePerson string        `bson:"type_person,omitempty" json:"type_person,omitempty"`
+	StudentID  string        `bson:"student_id,omitempty" json:"student_id,omitempty"`
+	AdvisorID  string        `bson:"advisor_id,omitempty" json:"advisor_id,omitempty"`
+	// profile_pic string        `bson:"profile_pic,omitempty" json:"profile_pic,omitempty"`
+
+	// ADD เพิ่ม
+	Email        string    `bson:"email" json:"email"`
+	PasswordHash string    `bson:"password_hash,omitempty" json:"-"`
+	CreatedAt    time.Time `bson:"createdAt,omitempty" json:"createdAt,omitempty"`
+	UpdatedAt    time.Time `bson:"updatedAt,omitempty" json:"updatedAt,omitempty"`
 }
 
 // bson คือ ชื่อที่ขึ้นใน Database mongo Ex.

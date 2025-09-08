@@ -11,42 +11,6 @@ import (
 	"main-webbase/internal/models"
 )
 
-// CreateUser godoc
-// @Summary Create a new user
-// @Description Create user with first name, last name, etc.
-// @Tags users
-// @Accept json
-// @Produce json
-// @Param user body models.User true "User Data"
-// @Success 201 {object} map[string]interface{}
-// @Failure 400 {object} map[string]interface{}
-// @Failure 500 {object} map[string]interface{}
-// @Router /users [post]
-func CreateUser(c *fiber.Ctx, client *mongo.Client) error {
-	collection := client.Database("big_workspace").Collection("user")
-
-	var user models.User
-	if err := c.BodyParser(&user); err != nil {
-		return c.Status(400).JSON(fiber.Map{"error": "Invalid request body"})
-	}
-
-	user.ID = bson.NewObjectID()
-
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	_, err := collection.InsertOne(ctx, user)
-	if err != nil {
-		return c.Status(500).JSON(fiber.Map{"error": err.Error()})
-	}
-
-	return c.Status(201).JSON(fiber.Map{
-		"success": true,
-		"message": "User created successfully",
-		"data":    user,
-	})
-}
-
 // GetAllUser godoc
 // @Summary Get all users
 // @Description Returns all users in database
