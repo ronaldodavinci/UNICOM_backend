@@ -61,5 +61,10 @@ func Register(app *fiber.App, client *mongo.Client) {
 	app.Get("/roles/:role_id/users", func(c *fiber.Ctx) error {
 		return controllers.ListOneRoleUsers(c, client)
 	})
+
+	// Get all data by ID
+	app.Get("/role/:id", func(c *fiber.Ctx) error { 
+		return controllers.GetRoleByID(c, client) 
+	})
 }
 
