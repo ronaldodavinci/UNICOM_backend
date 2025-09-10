@@ -12,6 +12,7 @@ import (
 	_ "like_workspace/docs"
 	// "like_workspace/internal/handlers"
 	"like_workspace/internal/routes"
+	"like_workspace/bootstrap"
 
 	"github.com/gofiber/swagger"
 	// "like_workspace/internal/handlers"
@@ -22,6 +23,10 @@ func main() {
 	client := database.ConnectMongo()
 	cfg := database.LoadConfig()
 	// defer database.DisconnectMongo()
+
+	if err := bootstrap.EnsureLikeIndexes(client.Database("lll_workspace")); err != nil {
+		log.Fatalf("ensure indexes failed: %v", err)
+	}
 
 	// --- Fiber App Setup ---
 	app := fiber.New()
@@ -45,6 +50,8 @@ func main() {
 	})
 
 	routes.PostRoutes(app, client)
+
+	routes.LikeRoutes(app, client)
 
 
 
