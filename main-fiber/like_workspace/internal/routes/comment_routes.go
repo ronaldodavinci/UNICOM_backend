@@ -1,0 +1,47 @@
+package routes
+
+import (
+	"like_workspace/internal/handlers"
+
+	"github.com/gofiber/fiber/v2"
+)
+
+// **ยังไม่ได้ทำ JWT/Session + middleware ที่จะรู้ว่า userId = ใคร, role = อะไร จาก token เลยใช้เป็นการ mockผ่านheader
+func SetupCommentRoutes(app *fiber.App, h *handlers.CommentHandler) {
+	// group ของ post → route ที่ขึ้นต้นด้วย /posts/:postId
+	// ใช้สำหรับการจัดการคอมเมนต์ในโพสต์ใดโพสต์หนึ่ง
+	g := app.Group("/posts/:postId")
+
+	// GET /posts/:postId/comments
+	// ดึงรายการคอมเมนต์ทั้งหมดของโพสต์นั้น
+	// รองรับการเรียงลำดับ (ใหม่สุดมาก่อน) + pagination (cursor)
+	//
+	// Example Request: ขอ 2 comments ที่ถัดจาก cursor xxxx  แต่ถ้าเป็นครั้งแรกส่งมาแค่ limit
+	// ครั้งแรก  GET http://localhost:8000/posts/66c62.../comments?limit=2
+	// ครั้งต่อไป ใช้cursorที่ได้จากการเรียกครั้งก่อน  GET http://localhost:8000/posts/66c62.../comments?limit=2&cursor=xxxx
+	g.Get("/comments", h.List)
+
+	// POST /posts/:postId/comments
+	// สร้างคอมเมนต์ใหม่ในโพสต์ที่ระบุด้วย postId
+	// body: { "text": "ข้อความคอมเมนต์" }
+	// header ต้องมี user-id (เช่น X-User-ID) เพื่อระบุตัวผู้เขียน
+	// Example Request:
+	//   POST http://localhost:8000/posts/66c62.../comments
+	g.Post("/comments", h.Create)
+
+	// PUT /comments/:commentId
+	// อัปเดตคอมเมนต์ที่มี id ตรงกับ commentId
+	// เจ้าของคอมเมนต์สามารถแก้ได้, หรือ root ก็แก้ได้
+	// body: { "text": "ข้อความใหม่" }
+	// Example Request:
+	//   PUT http://localhost:8000/comments/66e4d7b17a12f9dbf8123abc
+
+	app.Put("/comments/:commentId", h.Update)
+
+	// DELETE /comments/:commentId
+	// ลบคอมเมนต์ตาม id
+	// เฉพาะเจ้าของคอมเมนต์หรือ root เท่านั้นที่สามารถลบได้
+	// Example Request:
+	//   DELETE http://localhost:8000/comments/66e4d7b17a12f9dbf8123abc
+	app.Delete("/comments/:commentId", h.Delete)
+}
