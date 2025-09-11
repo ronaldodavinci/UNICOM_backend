@@ -14,10 +14,9 @@ import (
 )
 
 type CommentRepository struct {
-	Client          *mongo.Client
-	ColComments     *mongo.Collection
-	ColPosts        *mongo.Collection
-	ColCommentLikes *mongo.Collection
+	Client      *mongo.Client
+	ColComments *mongo.Collection
+	ColPosts    *mongo.Collection
 }
 
 // Create: เพิ่มคอมเมนต์ใหม่ + $inc comment_count (transaction)
@@ -30,6 +29,7 @@ func (r *CommentRepository) Create(ctx context.Context, postID, userID bson.Obje
 		Text:      text,
 		CreatedAt: now,
 		UpdatedAt: now,
+		LikeCount: 0,
 	}
 
 	sess, err := r.Client.StartSession()

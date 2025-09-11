@@ -12,5 +12,4 @@ type ListCommentsResp[T any] struct {
 	Comments   []T     `json:"comments"`
 	NextCursor *string `json:"next_cursor"`
 	HasMore    bool    `json:"has_more"`
-	TotalCount int64   `json:"total_count"`
 }
