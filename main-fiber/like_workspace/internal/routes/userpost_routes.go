@@ -60,7 +60,8 @@ func Register(app *fiber.App, d Deps) {
 	posts.Get("/category/cursor", handlers.GetPostsInAnyCategoryCursor(d.Client))
 	posts.Get("/category/wanted/cursor", handlers.GetPostsByCategoryCursor(d.Client))
 
-
+	posts.Get("/visibility/cursor", handlers.GetPostsVisibilityCursor(d.Client))
+	
 	// WhoAmI debug
 	// GET /api/whoami
 	// Example:
