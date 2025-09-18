@@ -10,5 +10,6 @@ import (
 func LikeRoutes(app *fiber.App, client *mongo.Client) {
 	post := app.Group("/likes")
 
-	post.Post("/", handlers.CreateLikeHandler(client))
+	post.Post("/", handlers.LikeUnlikeHandler(client))
+
 }
