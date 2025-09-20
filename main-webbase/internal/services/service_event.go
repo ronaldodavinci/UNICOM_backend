@@ -2,14 +2,13 @@ package services
 
 import (
 	"context"
+	"fmt"
 	"time"
 
-	"github.com/gofiber/fiber/v2"
 	"go.mongodb.org/mongo-driver/v2/bson"
-	"go.mongodb.org/mongo-driver/v2/mongo"
 
+	"main-webbase/dto"
 	"main-webbase/internal/models"
-	"main-webbase/internal/services"
 	repo "main-webbase/internal/repository"
 )
 
@@ -62,7 +61,6 @@ func CreateEventWithSchedules(body dto.EventRequestDTO, ctx context.Context) (mo
 	return event, schedules, nil
 }
 
-
 // Use in GetAllVisibleEventHandler
 func GetVisibleEvents(viewerID bson.ObjectID, ctx context.Context, orgSets []string) ([]map[string]interface{}, error) {
 	// Get all event
@@ -73,23 +71,23 @@ func GetVisibleEvents(viewerID bson.ObjectID, ctx context.Context, orgSets []str
 
 	// Get ID of Visible Event
 	var eventIDlist []bson.ObjectID
-    for _, ev := range events {
+	for _, ev := range events {
 		if CheckVisibleEvent(&ev, orgSets) {
 			eventIDlist = append(eventIDlist, ev.ID)
 		}
-    }
+	}
 
 	// Fetch schedule of visible event
 	schedules, err := repo.GetSchedulesByEvent(ctx, eventIDlist)
-    if err != nil {
-        return nil, err
-    }
+	if err != nil {
+		return nil, err
+	}
 
 	//Group Then Send
 	schedMap := make(map[bson.ObjectID][]models.EventSchedule)
-    for _, s := range schedules {
-        schedMap[s.EventID] = append(schedMap[s.EventID], s)
-    }
+	for _, s := range schedules {
+		schedMap[s.EventID] = append(schedMap[s.EventID], s)
+	}
 
 	var result []map[string]interface{}
 	for _, ev := range events {
@@ -97,9 +95,9 @@ func GetVisibleEvents(viewerID bson.ObjectID, ctx context.Context, orgSets []str
 			continue
 		}
 		result = append(result, map[string]interface{}{
-            "event":     ev,
-            "schedules": schedMap[ev.ID],
-        })
+			"event":     ev,
+			"schedules": schedMap[ev.ID],
+		})
 	}
 
 	return result, nil
@@ -115,7 +113,7 @@ func CheckVisibleEvent(event *models.Event, userOrgs []string) bool {
 	// 1. Access = public
 	case "public":
 		return true
-	
+
 	// 2. Access = Selected path only
 	case "org":
 		if len(v.Audience) == 0 {
@@ -127,7 +125,7 @@ func CheckVisibleEvent(event *models.Event, userOrgs []string) bool {
 			subtreeSet[s] = struct{}{}
 		}
 
-		for _, a := range v.Audience{
+		for _, a := range v.Audience {
 			if _, ok := subtreeSet[a.OrgPath]; ok {
 				return true
 			}

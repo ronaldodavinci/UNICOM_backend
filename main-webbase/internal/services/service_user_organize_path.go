@@ -2,20 +2,20 @@ package services
 
 import (
 	"context"
+	"strings"
 	"time"
 
-	"github.com/gofiber/fiber/v2"
 	"go.mongodb.org/mongo-driver/v2/bson"
-	"go.mongodb.org/mongo-driver/v2/mongo"
 
 	"main-webbase/database"
+	"main-webbase/internal/models"
 )
 
-func AllUserOrg(userID bson.ObjectID) ([]string, err error) {
+func AllUserOrg(userID bson.ObjectID) ([]string, error) {
 	collection_membership := database.DB.Collection("memberships")
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel
+	defer cancel()
 
 	cursor, err := collection_membership.Find(ctx, bson.M{"user_id": userID, "active": true})
 	if err != nil {
@@ -26,7 +26,7 @@ func AllUserOrg(userID bson.ObjectID) ([]string, err error) {
 	organize_set := map[string]struct{}{}
 
 	for cursor.Next(ctx) {
-		var user_org MembershipDoc
+		var user_org models.MembershipDoc
 		if err := cursor.Decode(&user_org); err != nil {
 			return nil, err
 		}
@@ -37,7 +37,7 @@ func AllUserOrg(userID bson.ObjectID) ([]string, err error) {
 
 		parts := strings.Split(user_org.OrgPath, "/")
 		for i := 1; i < len(parts); i++ {
-			parent := string.Join(parts[:i], "/")
+			parent := strings.Join(parts[:i], "/")
 			if parent != "" {
 				organize_set[parent] = struct{}{}
 			}

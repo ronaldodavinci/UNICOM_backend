@@ -6,12 +6,10 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"go.mongodb.org/mongo-driver/v2/bson"
-	"go.mongodb.org/mongo-driver/v2/mongo"
 
-	"main-webbase/internal/models"
-	"main-webbase/internal/services"
-	"main-webbase/dto"
 	"main-webbase/database"
+	"main-webbase/dto"
+	"main-webbase/internal/services"
 )
 
 // CreateEventHandler godoc
@@ -70,7 +68,7 @@ func CreateEventHandler() fiber.Handler {
 func GetAllVisibleEventHandler() fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancel
+		defer cancel()
 
 		viewerID, err := services.UserIDFrom(c)
 		if err != nil {

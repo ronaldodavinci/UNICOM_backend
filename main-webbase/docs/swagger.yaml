@@ -1,5 +1,104 @@
 basePath: /
 definitions:
+  dto.EventReport:
+    properties:
+      event_id:
+        type: string
+      event_topic:
+        type: string
+      schedules:
+        items:
+          $ref: '#/definitions/dto.EventScheduleReport'
+        type: array
+    type: object
+  dto.EventRequestDTO:
+    properties:
+      description:
+        type: string
+      max_participation:
+        type: integer
+      node_id:
+        type: string
+      org_of_content:
+        type: string
+      posted_as:
+        $ref: '#/definitions/models.PostedAs'
+      schedules:
+        items:
+          properties:
+            date:
+              type: string
+            description:
+              type: string
+            location:
+              type: string
+            time_end:
+              type: string
+            time_start:
+              type: string
+          type: object
+        type: array
+      status:
+        type: string
+      topic:
+        type: string
+      visibility:
+        $ref: '#/definitions/models.Visibility'
+    type: object
+  dto.EventScheduleReport:
+    properties:
+      date:
+        type: string
+      end_time:
+        type: string
+      start_time:
+        type: string
+    type: object
+  models.AudienceItem:
+    properties:
+      org_path:
+        type: string
+      scope:
+        description: '"exact" | "subtree"'
+        type: string
+    type: object
+  models.LoginRequest:
+    properties:
+      email:
+        type: string
+      password:
+        type: string
+    type: object
+  models.PostedAs:
+    properties:
+      label:
+        type: string
+      org_path:
+        type: string
+      position_key:
+        type: string
+    type: object
+  models.RegisterRequest:
+    properties:
+      advisor_id:
+        type: string
+      email:
+        type: string
+      firstname:
+        type: string
+      gender:
+        type: string
+      lastname:
+        type: string
+      password:
+        type: string
+      student_id:
+        type: string
+      thaiprefix:
+        type: string
+      type_person:
+        type: string
+    type: object
   models.Role:
     properties:
       id:
@@ -19,25 +118,6 @@ definitions:
       role_path:
         type: string
     type: object
-  models.User:
-    properties:
-      advisor_id:
-        type: string
-      first_name:
-        type: string
-      gender:
-        type: string
-      id:
-        type: string
-      last_name:
-        type: string
-      student_id:
-        type: string
-      thaiprename:
-        type: string
-      type_person:
-        type: string
-    type: object
   models.User_Role:
     properties:
       id:
@@ -52,6 +132,31 @@ definitions:
       role_id:
         type: string
     type: object
+  models.Visibility:
+    properties:
+      access:
+        type: string
+      allow_user_ids:
+        items:
+          type: string
+        type: array
+      audience:
+        items:
+          $ref: '#/definitions/models.AudienceItem'
+        type: array
+      deny_user_ids:
+        items:
+          type: string
+        type: array
+      exclude_positions:
+        items:
+          type: string
+        type: array
+      include_positions:
+        items:
+          type: string
+        type: array
+    type: object
 host: localhost:8000
 info:
   contact: {}
@@ -59,6 +164,169 @@ info:
   title: Fiber MongoDB API
   version: "1.0"
 paths:
+  /event:
+    get:
+      description: Return all events that the current user can see
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              additionalProperties: true
+              type: object
+            type: array
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Get all visible events
+      tags:
+      - events
+    post:
+      consumes:
+      - application/json
+      description: Create an event with schedules
+      parameters:
+      - description: Event payload
+        in: body
+        name: event
+        required: true
+        schema:
+          $ref: '#/definitions/dto.EventRequestDTO'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/dto.EventReport'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Create new event
+      tags:
+      - events
+  /event/{id}:
+    delete:
+      description: Mark event as hidden
+      parameters:
+      - description: Event ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Soft delete event
+      tags:
+      - events
+  /login:
+    post:
+      consumes:
+      - application/json
+      description: Authenticate user and return JWT token
+      parameters:
+      - description: Login Request
+        in: body
+        name: loginRequest
+        required: true
+        schema:
+          $ref: '#/definitions/models.LoginRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: User and access token
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Invalid request body
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Invalid credentials
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Database or token error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Login user
+      tags:
+      - auth
+  /register:
+    post:
+      consumes:
+      - application/json
+      description: Create a new user account with hashed password
+      parameters:
+      - description: Register Request
+        in: body
+        name: registerRequest
+        required: true
+        schema:
+          $ref: '#/definitions/models.RegisterRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: User registered successfully
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Invalid request body or email already exists
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Failed to create user
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Register a new user
+      tags:
+      - auth
   /roles:
     get:
       description: Retrieve all roles in the system
@@ -262,38 +530,6 @@ paths:
             additionalProperties: true
             type: object
       summary: Get all users
-      tags:
-      - users
-    post:
-      consumes:
-      - application/json
-      description: Create user with first name, last name, etc.
-      parameters:
-      - description: User Data
-        in: body
-        name: user
-        required: true
-        schema:
-          $ref: '#/definitions/models.User'
-      produces:
-      - application/json
-      responses:
-        "201":
-          description: Created
-          schema:
-            additionalProperties: true
-            type: object
-        "400":
-          description: Bad Request
-          schema:
-            additionalProperties: true
-            type: object
-        "500":
-          description: Internal Server Error
-          schema:
-            additionalProperties: true
-            type: object
-      summary: Create a new user
       tags:
       - users
   /users/{id}:

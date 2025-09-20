@@ -1,12 +1,10 @@
 package services
 
 import (
-	"context"
-	"time"
+	"fmt"
 
 	"github.com/gofiber/fiber/v2"
 	"go.mongodb.org/mongo-driver/v2/bson"
-	"go.mongodb.org/mongo-driver/v2/mongo"
 )
 
 func UserIDFrom(c *fiber.Ctx) (bson.ObjectID, error) {

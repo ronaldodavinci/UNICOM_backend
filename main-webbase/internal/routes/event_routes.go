@@ -2,7 +2,6 @@ package routes
 
 import (
 	"github.com/gofiber/fiber/v2"
-	"go.mongodb.org/mongo-driver/v2/mongo"
 	"main-webbase/internal/controllers"
 )
 
@@ -11,7 +10,7 @@ func SetupRoutesEvent(app *fiber.App) {
 
 	// POST /event
 	// สร้าง Event ด้วย NodeID ของผู้สร้าง
-	// Input จะเป็น 
+	// Input จะเป็น
 	// 1.รายละเอียดของอีเว้น
 	// 		2.List ของวันของ Event []
 	event.Post("/", controllers.CreateEventHandler())

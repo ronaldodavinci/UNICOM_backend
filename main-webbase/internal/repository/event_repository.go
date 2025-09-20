@@ -3,9 +3,9 @@ package repository
 import (
 	"context"
 
-	"go.mongodb.org/mongo-driver/v2/mongo"
-	"main-webbase/internal/models"
+	"go.mongodb.org/mongo-driver/v2/bson"
 	"main-webbase/database"
+	"main-webbase/internal/models"
 )
 
 // Use in CreateEventWithSchedules
@@ -18,7 +18,7 @@ func InsertSchedules(ctx context.Context, schedules []models.EventSchedule) erro
 	if len(schedules) == 0 {
 		return nil
 	}
-	_, err := database.DB..Collection("event_schedules").InsertMany(ctx, schedules)
+	_, err := database.DB.Collection("event_schedules").InsertMany(ctx, schedules)
 	return err
 }
 
@@ -38,11 +38,11 @@ func GetEvent(ctx context.Context) ([]models.Event, error) {
 }
 
 func GetSchedulesByEvent(ctx context.Context, eventIDlist []bson.ObjectID) ([]models.EventSchedule, error) {
-	cursor, err := database.DB.Collection("event_schedules")
+	collection := database.DB.Collection("event_schedules")
 
 	filter := bson.M{"event_id": bson.M{"$in": eventIDlist}}
 
-	cursor, err :collection.Find(ctx, filter)
+	cursor, err := collection.Find(ctx, filter)
 	if err != nil {
 		return nil, err
 	}
