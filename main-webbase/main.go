@@ -28,7 +28,7 @@ func main() {
 	cfg := config.LoadConfig()
 
 	// Connect to the database
-	client := database.ConnectMongo(cfg.MongoURI)
+	client := database.ConnectMongo(cfg.MongoURI, cfg.MongoDB)
 	defer client.Disconnect(nil)
 
 	// Fiber app
@@ -42,7 +42,8 @@ func main() {
 	routes.SetupRoutesUser(app, client)
 	routes.SetupRoutesRole(app, client)
 	routes.SetupRoutesUser_Role(app, client)
-
+	routes.SetupRoutesEvent(app)
+	
 	// RUN SERVER
 	log.Fatal(app.Listen(":" + cfg.Port))
 }

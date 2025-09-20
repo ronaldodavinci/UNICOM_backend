@@ -44,8 +44,8 @@ type Event_form_question struct {
 }
 
 type Event_form_answer struct {
-	ID          bson.ObjectID `bson:"_id,omitempty" json:"id"`
-	Question_ID bson.ObjectID `bson:"question_id" json:"question_id"`
-	Response_ID bson.ObjectID `bson:"response_id" json:"response_id"`
-	Answer_value
+	ID          	bson.ObjectID `bson:"_id,omitempty" json:"id"`
+	Question_ID 	bson.ObjectID `bson:"question_id" json:"question_id"`
+	Response_ID 	bson.ObjectID `bson:"response_id" json:"response_id"`
+	Answer_value	[]string `bson:"options,omitempty" json:"options,omitempty"`
 }

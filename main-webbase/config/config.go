@@ -9,6 +9,7 @@ import (
 
 type Config struct {
 	MongoURI string
+	MongoDB  string
 	Port     string
 }
 
@@ -28,6 +29,7 @@ func LoadConfig() Config {
 
 	cfg := Config{
 		MongoURI: getEnv("MONGO_URI", "mongodf://localhost:27017"),
+		MongoDB:  getEnv("MONGO_DB", "creatorDatabase"),
 		Port:	 getEnv("PORT", "3000"),
 	}
 	return cfg
