@@ -1,37 +1,58 @@
 definitions:
+  dto.Audience:
+    properties:
+      org_path:
+        type: string
+      scope:
+        type: string
+    type: object
   dto.CreatePostDTO:
     properties:
       categoryIds:
         items:
           type: string
         type: array
+      org_of_content:
+        type: string
       pictureUrl:
         items:
           type: string
         type: array
+      postAs:
+        allOf:
+        - $ref: '#/definitions/dto.PostAs'
+        description: เดิมคือ rolePath
       postText:
         type: string
-      roleId:
-        type: string
-      roleIds:
-        items:
-          type: string
-        type: array
-      userId:
+      status:
         type: string
       videoUrl:
         items:
           type: string
         type: array
+      visibility:
+        allOf:
+        - $ref: '#/definitions/dto.Visibility'
+        description: เดิมคือ roleIds
     required:
+    - postAs
     - postText
-    - roleId
-    - userId
+    - visibility
     type: object
   dto.ErrorResponse:
     properties:
       message:
         example: invalid body
+        type: string
+    type: object
+  dto.PostAs:
+    properties:
+      label:
+        description: e.g., "Head • SMO"
+        type: string
+      org_path:
+        type: string
+      position_key:
         type: string
     type: object
   dto.PostResponse:
@@ -49,24 +70,34 @@ definitions:
       createdAt:
         example: "2025-09-07T13:47:47Z"
         type: string
-      id:
-        example: 68bd8d30b98a8dce0eab0db6
-        type: string
       likeCount:
+        description: |-
+          PictureUrl    []string `json:"pictureUrl"    example:"['https://example.com/pic1.jpg','https://example.com/pic2.jpg']"`
+          VideoUrl      []string `json:"videoUrl"      example:"['https://example.com/vid1.mp4','https://example.com/vid2.mp4']"`
         example: 0
         type: integer
-      pictureUrl:
+      likedBy:
         example:
-        - '[''https://example.com/pic1.jpg'''
-        - '''https://example.com/pic2.jpg'']'
+        - '[''66c6248b98c56c39f018e7d2'''
+        - '''66c6248b98c56c39f018e7d3'']'
         items:
           type: string
         type: array
+      name:
+        example: JY
+        type: string
+      org_of_content:
+        description: this content belongs to which org (org_path)
+        type: string
+      postAs:
+        allOf:
+        - $ref: '#/definitions/dto.PostAs'
+        description: which role is posting this
       postText:
         example: สวัสดี KU!
         type: string
-      roleId:
-        example: 66c6248b98c56c39f018e7d2
+      status:
+        example: active
         type: string
       updatedAt:
         example: "2025-09-07T13:47:47Z"
@@ -74,19 +105,21 @@ definitions:
       userId:
         example: 66c6248b98c56c39f018e7d2
         type: string
-      videoUrl:
-        example:
-        - '[''https://example.com/vid1.mp4'''
-        - '''https://example.com/vid2.mp4'']'
+      username:
+        example: jy_smo
+        type: string
+      visibility:
+        allOf:
+        - $ref: '#/definitions/dto.Visibility'
+        description: which roles can see this post, array of roleIds
+    type: object
+  dto.Visibility:
+    properties:
+      access:
+        type: string
+      audience:
         items:
-          type: string
-        type: array
-      visibleRoleIds:
-        example:
-        - '[''66c6248b98c56c39f018e7d2'''
-        - '''66c6248b98c56c39f018e7d3'']'
-        items:
-          type: string
+          $ref: '#/definitions/dto.Audience'
         type: array
     type: object
 info:
@@ -117,9 +150,19 @@ paths:
     post:
       consumes:
       - application/json
-      description: Create a new blog post and attach categories
+      description: |-
+        Create a new post with categories, visibility, and posting role.
+        Requirements:
+        • Auth via Bearer token
+        • body.postText required
+        • body.postAs.org_path & body.postAs.position_key required
       parameters:
-      - description: post payload
+      - description: Bearer <JWT>
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Post payload
         in: body
         name: data
         required: true
@@ -133,13 +176,23 @@ paths:
           schema:
             $ref: '#/definitions/dto.PostResponse'
         "400":
-          description: Bad Request
+          description: Bad request (missing fields / invalid org_path or position_key)
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "401":
+          description: Unauthorized (missing/invalid token)
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "404":
+          description: User not found
           schema:
             $ref: '#/definitions/dto.ErrorResponse'
         "500":
-          description: Internal Server Error
+          description: Internal server error
           schema:
             $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - BearerAuth: []
       summary: Create a post
       tags:
       - posts

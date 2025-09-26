@@ -6,28 +6,18 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"go.mongodb.org/mongo-driver/v2/mongo"
-	"go.mongodb.org/mongo-driver/v2/bson"
 
 	"like_workspace/dto"
 	"like_workspace/services"
 )
 
-func fetchUserID(c *fiber.Ctx) (bson.ObjectID, bool) {
-	if v := c.Locals("user_id"); v != nil {
-		if s, ok := v.(string); ok {
-			if oid, err := bson.ObjectIDFromHex(s); err == nil {
-				return oid, true
-			}
-		}
-	}
-	return bson.NilObjectID, false
-}
+
 
 
 
 func LikeUnlikeHandler(client *mongo.Client) fiber.Handler {
 	return func(c *fiber.Ctx) error {
-		user_id, ok := fetchUserID(c) // <- ใช้ฟังก์ชันเดิมของเพื่อน
+		user_id, ok := services.FetchUserID(c)
 		if !ok {
 			return c.Status(fiber.StatusUnauthorized).
 				JSON(dto.ErrorResponse{Message: "missing userId in context"})

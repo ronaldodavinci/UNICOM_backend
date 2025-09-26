@@ -7,5 +7,6 @@ import (
 type PostRoleVisibility struct {
 	ID     bson.ObjectID `json:"id"         bson:"_id,omitempty"`
 	PostID bson.ObjectID `json:"postId"     bson:"post_id"`
-	RoleID bson.ObjectID `json:"roleId"     bson:"role_id"`
+	NodeID *bson.ObjectID `json:"nodeID"     bson:"node_id"`
+	Scope  string        `json:"scope"      bson:"scope"`
 }

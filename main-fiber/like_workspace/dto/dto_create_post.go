@@ -1,29 +1,84 @@
 package dto
 
+// Object in reequest body
+type PostAs struct {
+	OrgPath     string `bson:"org_path,omitempty"     json:"org_path,omitempty"`
+	PositionKey string `bson:"position_key,omitempty" json:"position_key,omitempty"`
+	Tag         string `bson:"label,omitempty"        json:"label,omitempty"` // e.g., "Head • SMO"
+}
+type Audience struct {
+	OrgPath string `json:"org_path"`
+	Scope   string `json:"scope"`
+}
+type Visibility struct {
+	Access   string     `json:"access"`
+	Audience []Audience `json:"audience"`
+}
+
 // ===== Request =====
 type CreatePostDTO struct {
-	UserID      string   `json:"userId" validate:"required"`
-	RoleID      string   `json:"roleId" validate:"required"`
-	PostText    string   `json:"postText" validate:"required"`
-	PictureUrl  []string `json:"pictureUrl"`
-	VideoUrl    []string `json:"videoUrl"`
-	CategoryIDs []string `json:"categoryIds"`
-	RoleIDs     []string `json:"roleIds"`
+    PostText    string   `json:"postText" validate:"required"`
+    PictureUrl  []string `json:"pictureUrl"`
+    VideoUrl    []string `json:"videoUrl"`
+    CategoryIDs []string `json:"categoryIds"`
+
+    PostAs       PostAs     `json:"postAs" validate:"required"`     // เดิมคือ rolePath
+    Visibility   Visibility `json:"visibility" validate:"required"` // เดิมคือ roleIds
+    OrgOfContent string     `json:"org_of_content"`
+    Status       string     `json:"status"`
 }
+
+/* { request example
+  "_id": {
+    "$oid": "68be742243c7f21d8421a0e7"
+  },
+  "uid": "u_jy",
+  "name": "JY",
+  "username": "jy_smo",
+  "message": "SMO is hosting an ENG night this Friday! 🏮",
+  "timestamp": {
+    "$date": "2025-09-08T06:13:54.392Z"
+  },
+  "likes": 2,
+  "likedBy": [
+    "u_002",
+    "u_005"
+  ],
+  "posted_as": {
+    "org_path": "/faculty/eng/smo",
+    "position_key": "head",
+    "tag": "Head • SMO"
+  },
+  "visibility": {
+    "access": "org",
+    "audience": [
+      {
+        "org_path": "/faculty/eng",
+        "scope": "subtree"
+      }
+    ]
+  },
+  "org_of_content": "/faculty/eng/smo"
+} */
 
 // ===== Success Response =====
 type PostResponse struct {
-	UserID        string `json:"userId"        example:"66c6248b98c56c39f018e7d2"`
-	RoleID        string `json:"roleId"        example:"66c6248b98c56c39f018e7d2"`
-	PostText      string `json:"postText"      example:"สวัสดี KU!"`
-	CreatedAt     string `json:"createdAt"     example:"2025-09-07T13:47:47Z"`
-	UpdatedAt     string `json:"updatedAt"     example:"2025-09-07T13:47:47Z"`
-	LikeCount     int    `json:"likeCount"     example:"0"`
-	CommentCount  int    `json:"commentCount"  example:"0"`
+	UserID   string `json:"userId"        example:"66c6248b98c56c39f018e7d2"`
+	Name     string `json:"name"          example:"JY"`
+	Username string `json:"username"      example:"jy_smo"`
+	PostText string `json:"postText"      example:"สวัสดี KU!"`
 	//PictureUrl    []string `json:"pictureUrl"    example:"['https://example.com/pic1.jpg','https://example.com/pic2.jpg']"`
 	//VideoUrl      []string `json:"videoUrl"      example:"['https://example.com/vid1.mp4','https://example.com/vid2.mp4']"`
-	CategoryIDs   []string `json:"categoryIds"   example:"['68bd8d30b98a8dce0eab0db6','68bd8d30b98a8dce0eab0db7']"`
-	VisibleRoleIDs []string `json:"visibleRoleIds" example:"['66c6248b98c56c39f018e7d2','66c6248b98c56c39f018e7d3']"`
+	LikeCount    int        `json:"likeCount"     example:"0"`
+	CommentCount int        `json:"commentCount"  example:"0"`
+	LikedBy      []string   `json:"likedBy"       example:"['66c6248b98c56c39f018e7d2','66c6248b98c56c39f018e7d3']"`
+	PostAs       PostAs     `json:"postAs"` // which role is posting this
+	CategoryIDs  []string   `json:"categoryIds"   example:"['68bd8d30b98a8dce0eab0db6','68bd8d30b98a8dce0eab0db7']"`
+	Visibility   Visibility `json:"visibility"`     // which roles can see this post, array of roleIds
+	OrgOfContent string     `json:"org_of_content"` // this content belongs to which org (org_path)
+	CreatedAt    string     `json:"createdAt"     example:"2025-09-07T13:47:47Z"`
+	UpdatedAt    string     `json:"updatedAt"     example:"2025-09-07T13:47:47Z"`
+	Status       string     `json:"status" example:"active"`
 }
 
 // ===== Error Response =====

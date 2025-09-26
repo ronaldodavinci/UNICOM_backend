@@ -48,7 +48,12 @@ const docTemplate = `{
         },
         "/posts": {
             "post": {
-                "description": "Create a new blog post and attach categories",
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Create a new post with categories, visibility, and posting role.\nRequirements:\n• Auth via Bearer token\n• body.postText required\n• body.postAs.org_path \u0026 body.postAs.position_key required",
                 "consumes": [
                     "application/json"
                 ],
@@ -61,7 +66,14 @@ const docTemplate = `{
                 "summary": "Create a post",
                 "parameters": [
                     {
-                        "description": "post payload",
+                        "type": "string",
+                        "description": "Bearer \u003cJWT\u003e",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "description": "Post payload",
                         "name": "data",
                         "in": "body",
                         "required": true,
@@ -78,13 +90,25 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "Bad Request",
+                        "description": "Bad request (missing fields / invalid org_path or position_key)",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized (missing/invalid token)",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "User not found",
                         "schema": {
                             "$ref": "#/definitions/dto.ErrorResponse"
                         }
                     },
                     "500": {
-                        "description": "Internal Server Error",
+                        "description": "Internal server error",
                         "schema": {
                             "$ref": "#/definitions/dto.ErrorResponse"
                         }
@@ -94,12 +118,23 @@ const docTemplate = `{
         }
     },
     "definitions": {
+        "dto.Audience": {
+            "type": "object",
+            "properties": {
+                "org_path": {
+                    "type": "string"
+                },
+                "scope": {
+                    "type": "string"
+                }
+            }
+        },
         "dto.CreatePostDTO": {
             "type": "object",
             "required": [
+                "postAs",
                 "postText",
-                "roleId",
-                "userId"
+                "visibility"
             ],
             "properties": {
                 "categoryIds": {
@@ -108,25 +143,27 @@ const docTemplate = `{
                         "type": "string"
                     }
                 },
+                "org_of_content": {
+                    "type": "string"
+                },
                 "pictureUrl": {
                     "type": "array",
                     "items": {
                         "type": "string"
                     }
                 },
+                "postAs": {
+                    "description": "เดิมคือ rolePath",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/dto.PostAs"
+                        }
+                    ]
+                },
                 "postText": {
                     "type": "string"
                 },
-                "roleId": {
-                    "type": "string"
-                },
-                "roleIds": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                },
-                "userId": {
+                "status": {
                     "type": "string"
                 },
                 "videoUrl": {
@@ -134,6 +171,14 @@ const docTemplate = `{
                     "items": {
                         "type": "string"
                     }
+                },
+                "visibility": {
+                    "description": "เดิมคือ roleIds",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/dto.Visibility"
+                        }
+                    ]
                 }
             }
         },
@@ -143,6 +188,21 @@ const docTemplate = `{
                 "message": {
                     "type": "string",
                     "example": "invalid body"
+                }
+            }
+        },
+        "dto.PostAs": {
+            "type": "object",
+            "properties": {
+                "label": {
+                    "description": "e.g., \"Head • SMO\"",
+                    "type": "string"
+                },
+                "org_path": {
+                    "type": "string"
+                },
+                "position_key": {
+                    "type": "string"
                 }
             }
         },
@@ -167,31 +227,44 @@ const docTemplate = `{
                     "type": "string",
                     "example": "2025-09-07T13:47:47Z"
                 },
-                "id": {
-                    "type": "string",
-                    "example": "68bd8d30b98a8dce0eab0db6"
-                },
                 "likeCount": {
+                    "description": "PictureUrl    []string ` + "`" + `json:\"pictureUrl\"    example:\"['https://example.com/pic1.jpg','https://example.com/pic2.jpg']\"` + "`" + `\nVideoUrl      []string ` + "`" + `json:\"videoUrl\"      example:\"['https://example.com/vid1.mp4','https://example.com/vid2.mp4']\"` + "`" + `",
                     "type": "integer",
                     "example": 0
                 },
-                "pictureUrl": {
+                "likedBy": {
                     "type": "array",
                     "items": {
                         "type": "string"
                     },
                     "example": [
-                        "['https://example.com/pic1.jpg'",
-                        "'https://example.com/pic2.jpg']"
+                        "['66c6248b98c56c39f018e7d2'",
+                        "'66c6248b98c56c39f018e7d3']"
+                    ]
+                },
+                "name": {
+                    "type": "string",
+                    "example": "JY"
+                },
+                "org_of_content": {
+                    "description": "this content belongs to which org (org_path)",
+                    "type": "string"
+                },
+                "postAs": {
+                    "description": "which role is posting this",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/dto.PostAs"
+                        }
                     ]
                 },
                 "postText": {
                     "type": "string",
                     "example": "สวัสดี KU!"
                 },
-                "roleId": {
+                "status": {
                     "type": "string",
-                    "example": "66c6248b98c56c39f018e7d2"
+                    "example": "active"
                 },
                 "updatedAt": {
                     "type": "string",
@@ -201,25 +274,31 @@ const docTemplate = `{
                     "type": "string",
                     "example": "66c6248b98c56c39f018e7d2"
                 },
-                "videoUrl": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    },
-                    "example": [
-                        "['https://example.com/vid1.mp4'",
-                        "'https://example.com/vid2.mp4']"
-                    ]
+                "username": {
+                    "type": "string",
+                    "example": "jy_smo"
                 },
-                "visibleRoleIds": {
+                "visibility": {
+                    "description": "which roles can see this post, array of roleIds",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/dto.Visibility"
+                        }
+                    ]
+                }
+            }
+        },
+        "dto.Visibility": {
+            "type": "object",
+            "properties": {
+                "access": {
+                    "type": "string"
+                },
+                "audience": {
                     "type": "array",
                     "items": {
-                        "type": "string"
-                    },
-                    "example": [
-                        "['66c6248b98c56c39f018e7d2'",
-                        "'66c6248b98c56c39f018e7d3']"
-                    ]
+                        "$ref": "#/definitions/dto.Audience"
+                    }
                 }
             }
         }
