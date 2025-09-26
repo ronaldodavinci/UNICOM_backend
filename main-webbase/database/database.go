@@ -10,7 +10,9 @@ import (
 	"go.mongodb.org/mongo-driver/v2/mongo/readpref"
 )
 
-func ConnectMongo(uri string) *mongo.Client {
+var DB *mongo.Database
+
+func ConnectMongo(uri string, dbName string) *mongo.Client {
 	opts := options.Client().ApplyURI(uri)
 
 	client, err := mongo.Connect(opts)
@@ -22,6 +24,8 @@ func ConnectMongo(uri string) *mongo.Client {
 		log.Fatal("Failed to ping MongoDB:", err)
 	}
 
-	fmt.Println("Connected to MongoDB")
+ 	DB = client.Database(dbName)
+
+	fmt.Println("Connected to MongoDB: ", dbName)
 	return client
 }

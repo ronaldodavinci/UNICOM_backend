@@ -1,10 +1,11 @@
 package routes
 
 import (
-    "github.com/gofiber/fiber/v2"
-    "go.mongodb.org/mongo-driver/v2/mongo"
+	"github.com/gofiber/fiber/v2"
+	"go.mongodb.org/mongo-driver/v2/mongo"
 
-    "like_workspace/internal/handlers"
+	"like_workspace/internal/handlers"
+	"like_workspace/internal/repository"
 )
 
 // Deps holds shared dependencies to inject into handlers.
@@ -62,11 +63,17 @@ func Register(app *fiber.App, d Deps) {
 
 	posts.Get("/visibility/cursor", handlers.GetPostsVisibilityCursor(d.Client))
 	
-	// WhoAmI debug
-	// GET /api/whoami
+	// GET /api/posts/feed
 	// Example:
-	//   curl -X GET http://localhost:3000/api/whoami
-	api.Get("/whoami", handlers.WhoAmI())
+	//   curl -X GET http://localhost:3000/api/posts/feed
+	//	 curl -X GET "http://localhost:3000/api/posts/feed?cursor=..."
+	//	 curl -X GET "http://localhost:3000/api/posts/feed?tag=..."
+	//	 curl -X GET "http://localhost:3000/api/posts/feed?category=..."
+	//	 curl -X GET "http://localhost:3000/api/posts/feed?author=..."
+	//	 curl -X GET "http://localhost:3000/api/posts/feed?q=..."
+	repo := repository.NewMongoFeedRepo(d.Client)
+	feedRepo := handlers.NewFeedService(repo)
+	posts.Get("/feed", feedRepo.FeedHandler)
 	
 	// ============================================================
 	// Misc

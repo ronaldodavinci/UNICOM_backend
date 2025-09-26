@@ -2,5 +2,5 @@ package config
 
 const (
 	DefaultLimitComments = 10
-	MaxLimitComments     = 100
+	MaxLimitComments     = 20
 )

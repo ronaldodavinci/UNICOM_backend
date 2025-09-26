@@ -19,3 +19,14 @@ type Post struct {
 	LikeCount    int           `json:"likeCount"  bson:"like_count"`
 	CommentCount int           `json:"CommmentCount"  bson:"comment_count"`
 }
+
+type QueryOptions struct {
+	Roles      []string
+	Categories []string
+	Tags       []string
+	AuthorIDs  []bson.ObjectID
+	TextSearch string
+	Limit      int64
+	SinceID    bson.ObjectID
+	UntilID    bson.ObjectID
+}
