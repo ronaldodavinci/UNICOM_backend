@@ -1,216 +1,340 @@
 {
-    "swagger": "2.0",
-    "info": {
-        "contact": {}
+  "swagger": "2.0",
+  "info": {
+    "title": "Like Workspace API",
+    "version": "1.0",
+    "description": "API documentation for like_workspace",
+    "contact": {}
+  },
+  "basePath": "/",
+  "schemes": ["http"],
+  "paths": {
+    "/api/healthz": {
+      "get": {
+        "tags": ["system"],
+        "summary": "Health check",
+        "produces": ["text/plain"],
+        "responses": {"200": {"description": "ok", "schema": {"type": "string"}}}
+      }
     },
-    "paths": {
-        "/api/posts/limit": {
-            "get": {
-                "description": "Fetch latest posts with limit=5",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "posts"
-                ],
-                "summary": "Get latest posts",
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "array",
-                            "items": {
-                                "type": "object",
-                                "additionalProperties": true
-                            }
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    }
-                }
-            }
-        },
-        "/posts": {
-            "post": {
-                "description": "Create a new blog post and attach categories",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "posts"
-                ],
-                "summary": "Create a post",
-                "parameters": [
-                    {
-                        "description": "post payload",
-                        "name": "data",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/dto.CreatePostDTO"
-                        }
-                    }
-                ],
-                "responses": {
-                    "201": {
-                        "description": "Created",
-                        "schema": {
-                            "$ref": "#/definitions/dto.PostResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/dto.ErrorResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/dto.ErrorResponse"
-                        }
-                    }
-                }
-            }
-        }
+    "/api/whoami": {
+      "get": {
+        "tags": ["system"],
+        "summary": "Current user context",
+        "produces": ["application/json"],
+        "responses": {"200": {"description": "OK", "schema": {"$ref": "#/definitions/WhoAmIResponse"}}}
+      }
     },
-    "definitions": {
-        "dto.CreatePostDTO": {
-            "type": "object",
-            "required": [
-                "postText",
-                "roleId",
-                "userId"
-            ],
-            "properties": {
-                "categoryIds": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                },
-                "pictureUrl": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                },
-                "postText": {
-                    "type": "string"
-                },
-                "roleId": {
-                    "type": "string"
-                },
-                "roleIds": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                },
-                "userId": {
-                    "type": "string"
-                },
-                "videoUrl": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                }
-            }
-        },
-        "dto.ErrorResponse": {
-            "type": "object",
-            "properties": {
-                "message": {
-                    "type": "string",
-                    "example": "invalid body"
-                }
-            }
-        },
-        "dto.PostResponse": {
-            "type": "object",
-            "properties": {
-                "categoryIds": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    },
-                    "example": [
-                        "['68bd8d30b98a8dce0eab0db6'",
-                        "'68bd8d30b98a8dce0eab0db7']"
-                    ]
-                },
-                "commentCount": {
-                    "type": "integer",
-                    "example": 0
-                },
-                "createdAt": {
-                    "type": "string",
-                    "example": "2025-09-07T13:47:47Z"
-                },
-                "id": {
-                    "type": "string",
-                    "example": "68bd8d30b98a8dce0eab0db6"
-                },
-                "likeCount": {
-                    "type": "integer",
-                    "example": 0
-                },
-                "pictureUrl": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    },
-                    "example": [
-                        "['https://example.com/pic1.jpg'",
-                        "'https://example.com/pic2.jpg']"
-                    ]
-                },
-                "postText": {
-                    "type": "string",
-                    "example": "สวัสดี KU!"
-                },
-                "roleId": {
-                    "type": "string",
-                    "example": "66c6248b98c56c39f018e7d2"
-                },
-                "updatedAt": {
-                    "type": "string",
-                    "example": "2025-09-07T13:47:47Z"
-                },
-                "userId": {
-                    "type": "string",
-                    "example": "66c6248b98c56c39f018e7d2"
-                },
-                "videoUrl": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    },
-                    "example": [
-                        "['https://example.com/vid1.mp4'",
-                        "'https://example.com/vid2.mp4']"
-                    ]
-                },
-                "visibleRoleIds": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    },
-                    "example": [
-                        "['66c6248b98c56c39f018e7d2'",
-                        "'66c6248b98c56c39f018e7d3']"
-                    ]
-                }
-            }
+    "/api/users/": {
+      "get": {
+        "tags": ["users"],
+        "summary": "List users",
+        "produces": ["application/json"],
+        "responses": {
+          "200": {"description": "OK", "schema": {"$ref": "#/definitions/UserListResponse"}},
+          "500": {"description": "Internal Server Error", "schema": {"$ref": "#/definitions/CommonError"}}
         }
+      }
+    },
+    "/api/posts/limit": {
+      "get": {
+        "description": "Fetch latest posts with limit=5",
+        "produces": ["application/json"],
+        "tags": ["posts"],
+        "summary": "Get latest posts",
+        "responses": {
+          "200": {"description": "OK", "schema": {"type": "array", "items": {"type": "object", "additionalProperties": true}}},
+          "500": {"description": "Internal Server Error", "schema": {"$ref": "#/definitions/CommonError"}}
+        }
+      }
+    },
+    "/api/posts/limit-role": {
+      "get": {
+        "tags": ["posts"],
+        "summary": "Get posts visible to user",
+        "produces": ["application/json"],
+        "responses": {
+          "200": {"description": "OK", "schema": {"$ref": "#/definitions/CursorListResponse"}},
+          "500": {"description": "Internal Server Error", "schema": {"$ref": "#/definitions/CommonError"}}
+        }
+      }
+    },
+    "/api/posts/limit-role/next": {
+      "get": {
+        "tags": ["posts"],
+        "summary": "Next page of visible posts",
+        "produces": ["application/json"],
+        "responses": {
+          "200": {"description": "OK", "schema": {"$ref": "#/definitions/CursorListResponse"}},
+          "500": {"description": "Internal Server Error", "schema": {"$ref": "#/definitions/CommonError"}}
+        }
+      }
+    },
+    "/api/posts/category/cursor": {
+      "get": {
+        "tags": ["posts"],
+        "summary": "List posts in any category (cursor)",
+        "parameters": [
+          {"name": "limit", "in": "query", "type": "integer", "required": false, "minimum": 1, "maximum": 20, "default": 10, "description": "Number of items per page (default 10, min 1, max 20)"},
+          {"name": "cursor", "in": "query", "type": "string", "required": false}
+        ],
+        "produces": ["application/json"],
+        "responses": {
+          "200": {"description": "OK", "schema": {"$ref": "#/definitions/CursorListWithTotalResponse"}},
+          "400": {"description": "Bad Request", "schema": {"$ref": "#/definitions/CommonError"}},
+          "500": {"description": "Internal Server Error", "schema": {"$ref": "#/definitions/CommonError"}}
+        }
+      }
+    },
+    "/api/posts/category/wanted/cursor": {
+      "get": {
+        "tags": ["posts"],
+        "summary": "List posts by category ids (cursor)",
+        "parameters": [
+          {"name": "id", "in": "query", "type": "string", "required": true, "description": "Comma-separated category IDs (hex ObjectIDs)"},
+          {"name": "limit", "in": "query", "type": "integer", "required": false, "minimum": 1, "maximum": 20, "default": 10, "description": "Number of items per page (default 10, min 1, max 20)"},
+          {"name": "cursor", "in": "query", "type": "string", "required": false}
+        ],
+        "produces": ["application/json"],
+        "responses": {
+          "200": {"description": "OK", "schema": {"$ref": "#/definitions/CursorListWithTotalResponse"}},
+          "400": {"description": "Bad Request", "schema": {"$ref": "#/definitions/CommonError"}},
+          "500": {"description": "Internal Server Error", "schema": {"$ref": "#/definitions/CommonError"}}
+        }
+      }
+    },
+    "/api/posts/visibility/cursor": {
+      "get": {
+        "tags": ["posts"],
+        "summary": "List posts by visibility (cursor)",
+        "parameters": [
+          {"name": "type", "in": "query", "type": "string", "enum": ["all", "public", "private"], "required": false, "description": "Filter visibility; omit or use 'all' for no filter."},
+          {"name": "limit", "in": "query", "type": "integer", "required": false, "minimum": 1, "maximum": 20, "default": 10, "description": "Number of items per page (default 10, min 1, max 20)"},
+          {"name": "cursor", "in": "query", "type": "string", "required": false}
+        ],
+        "produces": ["application/json"],
+        "responses": {
+          "200": {"description": "OK", "schema": {"$ref": "#/definitions/CursorListWithTotalResponse"}},
+          "400": {"description": "Bad Request", "schema": {"$ref": "#/definitions/CommonError"}},
+          "500": {"description": "Internal Server Error", "schema": {"$ref": "#/definitions/CommonError"}}
+        }
+      }
+    },
+    "/posts": {
+      "post": {
+        "description": "Create a new blog post and attach categories",
+        "consumes": ["application/json"],
+        "produces": ["application/json"],
+        "tags": ["posts"],
+        "summary": "Create a post",
+        "parameters": [
+          {"description": "post payload", "name": "data", "in": "body", "required": true, "schema": {"$ref": "#/definitions/dto.CreatePostDTO"}}
+        ],
+        "responses": {
+          "201": {"description": "Created", "schema": {"$ref": "#/definitions/dto.PostResponse"}},
+          "400": {"description": "Bad Request", "schema": {"$ref": "#/definitions/dto.ErrorResponse"}},
+          "500": {"description": "Internal Server Error", "schema": {"$ref": "#/definitions/dto.ErrorResponse"}}
+        }
+      }
+    },
+    "/api/posts/blog": {
+      "post": {
+        "description": "Create a new blog post and attach categories",
+        "consumes": ["application/json"],
+        "produces": ["application/json"],
+        "tags": ["posts"],
+        "summary": "Create a post (api)",
+        "parameters": [
+          {"description": "post payload", "name": "data", "in": "body", "required": true, "schema": {"$ref": "#/definitions/dto.CreatePostDTO"}}
+        ],
+        "responses": {
+          "201": {"description": "Created", "schema": {"$ref": "#/definitions/dto.PostResponse"}},
+          "400": {"description": "Bad Request", "schema": {"$ref": "#/definitions/dto.ErrorResponse"}},
+          "500": {"description": "Internal Server Error", "schema": {"$ref": "#/definitions/dto.ErrorResponse"}}
+        }
+      }
+    },
+    "/likes/": {
+      "post": {
+        "tags": ["likes"],
+        "summary": "Like a post or comment",
+        "consumes": ["application/json"],
+        "produces": ["application/json"],
+        "parameters": [
+          {"name": "data", "in": "body", "required": true, "schema": {"$ref": "#/definitions/dto.LikeRequestDTO"}}
+        ],
+        "responses": {
+          "201": {"description": "Liked", "schema": {"$ref": "#/definitions/LikeResponse"}},
+          "200": {"description": "Already liked", "schema": {"$ref": "#/definitions/LikeResponse"}},
+          "400": {"description": "Bad Request", "schema": {"$ref": "#/definitions/dto.ErrorResponse"}},
+          "500": {"description": "Internal Server Error", "schema": {"$ref": "#/definitions/dto.ErrorResponse"}}
+        }
+      }
+    },
+    "/posts/{postId}/comments": {
+      "get": {
+        "tags": ["comments"],
+        "summary": "List comments of a post (cursor)",
+        "parameters": [
+          {"name": "postId", "in": "path", "required": true, "type": "string"},
+          {"name": "limit", "in": "query", "required": false, "type": "integer", "minimum": 1, "maximum": 20, "default": 10, "description": "Number of comments per page (default 10, min 1, max 20)"},
+          {"name": "cursor", "in": "query", "required": false, "type": "string"}
+        ],
+        "produces": ["application/json"],
+        "responses": {
+          "200": {"description": "OK", "schema": {"$ref": "#/definitions/dto.ListCommentsResp_model.Comment"}},
+          "400": {"description": "Bad Request", "schema": {"$ref": "#/definitions/CommonError"}},
+          "500": {"description": "Internal Server Error", "schema": {"$ref": "#/definitions/CommonError"}}
+        }
+      },
+      "post": {
+        "tags": ["comments"],
+        "summary": "Create a comment",
+        "consumes": ["application/json"],
+        "parameters": [
+          {"name": "postId", "in": "path", "required": true, "type": "string"},
+          {"name": "data", "in": "body", "required": true, "schema": {"$ref": "#/definitions/dto.CreateCommentReq"}}
+        ],
+        "produces": ["application/json"],
+        "responses": {
+          "201": {"description": "Created", "schema": {"$ref": "#/definitions/model.Comment"}},
+          "400": {"description": "Bad Request", "schema": {"$ref": "#/definitions/CommonError"}},
+          "401": {"description": "Unauthorized", "schema": {"$ref": "#/definitions/CommonError"}},
+          "500": {"description": "Internal Server Error", "schema": {"$ref": "#/definitions/CommonError"}}
+        }
+      }
+    },
+    "/comments/{commentId}": {
+      "put": {
+        "tags": ["comments"],
+        "summary": "Update a comment",
+        "consumes": ["application/json"],
+        "parameters": [
+          {"name": "commentId", "in": "path", "required": true, "type": "string"},
+          {"name": "data", "in": "body", "required": true, "schema": {"$ref": "#/definitions/dto.UpdateCommentReq"}}
+        ],
+        "produces": ["application/json"],
+        "responses": {
+          "200": {"description": "OK", "schema": {"$ref": "#/definitions/model.Comment"}},
+          "400": {"description": "Bad Request", "schema": {"$ref": "#/definitions/CommonError"}},
+          "401": {"description": "Unauthorized", "schema": {"$ref": "#/definitions/CommonError"}},
+          "403": {"description": "Forbidden", "schema": {"$ref": "#/definitions/CommonError"}},
+          "500": {"description": "Internal Server Error", "schema": {"$ref": "#/definitions/CommonError"}}
+        }
+      },
+      "delete": {
+        "tags": ["comments"],
+        "summary": "Delete a comment",
+        "parameters": [
+          {"name": "commentId", "in": "path", "required": true, "type": "string"}
+        ],
+        "responses": {
+          "204": {"description": "No Content"},
+          "400": {"description": "Bad Request", "schema": {"$ref": "#/definitions/CommonError"}},
+          "401": {"description": "Unauthorized", "schema": {"$ref": "#/definitions/CommonError"}},
+          "403": {"description": "Forbidden", "schema": {"$ref": "#/definitions/CommonError"}},
+          "500": {"description": "Internal Server Error", "schema": {"$ref": "#/definitions/CommonError"}}
+        }
+      }
     }
+  },
+  "definitions": {
+    "dto.CreatePostDTO": {
+      "type": "object",
+      "required": ["postText", "roleId", "userId"],
+      "properties": {
+        "categoryIds": {"type": "array", "items": {"type": "string"}},
+        "pictureUrl": {"type": "array", "items": {"type": "string"}},
+        "postText": {"type": "string"},
+        "roleId": {"type": "string"},
+        "roleIds": {"type": "array", "items": {"type": "string"}},
+        "userId": {"type": "string"},
+        "videoUrl": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "dto.ErrorResponse": {"type": "object", "properties": {"message": {"type": "string", "example": "invalid body"}}},
+    "CommonError": {"type": "object", "properties": {"error": {"type": "string", "example": "invalid input"}}},
+    "dto.PostResponse": {
+      "type": "object",
+      "properties": {
+        "categoryIds": {"type": "array", "items": {"type": "string"}, "example": ["['68bd8d30b98a8dce0eab0db6'", "'68bd8d30b98a8dce0eab0db7']"]},
+        "commentCount": {"type": "integer", "example": 0},
+        "createdAt": {"type": "string", "example": "2025-09-07T13:47:47Z"},
+        "id": {"type": "string", "example": "68bd8d30b98a8dce0eab0db6"},
+        "likeCount": {"type": "integer", "example": 0},
+        "pictureUrl": {"type": "array", "items": {"type": "string"}, "example": ["['https://example.com/pic1.jpg'", "'https://example.com/pic2.jpg']"]},
+        "postText": {"type": "string", "example": "สวัสดี KU!"},
+        "roleId": {"type": "string", "example": "66c6248b98c56c39f018e7d2"},
+        "updatedAt": {"type": "string", "example": "2025-09-07T13:47:47Z"},
+        "userId": {"type": "string", "example": "66c6248b98c56c39f018e7d2"},
+        "videoUrl": {"type": "array", "items": {"type": "string"}, "example": ["['https://example.com/vid1.mp4'", "'https://example.com/vid2.mp4']"]},
+        "visibleRoleIds": {"type": "array", "items": {"type": "string"}, "example": ["['66c6248b98c56c39f018e7d2'", "'66c6248b98c56c39f018e7d3']"]}
+      }
+    },
+    "dto.LikeRequestDTO": {
+      "type": "object",
+      "required": ["userId", "targetId", "targetType"],
+      "properties": {
+        "userId": {"type": "string"},
+        "targetId": {"type": "string"},
+        "targetType": {"type": "string", "enum": ["post", "comment"]}
+      }
+    },
+    "LikeResponse": {
+      "type": "object",
+      "properties": {
+        "message": {"type": "string", "example": "liked"},
+        "target_id": {"type": "string"},
+        "target_type": {"type": "string"},
+        "is_liked": {"type": "boolean"}
+      }
+    },
+    "dto.CreateCommentReq": {"type": "object", "required": ["text"], "properties": {"text": {"type": "string"}}},
+    "dto.UpdateCommentReq": {"type": "object", "required": ["text"], "properties": {"text": {"type": "string"}}},
+    "model.Comment": {
+      "type": "object",
+      "properties": {
+        "id": {"type": "string"},
+        "postId": {"type": "string"},
+        "userId": {"type": "string"},
+        "text": {"type": "string"},
+        "createdAt": {"type": "string"},
+        "updatedAt": {"type": "string"},
+        "likeCount": {"type": "integer"}
+      }
+    },
+    "dto.ListCommentsResp_model.Comment": {
+      "type": "object",
+      "properties": {
+        "comments": {"type": "array", "items": {"$ref": "#/definitions/model.Comment"}},
+        "next_cursor": {"type": "string"},
+        "has_more": {"type": "boolean"}
+      }
+    },
+    "CursorListResponse": {
+      "type": "object",
+      "properties": {
+        "items": {"type": "array", "items": {"type": "object", "additionalProperties": true}},
+        "next_cursor": {"type": "string"}
+      }
+    },
+    "CursorListWithTotalResponse": {
+      "type": "object",
+      "properties": {
+        "items": {"type": "array", "items": {"type": "object", "additionalProperties": true}},
+        "next_cursor": {"type": "string"},
+        "has_more": {"type": "boolean"},
+        "total_count": {"type": "integer"}
+      }
+    },
+    "WhoAmIResponse": {"type": "object", "properties": {"userID": {"type": "string"}, "roles": {"type": "array", "items": {"type": "string"}}}},
+    "UserListResponse": {
+      "type": "object",
+      "properties": {
+        "success": {"type": "boolean"},
+        "message": {"type": "string"},
+        "data": {"type": "array", "items": {"type": "object", "additionalProperties": true}}
+      }
+    }
+  }
 }
