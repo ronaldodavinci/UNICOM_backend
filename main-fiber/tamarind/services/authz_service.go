@@ -3,7 +3,7 @@ package services
 import (
 	"context"
 
-	"github.com/pllus/main-fiber/repositories"
+	"github.com/pllus/main-fiber/tamarind/repositories"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 

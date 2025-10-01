@@ -2,11 +2,13 @@ package routes
 
 import (
 	"github.com/gofiber/fiber/v2"
+	"github.com/pllus/main-fiber/tamarind/handlers"
+	"github.com/pllus/main-fiber/tamarind/repositories"
 )
 
 func RegisterUserRoutes(api fiber.Router) {
+	h := handlers.NewUserHandler(repositories.NewUserRepository())
 	users := api.Group("/users")
-
-	// TODO: wire user handler functions here
-	users.Get("/", func(c *fiber.Ctx) error { return c.SendString("list users") })
+	users.Post("/", h.CreateUser)
+	users.Get("/", h.ListUsers)
 }

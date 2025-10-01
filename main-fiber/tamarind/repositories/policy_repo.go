@@ -3,7 +3,7 @@ package repositories
 import (
 	"context"
 
-	"github.com/pllus/main-fiber/tamarind/config/config"
+	"github.com/pllus/main-fiber/tamarind/config"
 	"github.com/pllus/main-fiber/tamarind/models"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"

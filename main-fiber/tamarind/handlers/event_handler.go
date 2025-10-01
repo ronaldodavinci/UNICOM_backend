@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/pllus/main-fiber/tamarind/dto"

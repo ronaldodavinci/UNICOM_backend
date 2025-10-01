@@ -3,7 +3,7 @@ package repositories
 import (
 	"context"
 
-	"github.com/pllus/main-fiber/tamarind/config/config"
+	"github.com/pllus/main-fiber/tamarind/config"
 	"github.com/pllus/main-fiber/tamarind/models"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -30,7 +30,12 @@ func (r *EventRepository) InsertSchedules(ctx context.Context, s []models.EventS
 	if len(s) == 0 {
 		return nil
 	}
-	_, err := r.schedCol.InsertMany(ctx, s)
+	// Convert []models.EventSchedule to []interface{}
+	interfaceSlice := make([]interface{}, len(s))
+	for i, v := range s {
+		interfaceSlice[i] = v
+	}
+	_, err := r.schedCol.InsertMany(ctx, interfaceSlice)
 	return err
 }
 
