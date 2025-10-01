@@ -3,31 +3,52 @@ package main
 import (
 	"log"
 	"os"
+	"strings"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/swagger"
 
-	"tamarind/internal/routes"
-	"tamarind/internal/database"
+	_ "github.com/pllus/main-fiber/tamarind/docs"
+	"github.com/pllus/main-fiber/tamarind/config"
+	"github.com/pllus/main-fiber/tamarind/routes"
 )
 
-func main() {
-	// Connect to MongoDB
-	client := database.ConnectMongo()
-	defer database.DisconnectMongo(client)
-
-	// Fiber app
-	app := fiber.New() // ceate a new Fiber app
-	app.Get("/docs/*", swagger.HandlerDefault) // Enable swagger API
-
-	// Register routes
-	routes.Register(app, client)
-
-	// Server variables
-	port := os.Getenv("PORT")
-	if port == "" {
-		port = "3000" // default port
+func getEnv(key, def string) string {
+	if v := os.Getenv(key); v != "" {
+		return v
 	}
+	return def
+}
 
-	log.Fatal(app.Listen(":" + port)) // start
+func main() {
+	app := fiber.New()
+
+	// CORS
+	allowed := getEnv("FRONTEND_ORIGINS", "http://localhost:5173")
+	app.Use(cors.New(cors.Config{
+		AllowOrigins:     strings.Join(strings.Split(allowed, ","), ","),
+		AllowMethods:     "GET,POST,PUT,DELETE,PATCH,OPTIONS",
+		AllowHeaders:     "Origin, Content-Type, Accept, Authorization",
+		ExposeHeaders:    "Authorization",
+		AllowCredentials: true,
+	}))
+
+	// DB
+	config.ConnectMongo()
+
+	// Health
+	app.Get("/healthz", func(c *fiber.Ctx) error { return c.SendString("ok") })
+
+	// API group
+	apiGroup := app.Group("/api")
+
+	// Register all routes
+	routes.SetupRoutes(apiGroup)
+
+	// Swagger
+	app.Get("/docs/*", swagger.HandlerDefault)
+
+	port := getEnv("PORT", "3000")
+	log.Fatal(app.Listen(":" + port))
 }

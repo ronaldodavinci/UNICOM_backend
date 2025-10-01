@@ -1,34 +1,40 @@
 package config
 
 import (
+	"context"
 	"log"
 	"os"
+	"time"
 
 	"github.com/joho/godotenv"
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-type Config struct {
-	MongoURI string
-	Port     string
-}
+var DB *mongo.Database
 
-func getEnv(key, fallback string) string {
-	if value, exists := os.LookupEnv(key); exists {
-		return value
+func ConnectMongo() {
+	_ = godotenv.Load()
+
+	uri := os.Getenv("MONGO_URI")
+	dbName := os.Getenv("MONGO_DB")
+	if uri == "" || dbName == "" {
+		log.Fatal("Missing MONGO_URI or MONGO_DB")
 	}
-	return fallback
-}
 
-func LoadConfig() Config {
-	// Load .env file
-	err := godotenv.Load()
+	client, err := mongo.NewClient(options.Client().ApplyURI(uri))
 	if err != nil {
-		log.Println("Error loading .env file")
+		log.Fatal("Client error:", err)
 	}
 
-	cfg := Config{
-		MongoURI: getEnv("MONGO_URI", "mongodb+srv://root:971397@cluster01.wawl1f9.mongodb.net/"),
-		Port:	 getEnv("PORT", "3000"),
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	err = client.Connect(ctx)
+	if err != nil {
+		log.Fatal("Connect error:", err)
 	}
-	return cfg
+
+	DB = client.Database(dbName)
+	log.Println("✅ Connected to MongoDB")
 }
