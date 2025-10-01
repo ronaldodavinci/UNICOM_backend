@@ -203,22 +203,14 @@ func (r *mongoFeedRepo) List(ctx context.Context, opts model.QueryOptions) ([]mo
 
 	if len(viewerRoles) > 0 {
 		pipe = append(pipe,
-			bson.D{{Key: StageLookup, Value: bson.M{
-				KeyFrom: "roles",
-				KeyLet:  bson.M{"viewer": viewerRoles},
-				KeyPipeline: mongo.Pipeline{
-					{{Key: StageMatch, Value: bson.M{"$expr": bson.M{"$in": bson.A{"$role_id", "$$viewer"}}}}},
-					{{Key: StageProject, Value: bson.M{"_id": 1}}},
-				},
-				KeyAs: "viewerRoleDocs",
-			}}},
 			bson.D{{Key: StageAddFields, Value: bson.M{
 				"allowedByRole": bson.M{
 					"$gt": bson.A{
 						bson.M{"$size": bson.M{"$filter": bson.M{
 							"input": "$visRoles",
 							"as":    "vr",
-							"cond":  bson.M{"$in": bson.A{"$$vr.role_id", "$viewerRoleDocs._id"}},
+							// 💡 เทียบ role_id ของโพสต์กับรายชื่อ role ของผู้ชมโดยตรง
+							"cond":  bson.M{"$in": bson.A{"$$vr.role_id", viewerRoles}},
 						}}},
 						0,
 					},
@@ -230,8 +222,10 @@ func (r *mongoFeedRepo) List(ctx context.Context, opts model.QueryOptions) ([]mo
 			}}}},
 		)
 	} else {
+		// ไม่มี role → เห็นเฉพาะ public
 		pipe = append(pipe, bson.D{{Key: StageMatch, Value: bson.M{"visibilityAccess": "public"}}})
 	}
+
 
 	pipe = append(pipe,
 		bson.D{{Key: StageProject, Value: bson.M{

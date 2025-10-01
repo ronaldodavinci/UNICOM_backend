@@ -21,11 +21,12 @@ func Register(app *fiber.App, d Deps) {
 	// ============================================================
 	// Users
 	// ============================================================
-	users := api.Group("/users")
-
+	
 	// GET /api/users
 	// Example:
 	//   curl -X GET http://localhost:3000/api/users
+	users := api.Group("/users")
+
 	// Postman:
 	//   Method: GET
 	//   URL:    http://localhost:3000/api/users
@@ -44,22 +45,10 @@ func Register(app *fiber.App, d Deps) {
 	//   -H "Content-Type: application/json" \
 	//   -d '{"title":"hello","body":"world"}'
 	posts.Post("/blog", handlers.CreatePostHandler(d.Client))
-	// GET /api/posts/limit
-	// Example:
-	//   curl -X GET http://localhost:3000/api/posts/limit
-	posts.Get("/limit", handlers.GetPostsLimit(d.Client))
-
-	// GET /api/posts/limit-role
-	// Example:
-	//   curl -X GET http://localhost:3000/api/posts/limit-role
-	posts.Get("/limit-role", handlers.GetPostsLimitrole(d.Client))
-	posts.Get("/limit-role/next", handlers.GetPostsLimitroleNext(d.Client))
 	
-	// GET /api/posts/category/cursor
+	// GET /api/posts/visibility/cursor
 	// Example:
-	//   curl -X GET http://localhost:3000/api/posts/category
-	posts.Get("/category/cursor", handlers.GetPostsInAnyCategoryCursor(d.Client))
-	posts.Get("/category/wanted/cursor", handlers.GetPostsByCategoryCursor(d.Client))
+	//   curl -X GET http://localhost:3000/api/posts/visibility
 
 	posts.Get("/visibility/cursor", handlers.GetPostsVisibilityCursor(d.Client))
 	

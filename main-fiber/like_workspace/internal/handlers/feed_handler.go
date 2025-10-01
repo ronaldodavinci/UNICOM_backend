@@ -29,8 +29,13 @@ func (s *FeedService) FeedHandler(c *fiber.Ctx) error {
 	}
 
 	// TODO: ดึง roles ผู้ชมจาก context/middleware ของคุณ
-	viewerRoles := []string{} // เช่น []string{"student"}
-
+	var viewerRoles []string
+	if v := c.Locals("roles"); v != nil {
+		if rr, ok := v.([]string); ok {
+			viewerRoles = rr
+		}
+	}
+	
 	opts := model.QueryOptions{
 		TextSearch: c.Query("q"),
 		Tags:       parseCSV(c.Query("tag")),
