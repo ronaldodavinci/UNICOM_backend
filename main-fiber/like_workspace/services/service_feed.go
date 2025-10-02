@@ -24,15 +24,7 @@ func (s *Service) List(ctx context.Context, opt model.QueryOptions) ([]model.Pos
 		opt.Limit = 20
 	}
 
-	// ใช้ filter จาก feedquery (ใน repository)
-	filter := repository.Build(repository.Options{
-		Roles:      opt.Roles,
-		Categories: opt.Categories,
-		Tags:       opt.Tags,
-		TextSearch: opt.TextSearch,
-		SinceID:    opt.SinceID,
-		UntilID:    opt.UntilID,
-	})
+	filter := repository.Build(opt)
 
 	findOpt := options.Find().
 		SetSort(bson.M{"_id": -1}).
