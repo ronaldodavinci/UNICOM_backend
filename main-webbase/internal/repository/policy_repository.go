@@ -1,12 +1,12 @@
-package repositories
+package repository
 
 import (
 	"context"
 
-	"github.com/pllus/main-fiber/tamarind/config"
-	"github.com/pllus/main-fiber/tamarind/models"
 	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/v2/mongo"
+	"main-webbase/database"
+	"main-webbase/internal/models"
 )
 
 type PolicyRepository struct {
@@ -14,9 +14,7 @@ type PolicyRepository struct {
 }
 
 func NewPolicyRepository() *PolicyRepository {
-	return &PolicyRepository{
-		col: config.DB.Collection("policies"),
-	}
+	return &PolicyRepository{col: database.DB.Collection("policies")}
 }
 
 func (r *PolicyRepository) Insert(ctx context.Context, p models.Policy) error {

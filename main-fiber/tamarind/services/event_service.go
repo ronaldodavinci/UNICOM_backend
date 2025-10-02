@@ -22,11 +22,18 @@ func NewEventService(e *repositories.EventRepository, m *repositories.Membership
 func (s *EventService) CreateEventWithSchedules(ctx context.Context, req models.Event, schedules []models.EventSchedule) error {
 	req.ID = primitive.NewObjectID()
 	now := time.Now().UTC()
-	req.CreatedAt = &now
-	req.UpdatedAt = &now
+	req.CreatedAt = now
+	req.UpdatedAt = now
 
 	if err := s.eventRepo.InsertEvent(ctx, req); err != nil {
 		return err
+	}
+
+	for i := range schedules {
+		schedules[i].ID = primitive.NewObjectID()
+		schedules[i].EventID = req.ID
+		schedules[i].CreatedAt = now
+		schedules[i].UpdatedAt = now
 	}
 	return s.eventRepo.InsertSchedules(ctx, schedules)
 }

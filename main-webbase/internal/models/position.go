@@ -1,9 +1,8 @@
 package models
 
 import (
-    "time"
-
-    "go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/v2/bson"
+	"time"
 )
 
 type Constraints struct {
@@ -20,7 +19,7 @@ type Scope struct {
 }
 
 type Position struct {
-    ID          primitive.ObjectID `bson:"_id,omitempty" json:"_id"`
+    ID          bson.ObjectID `bson:"_id,omitempty" json:"_id"`
     Key         string             `bson:"key" json:"key"`
     Constraints Constraints        `bson:"constraints" json:"constraints"`
     Display     Display            `bson:"display" json:"display"`

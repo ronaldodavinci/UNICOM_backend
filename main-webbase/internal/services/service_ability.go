@@ -3,21 +3,21 @@ package services
 import (
 	"context"
 
-	"github.com/pllus/main-fiber/tamarind/repositories"
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/v2/bson"
+	"main-webbase/internal/repository"
 )
 
 type AuthzService struct {
-	membershipRepo *repositories.MembershipRepository
-	policyRepo     *repositories.PolicyRepository
+	membershipRepo *repository.MembershipRepository
+	policyRepo     *repository.PolicyRepository
 }
 
-func NewAuthzService(m *repositories.MembershipRepository, p *repositories.PolicyRepository) *AuthzService {
+func NewAuthzService(m *repository.MembershipRepository, p *repository.PolicyRepository) *AuthzService {
 	return &AuthzService{membershipRepo: m, policyRepo: p}
 }
 
 // AbilitiesFor returns allowed actions for a user at orgPath
-func (s *AuthzService) AbilitiesFor(ctx context.Context, userID primitive.ObjectID, orgPath string, actions []string) (map[string]bool, error) {
+func (s *AuthzService) AbilitiesFor(ctx context.Context, userID bson.ObjectID, orgPath string, actions []string) (map[string]bool, error) {
 	result := make(map[string]bool)
 	for _, act := range actions {
 		allowed, err := s.Can(ctx, userID, orgPath, act)
@@ -30,7 +30,7 @@ func (s *AuthzService) AbilitiesFor(ctx context.Context, userID primitive.Object
 }
 
 // Can checks if a user can perform a specific action in an org
-func (s *AuthzService) Can(ctx context.Context, userID primitive.ObjectID, orgPath string, action string) (bool, error) {
+func (s *AuthzService) Can(ctx context.Context, userID bson.ObjectID, orgPath string, action string) (bool, error) {
 	// 1. load memberships
 	mems, err := s.membershipRepo.FindByUser(ctx, userID)
 	if err != nil {

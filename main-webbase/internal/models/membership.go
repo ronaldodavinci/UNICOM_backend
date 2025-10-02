@@ -1,14 +1,13 @@
 package models
 
 import (
+	"go.mongodb.org/mongo-driver/v2/bson"
 	"time"
-
-	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 type Membership struct {
-	ID           primitive.ObjectID   `bson:"_id,omitempty" json:"id"`
-	UserID       primitive.ObjectID   `bson:"user_id" json:"user_id"`
+	ID           bson.ObjectID   `bson:"_id,omitempty" json:"id"`
+	UserID       bson.ObjectID   `bson:"user_id" json:"user_id"`
 	OrgPath      string               `bson:"org_path" json:"org_path"`
 	PositionKey  string               `bson:"position_key" json:"position_key"`
 	Active       bool                 `bson:"active" json:"active"`
