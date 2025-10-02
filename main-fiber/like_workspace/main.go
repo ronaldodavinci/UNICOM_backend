@@ -81,7 +81,6 @@ func main() {
 	// routes.RegisterRoutes(app, client)
 
 	// app.Get("/posts/limit-role", handlers.GetPostsLimitrole(client))
-	// routes.WhoAmIRoutes(app)
 	routes.Register(app, routes.Deps{
 		Client: client,
 	})
@@ -91,7 +90,21 @@ func main() {
 	routes.LikeRoutes(app, client)
 
 	routes.CommentRoutes(app, client)
+	app.Use(func(c *fiber.Ctx) error {
+		c.Locals("user_id", "68bf0f1a2a3c4d5e6f708091") // 👈 ใช้ ObjectID จริงของ user
+		c.Locals("is_Root", false)
+		return c.Next()
+	})
 
+	app.Use(func(c *fiber.Ctx) error {
+		if uid := c.Get("X-User-ID"); uid != "" {
+			c.Locals("user_id", uid) // ใส่เป็น hex ของ ObjectID
+		}
+		if adm := c.Get("X-Is-Admin"); adm == "true" {
+			c.Locals("is_admin", true)
+		}
+		return c.Next()
+	})
 	log.Printf("listening at http://localhost:%s", cfg.Port)
 	if err := app.Listen(":" + os.Getenv("PORT")); err != nil {
 		log.Fatal(err)
