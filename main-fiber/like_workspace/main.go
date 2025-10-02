@@ -2,7 +2,6 @@ package main
 
 import (
 	"log"
-	"os"
 
 	"github.com/gofiber/fiber/v2"
 
@@ -82,7 +81,7 @@ func main() {
 	routes.CommentRoutes(app, client)
 
 	log.Printf("listening at http://localhost:%s", cfg.Port)
-	if err := app.Listen(":" + os.Getenv("PORT")); err != nil {
+	if err := app.Listen(":" + cfg.Port); err != nil {
 		log.Fatal(err)
 	}
 }

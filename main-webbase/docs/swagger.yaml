@@ -1,16 +1,5 @@
 basePath: /
 definitions:
-  dto.AbilitiesResponse:
-    properties:
-      abilities:
-        additionalProperties:
-          type: boolean
-        type: object
-      org_path:
-        type: string
-      version:
-        type: string
-    type: object
   dto.EventReport:
     properties:
       event_id:
@@ -65,25 +54,6 @@ definitions:
       start_time:
         type: string
     type: object
-  dto.OrgUnitNode:
-    properties:
-      children:
-        items:
-          $ref: '#/definitions/dto.OrgUnitNode'
-        type: array
-      label:
-        type: string
-      labels:
-        additionalProperties:
-          type: string
-        type: object
-      org_path:
-        type: string
-      short_name:
-        type: string
-      type:
-        type: string
-    type: object
   models.AudienceItem:
     properties:
       org_path:
@@ -97,36 +67,6 @@ definitions:
       email:
         type: string
       password:
-        type: string
-    type: object
-  models.Membership:
-    properties:
-      _id:
-        type: string
-      active:
-        type: boolean
-      joined_at:
-        type: string
-      org_path:
-        type: string
-      position_key:
-        type: string
-      user_id:
-        type: string
-    type: object
-  models.Position:
-    properties:
-      created_at:
-        type: string
-      id:
-        type: string
-      name:
-        type: string
-      scope:
-        type: string
-      status:
-        type: string
-      updated_at:
         type: string
     type: object
   models.PostedAs:
@@ -163,14 +103,34 @@ definitions:
     properties:
       id:
         type: string
-      label:
+      perm_blog:
+        type: boolean
+      perm_childrole:
+        type: boolean
+      perm_comment:
+        type: boolean
+      perm_event:
+        type: boolean
+      perm_siblingrole:
+        type: boolean
+      role_name:
         type: string
-      name:
+      role_path:
         type: string
-      permissions:
-        items:
-          type: string
-        type: array
+    type: object
+  models.User_Role:
+    properties:
+      id:
+        type: string
+      role_id:
+        type: string
+      user_id:
+        type: string
+    type: object
+  models.UserRoleRequest:
+    properties:
+      role_id:
+        type: string
     type: object
   models.Visibility:
     properties:
@@ -204,45 +164,6 @@ info:
   title: Fiber MongoDB API
   version: "1.0"
 paths:
-  /abilities:
-    get:
-      consumes:
-      - application/json
-      description: Returns allowed actions for the user in the given org_path
-      parameters:
-      - description: Organization Path
-        in: query
-        name: org_path
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/dto.AbilitiesResponse'
-        "400":
-          description: Bad Request
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-        "401":
-          description: Unauthorized
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-        "500":
-          description: Internal Server Error
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-      summary: Get user abilities
-      tags:
-      - abilities
   /event:
     get:
       description: Return all events that the current user can see
@@ -373,205 +294,6 @@ paths:
       summary: Login user
       tags:
       - auth
-  /memberships:
-    get:
-      consumes:
-      - application/json
-      description: Returns a list of memberships
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            additionalProperties:
-              items:
-                type: string
-              type: array
-            type: object
-        "500":
-          description: Internal Server Error
-          schema:
-            additionalProperties: true
-            type: object
-      summary: List memberships
-      tags:
-      - memberships
-    post:
-      consumes:
-      - application/json
-      description: Adds a new membership for a user in an organization
-      parameters:
-      - description: Membership data
-        in: body
-        name: membership
-        required: true
-        schema:
-          $ref: '#/definitions/models.Membership'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-        "400":
-          description: Bad Request
-          schema:
-            additionalProperties: true
-            type: object
-        "500":
-          description: Internal Server Error
-          schema:
-            additionalProperties: true
-            type: object
-      summary: Create a new membership
-      tags:
-      - memberships
-  /org/units/tree:
-    get:
-      consumes:
-      - application/json
-      description: Returns a tree of all organization units, sorted by label. Optional
-        language code for labels.
-      parameters:
-      - description: Language code for labels (e.g. 'en', 'ru')
-        in: query
-        name: lang
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            items:
-              $ref: '#/definitions/dto.OrgUnitNode'
-            type: array
-        "500":
-          description: Internal Server Error
-          schema:
-            additionalProperties: true
-            type: object
-      summary: Get organization unit tree
-      tags:
-      - org
-  /policies:
-    get:
-      consumes:
-      - application/json
-      description: Returns a list of policies
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            additionalProperties:
-              items:
-                type: string
-              type: array
-            type: object
-        "500":
-          description: Internal Server Error
-          schema:
-            additionalProperties: true
-            type: object
-      summary: List policies
-      tags:
-      - policies
-    post:
-      consumes:
-      - application/json
-      description: Adds a new policy to the system
-      parameters:
-      - description: Policy data
-        in: body
-        name: policy
-        required: true
-        schema:
-          $ref: '#/definitions/models.Role'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-        "400":
-          description: Bad Request
-          schema:
-            additionalProperties: true
-            type: object
-        "500":
-          description: Internal Server Error
-          schema:
-            additionalProperties: true
-            type: object
-      summary: Create a new policy
-      tags:
-      - policies
-  /positions:
-    get:
-      consumes:
-      - application/json
-      description: Returns a list of positions
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            additionalProperties:
-              items:
-                type: string
-              type: array
-            type: object
-        "500":
-          description: Internal Server Error
-          schema:
-            additionalProperties: true
-            type: object
-      summary: List positions
-      tags:
-      - positions
-    post:
-      consumes:
-      - application/json
-      description: Adds a new position to the system
-      parameters:
-      - description: Position data
-        in: body
-        name: position
-        required: true
-        schema:
-          $ref: '#/definitions/models.Position'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-        "400":
-          description: Bad Request
-          schema:
-            additionalProperties: true
-            type: object
-        "500":
-          description: Internal Server Error
-          schema:
-            additionalProperties: true
-            type: object
-      summary: Create a new position
-      tags:
-      - positions
   /register:
     post:
       consumes:
@@ -605,6 +327,162 @@ paths:
       summary: Register a new user
       tags:
       - auth
+  /roles:
+    get:
+      description: Retrieve all roles in the system
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Get all roles
+      tags:
+      - roles
+    post:
+      consumes:
+      - application/json
+      description: Create a new role with permissions
+      parameters:
+      - description: Role object
+        in: body
+        name: role
+        required: true
+        schema:
+          $ref: '#/definitions/models.Role'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Create a new role
+      tags:
+      - roles
+  /roles/{field}/{value}:
+    get:
+      description: Get a role by ID, name, or path
+      parameters:
+      - description: Field to search (e.g., _id, name, path)
+        in: path
+        name: field
+        required: true
+        type: string
+      - description: Value to search for
+        in: path
+        name: value
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Get role by field
+      tags:
+      - roles
+  /roles/{id}:
+    delete:
+      description: Delete a role from the system by its ID
+      parameters:
+      - description: Role ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Delete role by ID
+      tags:
+      - roles
+  /roles/{role_id}/users:
+    get:
+      description: Retrieve all users (with details) containing this role
+      parameters:
+      - description: Role ID
+        in: path
+        name: role_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Get all users from one role
+      tags:
+      - user_roles
   /user/{field}/{value}:
     get:
       description: Get a user by ID, firstname, lastname, etc.
@@ -689,4 +567,110 @@ paths:
       summary: Delete user by ID
       tags:
       - users
+  /users/{user_id}/roles:
+    get:
+      description: Retrieve all roles (with details) assigned to a user
+      parameters:
+      - description: User ID
+        in: path
+        name: user_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Get all roles for a user
+      tags:
+      - user_roles
+    post:
+      consumes:
+      - application/json
+      description: Assign an existing role to a user
+      parameters:
+      - description: User ID
+        in: path
+        name: user_id
+        required: true
+        type: string
+      - description: Role assignment payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/models.UserRoleRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/models.User_Role'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Assign role to user
+      tags:
+      - user_roles
+  /users/roles/{id}:
+    delete:
+      description: Remove a role assignment from a user
+      parameters:
+      - description: UserRole ID (document _id)
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Unassign role from user
+      tags:
+      - user_roles
 swagger: "2.0"

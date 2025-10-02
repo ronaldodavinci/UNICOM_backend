@@ -60,7 +60,6 @@ func Register(app *fiber.App, d Deps) {
 	//	 curl -X GET "http://localhost:3000/api/posts/feed?category=..."
 	//	 curl -X GET "http://localhost:3000/api/posts/feed?author=..."
 	//	 curl -X GET "http://localhost:3000/api/posts/feed?q=..."
-	//	 curl -X GET "http://localhost:3000/api/posts/feed?viewer_id=..."
 	repo := repository.NewMongoFeedRepo(d.Client)
 	feedRepo := handlers.NewFeedService(repo)
 	posts.Get("/feed", feedRepo.FeedHandler)

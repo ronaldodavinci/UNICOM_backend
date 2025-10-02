@@ -28,7 +28,59 @@ const (
 	KeyLet          = "let"
 )
 
-// ===== Repository =====
+// ==== filter options ====
+type Options struct {
+    Roles      []string
+    Categories []string
+    Tags       []string
+    AuthorIDs  []bson.ObjectID
+    SinceID    bson.ObjectID
+    UntilID    bson.ObjectID
+    TextSearch string
+    OnlyPublic *bool
+}
+
+func BaseVisibilityFilter(roles []string, onlyPublic *bool) bson.M {
+    if onlyPublic != nil && *onlyPublic {
+        return bson.M{"is_public": true}
+    }
+    if len(roles) == 0 {
+        return bson.M{"is_public": true}
+    }
+    return bson.M{
+        "$or": []bson.M{
+            {"is_public": true},
+            {"visibility.roles": bson.M{"$in": roles}},
+        },
+    }
+}
+
+func Build(opts Options) bson.M {
+    and := []bson.M{BaseVisibilityFilter(opts.Roles, opts.OnlyPublic)}
+    if len(opts.Categories) > 0 {
+        and = append(and, bson.M{"categories": bson.M{"$in": opts.Categories}})
+    }
+    if len(opts.Tags) > 0 {
+        and = append(and, bson.M{"tags": bson.M{"$in": opts.Tags}})
+    }
+    if len(opts.AuthorIDs) > 0 {
+        and = append(and, bson.M{"author_id": bson.M{"$in": opts.AuthorIDs}})
+    }
+    if opts.TextSearch != "" {
+        and = append(and, bson.M{"$text": bson.M{"$search": opts.TextSearch}})
+    }
+    if opts.UntilID != (bson.ObjectID{}) {
+        and = append(and, bson.M{"_id": bson.M{"$lt": opts.UntilID}})
+    }
+    if opts.SinceID != (bson.ObjectID{}) {
+        and = append(and, bson.M{"_id": bson.M{"$gt": opts.SinceID}})
+    }
+    if len(and) == 1 {
+        return and[0]
+    }
+    return bson.M{"$and": and}
+}
+
 
 type FeedRepository interface {
 	List(ctx context.Context, opts model.QueryOptions) ([]model.FrontPost, *bson.ObjectID, error)
@@ -44,66 +96,7 @@ func NewMongoFeedRepo(client *mongo.Client) FeedRepository {
 	}
 }
 
-
-func BaseVisibilityFilter(roles []string, onlyPublic *bool, viewerID bson.ObjectID) bson.M {
-	if onlyPublic != nil && *onlyPublic {
-		if viewerID != (bson.ObjectID{}) {
-			return bson.M{"$or": []bson.M{
-				{"is_public": true},
-				{"author_id": viewerID},
-			}}
-		}
-		return bson.M{"is_public": true}
-	}
-
-	if len(roles) == 0 {
-		if viewerID != (bson.ObjectID{}) {
-			return bson.M{"$or": []bson.M{
-				{"is_public": true},
-				{"author_id": viewerID},
-			}}
-		}
-		return bson.M{"is_public": true}
-	}
-
-	or := []bson.M{
-		{"is_public": true},
-		{"visibility.roles": bson.M{"$in": roles}},
-	}
-	if viewerID != (bson.ObjectID{}) {
-		or = append(or, bson.M{"author_id": viewerID})
-	}
-	return bson.M{"$or": or}
-}
-
-func Build(opts model.QueryOptions) bson.M {
-	and := []bson.M{BaseVisibilityFilter(opts.Roles, opts.OnlyPublic, opts.ViewerID)}
-
-	if len(opts.Categories) > 0 {
-		and = append(and, bson.M{"categories": bson.M{"$in": opts.Categories}})
-	}
-	if len(opts.Tags) > 0 {
-		and = append(and, bson.M{"tags": bson.M{"$in": opts.Tags}})
-	}
-	if len(opts.AuthorIDs) > 0 {
-		and = append(and, bson.M{"author_id": bson.M{"$in": opts.AuthorIDs}})
-	}
-	if opts.TextSearch != "" {
-		and = append(and, bson.M{"$text": bson.M{"$search": opts.TextSearch}})
-	}
-	if opts.UntilID != (bson.ObjectID{}) {
-		and = append(and, bson.M{"_id": bson.M{"$lt": opts.UntilID}})
-	}
-	if opts.SinceID != (bson.ObjectID{}) {
-		and = append(and, bson.M{"_id": bson.M{"$gt": opts.SinceID}})
-	}
-
-	if len(and) == 1 {
-		return and[0]
-	}
-	return bson.M{"$and": and}
-}
-
+// ใช้ filter.Build ในแพ็กเกจเดียวกันเป็น $match แรก
 // ใช้ opts โดยตรงให้แน่ใจว่า cursor ถูก apply แน่นอน
 func adoptBaseMatchFromFilter(opts model.QueryOptions) bson.D {
 	m := bson.D{}
@@ -123,6 +116,7 @@ func adoptBaseMatchFromFilter(opts model.QueryOptions) bson.D {
 	return m
 }
 
+
 func (r *mongoFeedRepo) List(ctx context.Context, opts model.QueryOptions) ([]model.FrontPost, *bson.ObjectID, error) {
 	baseMatch := adoptBaseMatchFromFilter(opts)
 
@@ -132,17 +126,12 @@ func (r *mongoFeedRepo) List(ctx context.Context, opts model.QueryOptions) ([]mo
 	}
 
 	lim := opts.Limit
-	if lim <= 0 {
-		lim = 20
-	}
-	if lim > 100 {
-		lim = 100
-	}
+	if lim <= 0 { lim = 20 }
+	if lim > 100 { lim = 100 }
 
 	pipe := mongo.Pipeline{
 		{{Key: StageMatch, Value: baseMatch}},
 
-		// == Join ผู้ใช้ ==
 		{{Key: StageLookup, Value: bson.M{
 			KeyFrom:         "users",
 			KeyLocalField:   "user_id",
@@ -151,7 +140,6 @@ func (r *mongoFeedRepo) List(ctx context.Context, opts model.QueryOptions) ([]mo
 		}}},
 		{{Key: StageUnwind, Value: bson.M{"path": "$u", "preserveNullAndEmptyArrays": true}}},
 
-		// == Join role ของผู้เขียน ==
 		{{Key: StageLookup, Value: bson.M{
 			KeyFrom:         "roles",
 			KeyLocalField:   "role_id",
@@ -160,18 +148,14 @@ func (r *mongoFeedRepo) List(ctx context.Context, opts model.QueryOptions) ([]mo
 		}}},
 		{{Key: StageUnwind, Value: bson.M{"path": "$authorRole", "preserveNullAndEmptyArrays": true}}},
 
-		// == Join visibility roles ของโพสต์ ==
 		{{Key: StageLookup, Value: bson.M{
 			KeyFrom:         "post_role_visibility",
-			KeyLocalField:   "_id", // NOTE: โครงสร้างเดิมในโปรเจกต์ (ถ้า schema จริงคือ post_id ให้ปรับตรงนี้เป็น post_id)
+			KeyLocalField:   "_id",
 			KeyForeignField: "post_id",
 			KeyAs:           "visRoles",
 		}}},
-	}
 
-	// == หมวดหมู่ (เลือก category แรก) ==
-	pipe = append(pipe,
-		bson.D{{Key: StageLookup, Value: bson.M{
+		{{Key: StageLookup, Value: bson.M{
 			KeyFrom: "post_categories",
 			KeyLet:  bson.M{"pid": "$_id"},
 			KeyPipeline: mongo.Pipeline{
@@ -181,17 +165,17 @@ func (r *mongoFeedRepo) List(ctx context.Context, opts model.QueryOptions) ([]mo
 			},
 			KeyAs: "pc",
 		}}},
-		bson.D{{Key: StageUnwind, Value: bson.M{"path": "$pc", "preserveNullAndEmptyArrays": true}}},
-		bson.D{{Key: StageLookup, Value: bson.M{
+		{{Key: StageUnwind, Value: bson.M{"path": "$pc", "preserveNullAndEmptyArrays": true}}},
+
+		{{Key: StageLookup, Value: bson.M{
 			KeyFrom:         "categories",
 			KeyLocalField:   "pc.category_id",
 			KeyForeignField: "_id",
 			KeyAs:           "cat",
 		}}},
-		bson.D{{Key: StageUnwind, Value: bson.M{"path": "$cat", "preserveNullAndEmptyArrays": true}}},
-	)
+		{{Key: StageUnwind, Value: bson.M{"path": "$cat", "preserveNullAndEmptyArrays": true}}},
+	}
 
-	// == ค้นหาแบบ text/filters ==
 	if opts.TextSearch != "" {
 		pipe = append(pipe, bson.D{{Key: StageMatch, Value: bson.M{"$or": []bson.M{
 			{"post_text": bson.M{"$regex": opts.TextSearch, "$options": "i"}},
@@ -207,27 +191,16 @@ func (r *mongoFeedRepo) List(ctx context.Context, opts model.QueryOptions) ([]mo
 		pipe = append(pipe, bson.D{{Key: StageMatch, Value: bson.M{"cat.category_name": bson.M{"$in": opts.Tags}}}})
 	}
 
-	// == คำนวณสถานะการมองเห็นพื้นฐาน ==
 	pipe = append(pipe, bson.D{{Key: StageAddFields, Value: bson.M{
 		"visibilityAccess": bson.M{
 			"$cond": bson.A{
 				bson.M{"$gt": bson.A{bson.M{"$size": "$visRoles"}, 0}},
-				"private",          // มีรายการ role visibility → ไม่ใช่ public
-				"public",    // ไม่มีรายการ role visibility → public
+				"role",
+				"public",
 			},
 		},
 	}}})
 
-	// == เพิ่ม isOwner เพื่อยกเว้นให้เจ้าของเห็นเสมอ ==
-	pipe = append(pipe, bson.D{{Key: StageAddFields, Value: bson.M{
-		"isOwner": bson.M{"$cond": bson.A{
-			bson.M{"$ne": bson.A{opts.ViewerID, bson.ObjectID{}}}, // viewer มีตัวตนไหม
-			bson.M{"$eq": bson.A{"$user_id", opts.ViewerID}},      // เป็นเจ้าของโพสต์ไหม
-			false,
-		}},
-	}}})
-
-	// == คำนวณ allowedByRole (ถ้าผู้ชมมี roles) แล้ว OR การมองเห็นกับ isOwner ==
 	if len(viewerRoles) > 0 {
 		pipe = append(pipe,
 			bson.D{{Key: StageAddFields, Value: bson.M{
@@ -236,6 +209,7 @@ func (r *mongoFeedRepo) List(ctx context.Context, opts model.QueryOptions) ([]mo
 						bson.M{"$size": bson.M{"$filter": bson.M{
 							"input": "$visRoles",
 							"as":    "vr",
+							// 💡 เทียบ role_id ของโพสต์กับรายชื่อ role ของผู้ชมโดยตรง
 							"cond":  bson.M{"$in": bson.A{"$$vr.role_id", viewerRoles}},
 						}}},
 						0,
@@ -245,18 +219,14 @@ func (r *mongoFeedRepo) List(ctx context.Context, opts model.QueryOptions) ([]mo
 			bson.D{{Key: StageMatch, Value: bson.M{"$or": []bson.M{
 				{"visibilityAccess": "public"},
 				{"allowedByRole": true},
-				{"isOwner": true}, // 👈 เจ้าของเห็นเสมอ
 			}}}},
 		)
 	} else {
-		// ไม่มี role → เห็นเฉพาะ public + เจ้าของโพสต์
-		pipe = append(pipe, bson.D{{Key: StageMatch, Value: bson.M{"$or": []bson.M{
-			{"visibilityAccess": "public"},
-			{"isOwner": true}, // 👈 เจ้าของเห็นเสมอ
-		}}}})
+		// ไม่มี role → เห็นเฉพาะ public
+		pipe = append(pipe, bson.D{{Key: StageMatch, Value: bson.M{"visibilityAccess": "public"}}})
 	}
 
-	// == เลือกฟิลด์ส่งออก ==
+
 	pipe = append(pipe,
 		bson.D{{Key: StageProject, Value: bson.M{
 			"_id":       1,
@@ -277,7 +247,6 @@ func (r *mongoFeedRepo) List(ctx context.Context, opts model.QueryOptions) ([]mo
 				"org_of_content": "$authorRole.role_path",
 			},
 		}}},
-
 		bson.D{{Key: StageSort, Value: bson.M{"_id": -1}}},
 		bson.D{{Key: StageLimit, Value: lim + 1}},
 	)
