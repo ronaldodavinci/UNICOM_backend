@@ -10,8 +10,8 @@ import (
 )
 
 type EventRepository struct {
-	eventCol   *mongo.Collection
-	schedCol   *mongo.Collection
+	eventCol *mongo.Collection
+	schedCol *mongo.Collection
 }
 
 func NewEventRepository() *EventRepository {
@@ -30,12 +30,11 @@ func (r *EventRepository) InsertSchedules(ctx context.Context, s []models.EventS
 	if len(s) == 0 {
 		return nil
 	}
-	// Convert []models.EventSchedule to []interface{}
-	interfaceSlice := make([]interface{}, len(s))
-	for i, v := range s {
-		interfaceSlice[i] = v
+	var docs []interface{}
+	for _, sch := range s {
+		docs = append(docs, sch)
 	}
-	_, err := r.schedCol.InsertMany(ctx, interfaceSlice)
+	_, err := r.schedCol.InsertMany(ctx, docs)
 	return err
 }
 
@@ -44,21 +43,11 @@ func (r *EventRepository) FindEvents(ctx context.Context, filter bson.M) ([]mode
 	if err != nil {
 		return nil, err
 	}
+	defer cur.Close(ctx)
+
 	var events []models.Event
 	if err := cur.All(ctx, &events); err != nil {
 		return nil, err
 	}
 	return events, nil
-}
-
-func (r *EventRepository) FindSchedulesByEvent(ctx context.Context, ids []any) ([]models.EventSchedule, error) {
-	cur, err := r.schedCol.Find(ctx, bson.M{"event_id": bson.M{"$in": ids}})
-	if err != nil {
-		return nil, err
-	}
-	var schedules []models.EventSchedule
-	if err := cur.All(ctx, &schedules); err != nil {
-		return nil, err
-	}
-	return schedules, nil
 }

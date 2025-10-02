@@ -7,6 +7,7 @@ import (
 
 	"github.com/pllus/main-fiber/tamarind/repositories"
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 type RolesSummaryService struct {
@@ -25,7 +26,7 @@ func NewRolesSummaryService(m *repositories.MembershipRepository, p *repositorie
 	}
 }
 
-func (s *RolesSummaryService) UpdateRolesSummary(ctx context.Context, userID any) error {
+func (s *RolesSummaryService) UpdateRolesSummary(ctx context.Context, userID primitive.ObjectID) error {
 	mems, err := s.membershipRepo.FindByUser(ctx, userID)
 	if err != nil {
 		return err

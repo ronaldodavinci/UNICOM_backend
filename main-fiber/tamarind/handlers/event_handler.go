@@ -1,82 +1,38 @@
 package handlers
 
 import (
-
 	"github.com/gofiber/fiber/v2"
-	"github.com/pllus/main-fiber/tamarind/dto"
 	"github.com/pllus/main-fiber/tamarind/models"
-	"github.com/pllus/main-fiber/tamarind/services"
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"github.com/pllus/main-fiber/tamarind/repositories"
+	"go.mongodb.org/mongo-driver/bson"
 )
 
 type EventHandler struct {
-	eventService *services.EventService
+	repo *repositories.EventRepository
 }
 
-func NewEventHandler(e *services.EventService) *EventHandler {
-	return &EventHandler{eventService: e}
+func NewEventHandler(r *repositories.EventRepository) *EventHandler {
+	return &EventHandler{repo: r}
 }
 
-// POST /api/event
+// POST /api/events
 func (h *EventHandler) CreateEvent(c *fiber.Ctx) error {
-	var req dto.EventRequest
+	var req models.Event
 	if err := c.BodyParser(&req); err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, "invalid body")
 	}
 
-	nodeID, err := primitive.ObjectIDFromHex(req.NodeID)
-	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, "invalid node_id")
-	}
-
-	event := models.Event{
-		NodeID:           nodeID,
-		Topic:            req.Topic,
-		Description:      req.Description,
-		MaxParticipation: req.MaxParticipation,
-		OrgOfContent:     req.OrgOfContent,
-		Status:           req.Status,
-	}
-	var schedules []models.EventSchedule
-	for _, s := range req.Schedules {
-		schedules = append(schedules, models.EventSchedule{
-			ID:          primitive.NewObjectID(),
-			EventID:     event.ID,
-			Date:        s.Date,
-			TimeStart:   s.TimeStart,
-			TimeEnd:     s.TimeEnd,
-			Location:    &s.Location,
-			Description: &s.Description,
-		})
-	}
-
-	if err := h.eventService.CreateEventWithSchedules(c.Context(), event, schedules); err != nil {
+	// insert event
+	if err := h.repo.InsertEvent(c.Context(), req); err != nil {
 		return fiber.NewError(fiber.StatusInternalServerError, err.Error())
 	}
 
-	var reports []dto.EventScheduleReport
-	for _, sc := range schedules {
-		reports = append(reports, dto.EventScheduleReport{
-			Date: sc.Date, StartTime: sc.TimeStart, EndTime: sc.TimeEnd,
-		})
-	}
-
-	return c.Status(fiber.StatusCreated).JSON(dto.EventReport{
-		EventID:    event.ID.Hex(),
-		EventTopic: event.Topic,
-		Schedules:  reports,
-	})
+	return c.JSON(fiber.Map{"message": "event created", "data": req})
 }
 
-// GET /api/event
-func (h *EventHandler) GetAllVisible(c *fiber.Ctx) error {
-	userIDHex := c.Locals("user_id").(string)
-	viewerID, _ := primitive.ObjectIDFromHex(userIDHex)
-
-	// TODO: should call AudienceService/AllUserOrg here
-	orgs := []string{} // placeholder
-
-	events, err := h.eventService.GetVisibleEvents(c.Context(), viewerID, orgs)
+// GET /api/events
+func (h *EventHandler) ListEvents(c *fiber.Ctx) error {
+	events, err := h.repo.FindEvents(c.Context(), bson.M{})
 	if err != nil {
 		return fiber.NewError(fiber.StatusInternalServerError, err.Error())
 	}

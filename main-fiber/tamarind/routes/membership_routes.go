@@ -4,7 +4,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/pllus/main-fiber/tamarind/handlers"
 	"github.com/pllus/main-fiber/tamarind/repositories"
-	"github.com/pllus/main-fiber/tamarind/services"
+	
 )
 
 

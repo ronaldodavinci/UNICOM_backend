@@ -1,42 +1,43 @@
 package handlers
 
 import (
-	"strings"
-
 	"github.com/gofiber/fiber/v2"
-	"github.com/pllus/main-fiber/tamarind/dto"
 	"github.com/pllus/main-fiber/tamarind/services"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 type AbilitiesHandler struct {
-	authz *services.AuthzService
+	authzService *services.AuthzService
 }
 
-func NewAbilitiesHandler(a *services.AuthzService) *AbilitiesHandler {
-	return &AbilitiesHandler{authz: a}
+func NewAbilitiesHandler(s *services.AuthzService) *AbilitiesHandler {
+	return &AbilitiesHandler{authzService: s}
 }
 
-// GET /api/abilities
+// GET /api/abilities/:userId
 func (h *AbilitiesHandler) GetAbilities(c *fiber.Ctx) error {
-	orgPath := strings.TrimSpace(c.Query("org_path"))
-	if orgPath == "" {
-		return fiber.NewError(fiber.StatusBadRequest, "org_path required")
-	}
-
-	userIDHex := c.Locals("user_id").(string)
-	userID, _ := primitive.ObjectIDFromHex(userIDHex)
-
-	actions := []string{
-		"membership:assign", "membership:revoke",
-		"position:create", "policy:write",
-		"event:create", "event:manage",
-		"post:create", "post:moderate",
-	}
-
-	allowed, err := h.authz.AbilitiesFor(c.Context(), userID, orgPath, actions)
+	userIDHex := c.Params("userId")
+	userID, err := primitive.ObjectIDFromHex(userIDHex)
 	if err != nil {
-		return fiber.NewError(fiber.StatusInternalServerError, "abilities failed")
+		return fiber.NewError(fiber.StatusBadRequest, "invalid user id")
 	}
-	return c.JSON(dto.AbilitiesResponse{OrgPath: orgPath, Abilities: allowed, Version: "pol-v2"})
+
+	// กำหนด action ที่ต้องการตรวจสอบ เช่น membership, position, event, post ฯลฯ
+	actions := []string{
+		"membership:assign",
+		"membership:revoke",
+		"position:create",
+		"policy:write",
+		"event:create",
+		"event:manage",
+		"post:create",
+		"post:moderate",
+	}
+
+	result, err := h.authzService.AbilitiesFor(c.Context(), userID, "", actions)
+	if err != nil {
+		return fiber.NewError(fiber.StatusInternalServerError, err.Error())
+	}
+
+	return c.JSON(result)
 }
