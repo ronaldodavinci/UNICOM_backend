@@ -7,8 +7,10 @@ import (
 )
 
 func SetupRoutesPolicy(api fiber.Router) {
-	h := controllers.NewPolicyHandler(repository.NewPolicyRepository())
-	policies := api.Group("/policies")
-	policies.Post("/", h.CreatePolicy)
-	policies.Get("/", h.ListPolicies)
+	repo := repository.NewPolicyRepository()
+    h := controllers.NewPolicyHandler(repo)
+
+    policies := api.Group("/policies")
+    policies.Post("/", h.CreatePolicy) // POST /api/policies
+    policies.Get("/", h.ListPolicies)  // GET /api/policies
 }

@@ -25,7 +25,14 @@ func NewMembershipHandler(r *repository.MembershipRepository) *MembershipHandler
 // @Failure      500 {object} map[string]interface{}
 // @Router       /memberships [post]
 func (h *MembershipHandler) CreateMembership(c *fiber.Ctx) error {
-	return c.JSON(fiber.Map{"message": "create membership success"})
+	var req models.Membership
+	if err := c.BodyParser(&req); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "invalid body")
+	}
+	if err := h.membershipRepo.Insert(c.Context(), req); err != nil {
+		return fiber.NewError(fiber.StatusInternalServerError, err.Error())
+	}
+	return c.JSON(fiber.Map{"message": "membership created", "data": req})
 }
 
 // ListMemberships godoc
@@ -38,5 +45,9 @@ func (h *MembershipHandler) CreateMembership(c *fiber.Ctx) error {
 // @Failure      500 {object} map[string]interface{}
 // @Router       /memberships [get]
 func (h *MembershipHandler) ListMemberships(c *fiber.Ctx) error {
-	return c.JSON(fiber.Map{"data": []string{"membership1", "membership2"}})
+	mems, err := h.membershipRepo.FindAll(c.Context())
+	if err != nil {
+		return fiber.NewError(fiber.StatusInternalServerError, err.Error())
+	}
+	return c.JSON(mems)
 }

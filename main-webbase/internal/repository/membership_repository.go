@@ -3,7 +3,7 @@ package repository
 import (
 	"context"
 
-	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
 	"main-webbase/database"
 	"main-webbase/internal/models"
@@ -17,13 +17,26 @@ func NewMembershipRepository() *MembershipRepository {
 	return &MembershipRepository{col: database.DB.Collection("memberships")}
 }
 
-func (r *MembershipRepository) FindByUser(ctx context.Context, userID any) ([]models.Membership, error) {
-	filter := bson.M{"user_id": userID, "active": true}
-
-	cur, err := r.col.Find(ctx, filter)
+func (r *MembershipRepository) FindByUser(ctx context.Context, userID bson.ObjectID) ([]models.Membership, error) {
+	cur, err := r.col.Find(ctx, bson.M{"user_id": userID})
 	if err != nil {
 		return nil, err
 	}
+	defer cur.Close(ctx)
+
+	var memberships []models.Membership
+	if err := cur.All(ctx, &memberships); err != nil {
+		return nil, err
+	}
+	return memberships, nil
+}
+
+func (r *MembershipRepository) FindAll(ctx context.Context) ([]models.Membership, error) {
+	cur, err := r.col.Find(ctx, bson.M{})
+	if err != nil {
+		return nil, err
+	}
+	defer cur.Close(ctx)
 
 	var memberships []models.Membership
 	if err := cur.All(ctx, &memberships); err != nil {
@@ -33,6 +46,9 @@ func (r *MembershipRepository) FindByUser(ctx context.Context, userID any) ([]mo
 }
 
 func (r *MembershipRepository) Insert(ctx context.Context, m models.Membership) error {
+	m.ID = bson.NewObjectID()
+	m.CreatedAt = time.Now()
+	m.UpdatedAt = time.Now()
 	_, err := r.col.InsertOne(ctx, m)
 	return err
 }

@@ -6,7 +6,6 @@ import (
 
 // OrgUnit document stored in "org_units"
 type OrgUnit struct {
-	ID        bson.ObjectID     `bson:"_id,omitempty" json:"_id,omitempty"`
 	OrgPath   string            `bson:"org_path"`
 	Parent    string            `bson:"parent_path,omitempty"`
 	Type      string            `bson:"type,omitempty"`

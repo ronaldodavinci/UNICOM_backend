@@ -20,18 +20,23 @@ func NewPositionRepository() *PositionRepository {
 }
 
 func (r *PositionRepository) Insert(ctx context.Context, p models.Position) error {
-	_, err := r.col.InsertOne(ctx, p)
-	return err
+    p.ID = primitive.NewObjectID()
+    p.CreatedAt = time.Now()
+    p.UpdatedAt = time.Now()
+    _, err := r.col.InsertOne(ctx, p)
+    return err
 }
 
 func (r *PositionRepository) FindAll(ctx context.Context) ([]models.Position, error) {
-	cur, err := r.col.Find(ctx, bson.M{})
-	if err != nil {
-		return nil, err
-	}
-	var positions []models.Position
-	if err := cur.All(ctx, &positions); err != nil {
-		return nil, err
-	}
-	return positions, nil
+    cur, err := r.col.Find(ctx, bson.M{})
+    if err != nil {
+        return nil, err
+    }
+    defer cur.Close(ctx)
+
+    var positions []models.Position
+    if err := cur.All(ctx, &positions); err != nil {
+        return nil, err
+    }
+    return positions, nil
 }

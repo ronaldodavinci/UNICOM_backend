@@ -25,7 +25,16 @@ func NewPositionHandler(r *repository.PositionRepository) *PositionHandler {
 // @Failure      500 {object} map[string]interface{}
 // @Router       /positions [post]
 func (h *PositionHandler) CreatePosition(c *fiber.Ctx) error {
-	return c.JSON(fiber.Map{"message": "create position success"})
+    var req models.Position
+    if err := c.BodyParser(&req); err != nil {
+        return fiber.NewError(fiber.StatusBadRequest, "invalid body")
+    }
+
+    if err := h.positionRepo.Insert(c.Context(), req); err != nil {
+        return fiber.NewError(fiber.StatusInternalServerError, err.Error())
+    }
+
+    return c.JSON(fiber.Map{"message": "create position success"})
 }
 
 // ListPositions godoc
@@ -38,5 +47,9 @@ func (h *PositionHandler) CreatePosition(c *fiber.Ctx) error {
 // @Failure      500 {object} map[string]interface{}
 // @Router       /positions [get]
 func (h *PositionHandler) ListPositions(c *fiber.Ctx) error {
-	return c.JSON(fiber.Map{"data": []string{"position1", "position2"}})
+    positions, err := h.positionRepo.FindAll(c.Context())
+    if err != nil {
+        return fiber.NewError(fiber.StatusInternalServerError, err.Error())
+    }
+    return c.JSON(fiber.Map{"data": positions})
 }

@@ -6,11 +6,11 @@ import (
 )
 
 type PolicyHandler struct {
-	policyRepo *repository.PolicyRepository
+    repo *repository.PolicyRepository
 }
 
 func NewPolicyHandler(r *repository.PolicyRepository) *PolicyHandler {
-	return &PolicyHandler{policyRepo: r}
+    return &PolicyHandler{repo: r}
 }
 
 // CreatePolicy godoc
@@ -25,7 +25,17 @@ func NewPolicyHandler(r *repository.PolicyRepository) *PolicyHandler {
 // @Failure      500 {object} map[string]interface{}
 // @Router       /policies [post]
 func (h *PolicyHandler) CreatePolicy(c *fiber.Ctx) error {
-	return c.JSON(fiber.Map{"message": "create policy success"})
+    var req models.Policy
+    if err := c.BodyParser(&req); err != nil {
+        return fiber.NewError(fiber.StatusBadRequest, "invalid body")
+    }
+    req.CreatedAt = time.Now()
+
+    if err := h.repo.Insert(c.Context(), req); err != nil {
+        return fiber.NewError(fiber.StatusInternalServerError, err.Error())
+    }
+
+    return c.JSON(fiber.Map{"message": "policy created", "data": req})
 }
 
 // ListPolicies godoc
@@ -38,5 +48,9 @@ func (h *PolicyHandler) CreatePolicy(c *fiber.Ctx) error {
 // @Failure      500 {object} map[string]interface{}
 // @Router       /policies [get]
 func (h *PolicyHandler) ListPolicies(c *fiber.Ctx) error {
-	return c.JSON(fiber.Map{"data": []string{"policy1", "policy2"}})
+    policies, err := h.repo.FindAll(c.Context())
+    if err != nil {
+        return fiber.NewError(fiber.StatusInternalServerError, err.Error())
+    }
+    return c.JSON(policies)
 }
