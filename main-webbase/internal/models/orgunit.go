@@ -1,9 +1,5 @@
 package models
 
-import (
-	"go.mongodb.org/mongo-driver/v2/bson"
-)
-
 // OrgUnit document stored in "org_units"
 type OrgUnit struct {
 	OrgPath   string            `bson:"org_path"`

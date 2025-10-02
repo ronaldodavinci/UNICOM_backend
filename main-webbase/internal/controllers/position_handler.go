@@ -3,6 +3,7 @@ package controllers
 import (
 	"github.com/gofiber/fiber/v2"
 	"main-webbase/internal/repository"
+    "main-webbase/internal/models"
 )
 
 type PositionHandler struct {

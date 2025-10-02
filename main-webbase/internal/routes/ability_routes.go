@@ -10,9 +10,10 @@ import (
 func SetupRoutesAbility(app *fiber.App) {
 	mRepo := repository.NewMembershipRepository()
 	pRepo := repository.NewPolicyRepository()
+
 	authzService := services.NewAuthzService(mRepo, pRepo)
-	handler := controllers.NewAbilitiesHandler(authzService)
+	h := controllers.NewAbilitiesHandler(authzService)
 
 	abilities := app.Group("/abilities")
-	abilities.Get("/", handler.GetAbilities)
+	abilities.Get("/:userId", h.GetAbilities)
 }

@@ -1,20 +1,17 @@
 package controllers
 
 import (
-	"strings"
-
 	"github.com/gofiber/fiber/v2"
 
-	"main-webbase/dto"
 	"main-webbase/internal/services"
 )
 
 type AbilitiesHandler struct {
-	authz *services.AuthzService
+	authzService *services.AuthzService
 }
 
-func NewAbilitiesHandler(a *services.AuthzService) *AbilitiesHandler {
-	return &AbilitiesHandler{authz: a}
+func NewAbilitiesHandler(s *services.AuthzService) *AbilitiesHandler {
+	return &AbilitiesHandler{authzService: s}
 }
 
 // GetAbilities godoc
