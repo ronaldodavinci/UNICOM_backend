@@ -34,11 +34,11 @@ func main() {
 	// Fiber app
 	app := fiber.New()
 
-	app.Use(func(c *fiber.Ctx) error {
-		c.Locals("user_id", "68bd6ff6f80438824239b8a9") // 👈 ใช้ ObjectID จริงของ user
-		c.Locals("is_Root", false)
-		return c.Next()
-	})
+	// app.Use(func(c *fiber.Ctx) error {
+	// 	c.Locals("user_id", "68bd6ff6f80438824239b8a9") // 👈 ใช้ ObjectID จริงของ user
+	// 	c.Locals("is_Root", false)
+	// 	return c.Next()
+	// })
 
 	// Swagger API document for Faisu and Vincy
 	app.Get("/docs/*", swagger.HandlerDefault)
