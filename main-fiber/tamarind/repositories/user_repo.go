@@ -14,19 +14,54 @@ type UserRepository struct {
 }
 
 func NewUserRepository() *UserRepository {
-	return &UserRepository{col: config.DB.Collection("users")}
+	return &UserRepository{
+		col: config.DB.Collection("users"),
+	}
 }
 
-func (r *UserRepository) FindByEmail(ctx context.Context, email string) (*models.User, error) {
-	var user models.User
-	err := r.col.FindOne(ctx, bson.M{"email": email}).Decode(&user)
+func (r *UserRepository) Insert(ctx context.Context, u models.User) (*mongo.InsertOneResult, error) {
+	return r.col.InsertOne(ctx, u)
+}
+
+func (r *UserRepository) FindAll(ctx context.Context) ([]models.User, error) {
+	cur, err := r.col.Find(ctx, bson.M{})
 	if err != nil {
 		return nil, err
 	}
-	return &user, nil
+	var users []models.User
+	if err := cur.All(ctx, &users); err != nil {
+		return nil, err
+	}
+	return users, nil
 }
 
-func (r *UserRepository) UpdateRolesSummary(ctx context.Context, userID any, update bson.M) error {
-	_, err := r.col.UpdateByID(ctx, userID, bson.M{"$set": update})
+func (r *UserRepository) FindByID(ctx context.Context, id interface{}) (models.User, error) {
+	var u models.User
+	err := r.col.FindOne(ctx, bson.M{"_id": id}).Decode(&u)
+	return u, err
+}
+
+func (r *UserRepository) Update(ctx context.Context, id interface{}, update interface{}) error {
+	_, err := r.col.UpdateOne(ctx, bson.M{"_id": id}, bson.M{"$set": update})
+	return err
+}
+
+func (r *UserRepository) Delete(ctx context.Context, id interface{}) error {
+	_, err := r.col.DeleteOne(ctx, bson.M{"_id": id})
+	return err
+}
+
+func (r *UserRepository) FindByEmail(ctx context.Context, email string) (models.User, error) {
+	var u models.User
+	err := r.col.FindOne(ctx, bson.M{"email": email}).Decode(&u)
+	return u, err
+}
+
+func (r *UserRepository) UpdateRolesSummary(ctx context.Context, userID interface{}, update interface{}) error {
+	_, err := r.col.UpdateOne(
+		ctx,
+		bson.M{"_id": userID},
+		bson.M{"$set": update},
+	)
 	return err
 }

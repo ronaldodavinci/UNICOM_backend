@@ -1,30 +1,43 @@
 package models
 
 import (
-    "time"
-    "go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/bson/primitive"
+	"time"
 )
 
-// Event main document
-type Event struct {
-    ID               primitive.ObjectID `bson:"_id,omitempty" json:"id"`
-    NodeID           primitive.ObjectID `bson:"node_id" json:"node_id"`
-    Topic            string             `bson:"topic" json:"topic"`
-    Description      string             `bson:"description" json:"description"`
-    MaxParticipation int                `bson:"max_participation" json:"max_participation"`
-    OrgOfContent     string             `bson:"org_of_content,omitempty" json:"org_of_content,omitempty"`
-    Status           string             `bson:"status,omitempty" json:"status,omitempty"`
-    CreatedAt        *time.Time         `bson:"created_at,omitempty" json:"created_at,omitempty"`
-    UpdatedAt        *time.Time         `bson:"updated_at,omitempty" json:"updated_at,omitempty"`
+type Audience struct {
+	OrgPath string `bson:"org_path" json:"org_path"`
+	Scope   string `bson:"scope" json:"scope"`
 }
 
-// EventSchedule stores schedule of event
+type Visibility struct {
+	Access   string     `bson:"access" json:"access"`
+	Audience []Audience `bson:"audience" json:"audience"`
+}
+
+type PostedAs struct {
+	OrgPath string `bson:"org_path" json:"org_path"`
+}
+
+type Event struct {
+	ID               primitive.ObjectID `bson:"_id,omitempty" json:"id"`
+	NodeID           primitive.ObjectID `bson:"node_id" json:"node_id"`
+	Topic            string             `bson:"topic" json:"topic"`
+	Description      string             `bson:"description" json:"description"`
+	MaxParticipation int                `bson:"max_participation" json:"max_participation"`
+	PostedAs         PostedAs           `bson:"postedas" json:"postedas"`
+	Visibility       Visibility         `bson:"visibility" json:"visibility"`
+	OrgOfContent     string             `bson:"org_of_content" json:"org_of_content"`
+	Status           string             `bson:"status" json:"status"`
+	CreatedAt        time.Time          `bson:"created_at" json:"created_at"`
+	UpdatedAt        time.Time          `bson:"updated_at" json:"updated_at"`
+}
+
 type EventSchedule struct {
-    ID          primitive.ObjectID `bson:"_id,omitempty" json:"id"`
-    EventID     primitive.ObjectID `bson:"event_id" json:"event_id"`
-    Date        time.Time          `bson:"date" json:"date"`
-    TimeStart   time.Time          `bson:"time_start" json:"time_start"`
-    TimeEnd     time.Time          `bson:"time_end" json:"time_end"`
-    Location    *string            `bson:"location,omitempty" json:"location,omitempty"`
-    Description *string            `bson:"description,omitempty" json:"description,omitempty"`
+	ID        primitive.ObjectID `bson:"_id,omitempty" json:"id"`
+	EventID   primitive.ObjectID `bson:"event_id" json:"event_id"`
+	StartTime time.Time          `bson:"start_time" json:"start_time"`
+	EndTime   time.Time          `bson:"end_time" json:"end_time"`
+	CreatedAt time.Time          `bson:"created_at" json:"created_at"`
+	UpdatedAt time.Time          `bson:"updated_at" json:"updated_at"`
 }

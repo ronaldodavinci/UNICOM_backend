@@ -10,9 +10,10 @@ import (
 func RegisterAbilitiesRoutes(api fiber.Router) {
 	mRepo := repositories.NewMembershipRepository()
 	pRepo := repositories.NewPolicyRepository()
+
 	authzService := services.NewAuthzService(mRepo, pRepo)
-	handler := handlers.NewAbilitiesHandler(authzService)
+	h := handlers.NewAbilitiesHandler(authzService)
 
 	abilities := api.Group("/abilities")
-	abilities.Get("/", handler.GetAbilities)
+	abilities.Get("/:userId", h.GetAbilities)
 }
