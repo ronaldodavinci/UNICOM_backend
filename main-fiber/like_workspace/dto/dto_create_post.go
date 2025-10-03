@@ -64,6 +64,7 @@ type PostResponse struct {
 	Name     string `json:"name"          example:"JY"`
 	Username string `json:"username"      example:"jy_smo"`
 	PostText string `json:"postText"      example:"สวัสดี KU!"`
+	Hashtag      []string      `json:"hashtag" bson:"hashtag"`
 	//PictureUrl    []string `json:"pictureUrl"    example:"['https://example.com/pic1.jpg','https://example.com/pic2.jpg']"`
 	//VideoUrl      []string `json:"videoUrl"      example:"['https://example.com/vid1.mp4','https://example.com/vid2.mp4']"`
 	LikeCount    int        `json:"likeCount"     example:"0"`

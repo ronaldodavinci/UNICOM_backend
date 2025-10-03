@@ -7,9 +7,9 @@ import (
 	"time"
 
 	"like_workspace/dto"
-	"like_workspace/model"
 	repo "like_workspace/internal/repository"
 	u "like_workspace/internal/utils"
+	"like_workspace/model"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
@@ -18,7 +18,6 @@ import (
 var ErrUserNotFound = errors.New("user not found")
 var ErrOrgNodeNotFound = errors.New("org node not found")
 var ErrPositionNotFound = errors.New("position not found")
-
 
 func CreatePostWithMeta(client *mongo.Client, UserID bson.ObjectID, body dto.CreatePostDTO, ctx context.Context) (dto.PostResponse, error) {
 	db := client.Database("lll_workspace")
@@ -50,16 +49,16 @@ func CreatePostWithMeta(client *mongo.Client, UserID bson.ObjectID, body dto.Cre
 	// 1) Insert post
 	post := model.Post{
 		UserID:       UserID,
-		RolePathID:   rolePathID,   // เปลี่ยนจาก RolePath(string) → ObjectID
-		PositionID:   positionID,   // เปลี่ยนจาก Position(string) → ObjectID
-		Hashtag:         tagsSlice,      // เก็บ string (เช่น "smo,eng,ku66")
-		Tags: body.PostAs.Tag,
+		RolePathID:   rolePathID, // เปลี่ยนจาก RolePath(string) → ObjectID
+		PositionID:   positionID, // เปลี่ยนจาก Position(string) → ObjectID
+		Hashtag:      tagsSlice,  // เก็บ string (เช่น "smo,eng,ku66")
+		Tags:         body.PostAs.Tag,
 		PostText:     body.PostText,
 		CreatedAt:    now,
 		UpdatedAt:    now,
 		LikeCount:    0,
 		CommentCount: 0,
-		Status: "active",
+		Status:       "active",
 	}
 
 	res, err := postsCol.InsertOne(ctx, post)
@@ -98,7 +97,6 @@ func CreatePostWithMeta(client *mongo.Client, UserID bson.ObjectID, body dto.Cre
 		}
 	}
 
-
 	// 5) ดึง user info (critical)
 	colUsers := db.Collection("users")
 	userInfo, err := repo.FindUserInfo(colUsers, UserID, ctx)
@@ -113,25 +111,25 @@ func CreatePostWithMeta(client *mongo.Client, UserID bson.ObjectID, body dto.Cre
 
 	// 6) ประกอบ response (ส่ง string id กลับตาม requirement)
 	resp = dto.PostResponse{
-		UserID:        UserID.Hex(),
-		Name:          userInfo.FirstName, // แก้เป็น display name ที่ต้องการได้
-		Username:      userInfo.Username,
-		PostText:      post.PostText,
-		LikeCount:     post.LikeCount,
-		CommentCount:  post.CommentCount,
-		LikedBy:       []string{},
-		PostAs:        body.PostAs,
-		CategoryIDs:   body.CategoryIDs,       // ถ้าในระบบเป็น ObjectID ให้ map เป็น hex ก่อน
-		Visibility:    body.Visibility,
-		OrgOfContent:  body.PostAs.OrgPath,    // ส่ง org_path ให้ FE
-		CreatedAt:     post.CreatedAt.Format(time.RFC3339),
-		UpdatedAt:     post.UpdatedAt.Format(time.RFC3339),
-		Status:        "active",
+		UserID:       UserID.Hex(),
+		Name:         userInfo.FirstName, // แก้เป็น display name ที่ต้องการได้
+		Username:     userInfo.Username,
+		PostText:     post.PostText,
+		Hashtag:      post.Hashtag,
+		LikeCount:    post.LikeCount,
+		CommentCount: post.CommentCount,
+		LikedBy:      []string{},
+		PostAs:       body.PostAs,
+		CategoryIDs:  body.CategoryIDs, // ถ้าในระบบเป็น ObjectID ให้ map เป็น hex ก่อน
+		Visibility:   body.Visibility,
+		OrgOfContent: body.PostAs.OrgPath, // ส่ง org_path ให้ FE
+		CreatedAt:    post.CreatedAt.Format(time.RFC3339),
+		UpdatedAt:    post.UpdatedAt.Format(time.RFC3339),
+		Status:       "active",
 	}
 
 	return resp, nil
 }
-
 
 func GetPostDetail(ctx context.Context, db *mongo.Database, postID bson.ObjectID) (dto.PostResponse, error) {
 	var out dto.PostResponse
@@ -197,6 +195,7 @@ func GetPostDetail(ctx context.Context, db *mongo.Database, postID bson.ObjectID
 		Name:         fullName,
 		Username:     user.Username,
 		PostText:     post.PostText,
+		Hashtag:      post.Hashtag,
 		LikeCount:    post.LikeCount,
 		CommentCount: post.CommentCount,
 		PostAs: dto.PostAs{
@@ -213,5 +212,3 @@ func GetPostDetail(ctx context.Context, db *mongo.Database, postID bson.ObjectID
 	}
 	return out, nil
 }
-
-
