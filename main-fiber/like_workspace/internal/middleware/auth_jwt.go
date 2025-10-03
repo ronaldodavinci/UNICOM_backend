@@ -13,14 +13,14 @@ func JWTUidOnly() fiber.Handler {
 	secret := os.Getenv("JWT_SECRET")
 
 	type MyClaims struct {
-		UID                  string `json:"uid,omitempty"` // เผื่อบางระบบใส่ uid ตรง ๆ
-		jwt.RegisteredClaims        // มี Subject (sub), Exp, Iat, Nbf ฯลฯ
+		UID string `json:"uid,omitempty"`
+		jwt.RegisteredClaims
 	}
 
 	return func(c *fiber.Ctx) error {
 		auth := c.Get("Authorization")
 		if auth == "" || !strings.HasPrefix(strings.ToLower(auth), "bearer ") {
-			return c.Next() // ไม่มี header ก็ปล่อยผ่าน (anonymous)
+			return c.Next()
 		}
 		if secret == "" {
 			return fiber.NewError(fiber.StatusUnauthorized, "missing JWT_SECRET")
@@ -33,9 +33,9 @@ func JWTUidOnly() fiber.Handler {
 			tokenStr,
 			&claims,
 			func(t *jwt.Token) (any, error) {
-				// อนุญาตเฉพาะ HMAC HS256 เท่านั้น
-				if t.Method != jwt.SigningMethodHS256 {
-					return nil, fiber.ErrUnauthorized
+				// ✅ เช็คด้วย Alg() แทน pointer
+				if t.Method.Alg() != jwt.SigningMethodHS256.Alg() {
+					return nil, fiber.NewError(fiber.StatusUnauthorized, "unsupported alg")
 				}
 				return []byte(secret), nil
 			},
@@ -45,13 +45,13 @@ func JWTUidOnly() fiber.Handler {
 			return fiber.NewError(fiber.StatusUnauthorized, "invalid token")
 		}
 
-		// ดึง uid: ใช้ claims.UID ก่อน ถ้าไม่มีก็ใช้ Subject (sub)
+		// ✅ รองรับทั้ง uid และ sub
 		uid := claims.UID
 		if uid == "" {
 			uid = claims.Subject
 		}
-		// สำรองกรณีโทเคนเป็น MapClaims ผสม ๆ มา
 		if uid == "" {
+			// เผื่อกรณีเคลมเป็น MapClaims
 			if mc, ok := token.Claims.(jwt.MapClaims); ok {
 				if v, ok := mc["uid"].(string); ok && v != "" {
 					uid = v

@@ -21,7 +21,6 @@ func Register(app *fiber.App, d Deps) {
 	// ============================================================
 	// Users
 	// ============================================================
-	
 	// GET /api/users
 	// Example:
 	//   curl -X GET http://localhost:8000/api/users
@@ -45,30 +44,31 @@ func Register(app *fiber.App, d Deps) {
 	//   -H "Content-Type: application/json" \
 	//   -d '{"title":"hello","body":"world"}'
 	posts.Post("/blog", handlers.CreatePostHandler(d.Client))
-	
+
 	// GET /api/posts/visibility/cursor
 	// Example:
-	//   curl -X GET http://localhost:8000/api/posts/visibility
-
+	//   curl -X GET http://localhost:8000/api/posts/visibility/cursor
 	posts.Get("/visibility/cursor", handlers.GetPostsVisibilityCursor(d.Client))
-	
+
 	// GET /api/posts/feed
-	// Example:
-	//   curl -X GET http://localhost:8000/api/posts/feed
-	//	 curl -X GET "http://localhost:8000/api/posts/feed?cursor=..."
-	//	 curl -X GET "http://localhost:8000/api/posts/feed?tag=..."
-	//	 curl -X GET "http://localhost:8000/api/posts/feed?category=..."
-	//	 curl -X GET "http://localhost:8000/api/posts/feed?author=..."
-	//	 curl -X GET "http://localhost:8000/api/posts/feed?q=..."
-	//	 curl -X GET "http://localhost:8000/api/posts/feed?user=..."
+	// ใช้ JWT token + InjectViewer แทนการส่ง ?user=
+	// Examples:
+	//   curl -X GET "http://localhost:8000/api/posts/feed" -H "Authorization: Bearer <JWT>"
+	//   curl -X GET "http://localhost:8000/api/posts/feed?cursor=<hex>" -H "Authorization: Bearer <JWT>"
+	//   curl -X GET "http://localhost:8000/api/posts/feed?role=student,/faculty/*" -H "Authorization: Bearer <JWT>"
+	//   curl -X GET "http://localhost:8000/api/posts/feed?category=news,events" -H "Authorization: Bearer <JWT>"
+	//   curl -X GET "http://localhost:8000/api/posts/feed?author=<id1>,<id2>" -H "Authorization: Bearer <JWT>"
+	//   curl -X GET "http://localhost:8000/api/posts/feed?q=keyword" -H "Authorization: Bearer <JWT>"
 	repo := repository.NewMongoFeedRepo(d.Client)
 	feedSvc := handlers.NewFeedService(repo, d.Client)
 	posts.Get("/feed", feedSvc.FeedHandler)
 
-	// GET /debug/viewer
-	//   curl -X GET http://localhost:8000/debug/viewer?user=...
+	// ============================================================
+	// Debug
+	// ============================================================
+	// /debug/viewer?user=... ยังไว้ทดสอบได้ (ออปชัน)
 	RegisterDebug(app, d.Client)
-	
+
 	// ============================================================
 	// Misc
 	// ============================================================

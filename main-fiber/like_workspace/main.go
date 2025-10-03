@@ -34,13 +34,15 @@ func main() {
 	if secret == "" {
 		panic("JWT_SECRET is required")
 	}
+	log.Printf("env: JWT_SECRET len=%d", len(os.Getenv("JWT_SECRET")))
 
 	// --- MongoDB Connection ---
 	client := database.ConnectMongo()
 	cfg := database.LoadConfig()
+	db := client.Database("lll_workspace")
 	// defer database.DisconnectMongo()
 
-	if err := bootstrap.EnsureLikeIndexes(client.Database("lll_workspace")); err != nil {
+	if err := bootstrap.EnsureLikeIndexes(db); err != nil {
 		log.Fatalf("ensure indexes failed: %v", err)
 	}
 
@@ -50,16 +52,19 @@ func main() {
 	// Swagger docs
 	app.Get("/docs/*", swagger.HandlerDefault)
 
-	app.Use(func(c *fiber.Ctx) error {
-		if uid := c.Get("X-User-ID"); uid != "" {
-			c.Locals("user_id", uid)
-		}
-		if c.Get("X-Is-Root") == "true" {
-			c.Locals("is_root", true)
-		}
-		return c.Next()
-	})
+	// app.Use(func(c *fiber.Ctx) error {
+	// 	if uid := c.Get("X-User-ID"); uid != "" {
+	// 		c.Locals("user_id", uid)
+	// 	}
+	// 	if c.Get("X-Is-Root") == "true" {
+	// 		c.Locals("is_root", true)
+	// 	}
+	// 	return c.Next()
+	// })
+
 	app.Use(middleware.JWTUidOnly())
+
+	app.Use(middleware.InjectViewer(db))
 
 	// จากนี่ไปต้องมี JWT (หรือถูก mock ด้วย X-User-ID)
 	// app.Use(middleware.RequireAuth())
@@ -88,23 +93,23 @@ func main() {
 	routes.PostRoutes(app, client)
 
 	routes.LikeRoutes(app, client)
-
 	routes.CommentRoutes(app, client)
-	app.Use(func(c *fiber.Ctx) error {
-		c.Locals("user_id", "68bf0f1a2a3c4d5e6f708091") // 👈 ใช้ ObjectID จริงของ user
-		c.Locals("is_Root", false)
-		return c.Next()
-	})
 
-	app.Use(func(c *fiber.Ctx) error {
-		if uid := c.Get("X-User-ID"); uid != "" {
-			c.Locals("user_id", uid) // ใส่เป็น hex ของ ObjectID
-		}
-		if adm := c.Get("X-Is-Admin"); adm == "true" {
-			c.Locals("is_admin", true)
-		}
-		return c.Next()
-	})
+	// app.Use(func(c *fiber.Ctx) error {
+	// 	c.Locals("user_id", "68bf0f1a2a3c4d5e6f708091") // 👈 ใช้ ObjectID จริงของ user
+	// 	c.Locals("is_Root", false)
+	// 	return c.Next()
+	// })
+
+	// app.Use(func(c *fiber.Ctx) error {
+	// 	if uid := c.Get("X-User-ID"); uid != "" {
+	// 		c.Locals("user_id", uid) // ใส่เป็น hex ของ ObjectID
+	// 	}
+	// 	if adm := c.Get("X-Is-Admin"); adm == "true" {
+	// 		c.Locals("is_admin", true)
+	// 	}
+	// 	return c.Next()
+	// })
 	log.Printf("listening at http://localhost:%s", cfg.Port)
 	if err := app.Listen(":" + os.Getenv("PORT")); err != nil {
 		log.Fatal(err)
