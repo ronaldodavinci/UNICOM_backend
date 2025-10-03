@@ -8,5 +8,4 @@ type PostRoleVisibility struct {
 	ID     bson.ObjectID `json:"id"         bson:"_id,omitempty"`
 	PostID bson.ObjectID `json:"postId"     bson:"post_id"`
 	NodeID *bson.ObjectID `json:"nodeID"     bson:"node_id"`
-	Scope  string        `json:"scope"      bson:"scope"`
 }

@@ -6,13 +6,10 @@ type PostAs struct {
 	PositionKey string `bson:"position_key,omitempty" json:"position_key,omitempty"`
 	Tag         string `bson:"label,omitempty"        json:"label,omitempty"` // e.g., "Head • SMO"
 }
-type Audience struct {
-	OrgPath string `json:"org_path"`
-	Scope   string `json:"scope"`
-}
+
 type Visibility struct {
 	Access   string     `json:"access"`
-	Audience []Audience `json:"audience"`
+	Audience []string `json:"audience"`
 }
 
 // ===== Request =====

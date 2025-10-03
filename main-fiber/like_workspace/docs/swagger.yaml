@@ -1,594 +1,199 @@
-swagger: "2.0"
-info:
-  title: Like Workspace API
-  version: "1.0"
-  description: API documentation for like_workspace
-schemes:
-  - http
-basePath: /
-securityDefinitions:
-  bearerAuth:
-    type: apiKey
-    name: Authorization
-    in: header
-    description: |
-      Use JWT with Bearer scheme. Example: "Bearer <token>"
-security:
-  - bearerAuth: []
-paths:
-  /api/healthz:
-    get:
-      summary: Health check
-      tags: [system]
-      produces: [text/plain]
-      security: []
-      responses:
-        "200":
-          description: ok
-          schema:
-            type: string
-  /api/whoami:
-    get:
-      summary: Current user context
-      tags: [system]
-      produces: [application/json]
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/WhoAmIResponse'
-  /api/users/:
-    get:
-      summary: List users
-      tags: [users]
-      produces: [application/json]
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/UserListResponse'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/CommonError'
-  /api/posts/limit:
-    get:
-      summary: Get latest posts
-      description: Fetch latest posts with limit=5
-      tags: [posts]
-      produces: [application/json]
-      security: []
-      responses:
-        "200":
-          description: OK
-          schema:
-            type: array
-            items:
-              type: object
-              additionalProperties: true
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/CommonError'
-  /api/posts/limit-role:
-    get:
-      summary: Get posts visible to user
-      tags: [posts]
-      produces: [application/json]
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/CursorListResponse'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/CommonError'
-  /api/posts/limit-role/next:
-    get:
-      summary: Next page of visible posts
-      tags: [posts]
-      produces: [application/json]
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/CursorListResponse'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/CommonError'
-  /api/posts/category/cursor:
-    get:
-      summary: List posts in any category (cursor)
-      tags: [posts]
-      produces: [application/json]
-      security: []
-      parameters:
-        - name: limit
-          in: query
-          required: false
-          type: integer
-          description: Number of items per page (default 10, min 1, max 20)
-          minimum: 1
-          maximum: 20
-          default: 10
-        - name: cursor
-          in: query
-          required: false
-          type: string
-          description: |
-            Cursor for pagination. Base64-encoded JSON of {createdAt,id}.
-            createdAt is Unix milliseconds, id is hex ObjectID.
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/CursorListWithTotalResponse'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/CommonError'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/CommonError'
-  /api/posts/category/wanted/cursor:
-    get:
-      summary: List posts by category ids (cursor)
-      tags: [posts]
-      produces: [application/json]
-      security: []
-      parameters:
-        - name: id
-          in: query
-          required: true
-          type: string
-          description: Comma-separated category IDs (hex ObjectIDs)
-        - name: limit
-          in: query
-          required: false
-          type: integer
-          description: Number of items per page (default 10, min 1, max 20)
-          minimum: 1
-          maximum: 20
-          default: 10
-        - name: cursor
-          in: query
-          required: false
-          type: string
-          description: |
-            Cursor for pagination. Base64-encoded JSON of {createdAt,id}.
-            createdAt is Unix milliseconds, id is hex ObjectID.
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/CursorListWithTotalResponse'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/CommonError'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/CommonError'
-  /api/posts/visibility/cursor:
-    get:
-      summary: List posts by visibility (cursor)
-      tags: [posts]
-      produces: [application/json]
-      security: []
-      parameters:
-        - name: type
-          in: query
-          required: false
-          type: string
-          enum: [all, public, private]
-          description: Filter visibility; omit or use "all" for no filter.
-        - name: limit
-          in: query
-          required: false
-          type: integer
-          description: Number of items per page (default 10, min 1, max 20)
-          minimum: 1
-          maximum: 20
-          default: 10
-        - name: cursor
-          in: query
-          required: false
-          type: string
-          description: |
-            Cursor for pagination. Base64-encoded JSON of {createdAt,id}.
-            createdAt is Unix milliseconds, id is hex ObjectID.
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/CursorListWithTotalResponse'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/CommonError'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/CommonError'
-  /posts:
-    post:
-      summary: Create a post
-      description: Create a new blog post and attach categories
-      tags: [posts]
-      consumes: [application/json]
-      produces: [application/json]
-      parameters:
-        - in: body
-          name: data
-          description: post payload
-          required: true
-          schema:
-            $ref: '#/definitions/dto.CreatePostDTO'
-      responses:
-        "201":
-          description: Created
-          schema:
-            $ref: '#/definitions/dto.PostResponse'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/dto.ErrorResponse'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/dto.ErrorResponse'
-  /api/posts/blog:
-    post:
-      summary: Create a post (api)
-      description: Create a new blog post and attach categories
-      tags: [posts]
-      consumes: [application/json]
-      produces: [application/json]
-      parameters:
-        - in: body
-          name: data
-          description: post payload
-          required: true
-          schema:
-            $ref: '#/definitions/dto.CreatePostDTO'
-      responses:
-        "201":
-          description: Created
-          schema:
-            $ref: '#/definitions/dto.PostResponse'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/dto.ErrorResponse'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/dto.ErrorResponse'
-  /likes/:
-    post:
-      summary: Like a post or comment
-      tags: [likes]
-      consumes: [application/json]
-      produces: [application/json]
-      parameters:
-        - in: body
-          name: data
-          required: true
-          schema:
-            $ref: '#/definitions/dto.LikeRequestDTO'
-      responses:
-        "201":
-          description: Liked
-          schema:
-            $ref: '#/definitions/LikeResponse'
-        "200":
-          description: Already liked
-          schema:
-            $ref: '#/definitions/LikeResponse'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/dto.ErrorResponse'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/dto.ErrorResponse'
-  /posts/{postId}/comments:
-    get:
-      summary: List comments of a post (cursor)
-      tags: [comments]
-      produces: [application/json]
-      security: []
-      parameters:
-        - name: postId
-          in: path
-          required: true
-          type: string
-        - name: limit
-          in: query
-          required: false
-          type: integer
-          description: Number of comments per page (default 10, min 1, max 20)
-          minimum: 1
-          maximum: 20
-          default: 10
-        - name: cursor
-          in: query
-          required: false
-          type: string
-          description: |
-            Cursor for pagination. Base64-encoded JSON of {createdAt,id}.
-            createdAt is Unix milliseconds, id is hex ObjectID.
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/dto.ListCommentsResp_model.Comment'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/CommonError'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/CommonError'
-    post:
-      summary: Create a comment
-      tags: [comments]
-      consumes: [application/json]
-      produces: [application/json]
-      parameters:
-        - name: postId
-          in: path
-          required: true
-          type: string
-        - name: data
-          in: body
-          required: true
-          schema:
-            $ref: '#/definitions/dto.CreateCommentReq'
-      responses:
-        "201":
-          description: Created
-          schema:
-            $ref: '#/definitions/model.Comment'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/CommonError'
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/CommonError'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/CommonError'
-  /comments/{commentId}:
-    put:
-      summary: Update a comment
-      tags: [comments]
-      consumes: [application/json]
-      produces: [application/json]
-      parameters:
-        - name: commentId
-          in: path
-          required: true
-          type: string
-        - name: data
-          in: body
-          required: true
-          schema:
-            $ref: '#/definitions/dto.UpdateCommentReq'
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/model.Comment'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/CommonError'
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/CommonError'
-        "403":
-          description: Forbidden
-          schema:
-            $ref: '#/definitions/CommonError'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/CommonError'
-    delete:
-      summary: Delete a comment
-      tags: [comments]
-      parameters:
-        - name: commentId
-          in: path
-          required: true
-          type: string
-      responses:
-        "204":
-          description: No Content
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/CommonError'
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/CommonError'
-        "403":
-          description: Forbidden
-          schema:
-            $ref: '#/definitions/CommonError'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/CommonError'
 definitions:
-  dto.CreatePostDTO:
+  dto.Audience:
+    properties:
+      org_path:
+        type: string
+      scope:
+        type: string
     type: object
-    required: [postText, roleId, userId]
+  dto.CreatePostDTO:
     properties:
       categoryIds:
+        items:
+          type: string
         type: array
-        items: {type: string}
+      org_of_content:
+        type: string
       pictureUrl:
+        items:
+          type: string
         type: array
-        items: {type: string}
+      postAs:
+        allOf:
+        - $ref: '#/definitions/dto.PostAs'
+        description: เดิมคือ rolePath
       postText:
         type: string
-      roleId:
-        type: string
-      roleIds:
-        type: array
-        items: {type: string}
-      userId:
+      status:
         type: string
       videoUrl:
+        items:
+          type: string
         type: array
-        items: {type: string}
-  dto.ErrorResponse:
+      visibility:
+        allOf:
+        - $ref: '#/definitions/dto.Visibility'
+        description: เดิมคือ roleIds
+    required:
+    - postAs
+    - postText
+    - visibility
     type: object
+  dto.ErrorResponse:
     properties:
       message:
-        type: string
         example: invalid body
-  CommonError:
-    type: object
-    properties:
-      error:
         type: string
-        example: invalid input
-  dto.PostResponse:
     type: object
+  dto.PostAs:
+    properties:
+      label:
+        description: e.g., "Head • SMO"
+        type: string
+      org_path:
+        type: string
+      position_key:
+        type: string
+    type: object
+  dto.PostResponse:
     properties:
       categoryIds:
+        example:
+        - '[''68bd8d30b98a8dce0eab0db6'''
+        - '''68bd8d30b98a8dce0eab0db7'']'
+        items:
+          type: string
         type: array
-        items: {type: string}
-        example: ['[''68bd8d30b98a8dce0eab0db6''', '''68bd8d30b98a8dce0eab0db7'']']
       commentCount:
-        type: integer
         example: 0
+        type: integer
       createdAt:
-        type: string
         example: "2025-09-07T13:47:47Z"
-      id:
         type: string
-        example: 68bd8d30b98a8dce0eab0db6
       likeCount:
-        type: integer
+        description: |-
+          PictureUrl    []string `json:"pictureUrl"    example:"['https://example.com/pic1.jpg','https://example.com/pic2.jpg']"`
+          VideoUrl      []string `json:"videoUrl"      example:"['https://example.com/vid1.mp4','https://example.com/vid2.mp4']"`
         example: 0
-      pictureUrl:
+        type: integer
+      likedBy:
+        example:
+        - '[''66c6248b98c56c39f018e7d2'''
+        - '''66c6248b98c56c39f018e7d3'']'
+        items:
+          type: string
         type: array
-        items: {type: string}
-        example: ['[''https://example.com/pic1.jpg''', '''https://example.com/pic2.jpg'']']
+      name:
+        example: JY
+        type: string
+      org_of_content:
+        description: this content belongs to which org (org_path)
+        type: string
+      postAs:
+        allOf:
+        - $ref: '#/definitions/dto.PostAs'
+        description: which role is posting this
       postText:
-        type: string
         example: สวัสดี KU!
-      roleId:
         type: string
-        example: 66c6248b98c56c39f018e7d2
+      status:
+        example: active
+        type: string
       updatedAt:
-        type: string
         example: "2025-09-07T13:47:47Z"
+        type: string
       userId:
-        type: string
         example: 66c6248b98c56c39f018e7d2
-      videoUrl:
-        type: array
-        items: {type: string}
-        example: ['[''https://example.com/vid1.mp4''', '''https://example.com/vid2.mp4'']']
-      visibleRoleIds:
-        type: array
-        items: {type: string}
-        example: ['[''66c6248b98c56c39f018e7d2''', '''66c6248b98c56c39f018e7d3'']']
-  dto.LikeRequestDTO:
-    type: object
-    required: [userId, targetId, targetType]
-    properties:
-      userId: {type: string}
-      targetId: {type: string}
-      targetType:
         type: string
-        enum: [post, comment]
-  LikeResponse:
+      username:
+        example: jy_smo
+        type: string
+      visibility:
+        allOf:
+        - $ref: '#/definitions/dto.Visibility'
+        description: which roles can see this post, array of roleIds
     type: object
+  dto.Visibility:
     properties:
-      message: {type: string, example: liked}
-      target_id: {type: string}
-      target_type: {type: string}
-      is_liked: {type: boolean}
-  dto.CreateCommentReq:
-    type: object
-    required: [text]
-    properties:
-      text: {type: string}
-  dto.UpdateCommentReq:
-    type: object
-    required: [text]
-    properties:
-      text: {type: string}
-  model.Comment:
-    type: object
-    properties:
-      id: {type: string}
-      postId: {type: string}
-      userId: {type: string}
-      text: {type: string}
-      createdAt: {type: string}
-      updatedAt: {type: string}
-      likeCount: {type: integer}
-  dto.ListCommentsResp_model.Comment:
-    type: object
-    properties:
-      comments:
-        type: array
+      access:
+        type: string
+      audience:
         items:
-          $ref: '#/definitions/model.Comment'
-      next_cursor: {type: string}
-      has_more: {type: boolean}
-  CursorListResponse:
-    type: object
-    properties:
-      items:
+          $ref: '#/definitions/dto.Audience'
         type: array
-        items:
-          type: object
-          additionalProperties: true
-      next_cursor: {type: string}
-  CursorListWithTotalResponse:
     type: object
-    properties:
-      items:
-        type: array
-        items:
-          type: object
-          additionalProperties: true
-      next_cursor: {type: string}
-      has_more: {type: boolean}
-      total_count: {type: integer}
-  WhoAmIResponse:
-    type: object
-    properties:
-      userID: {type: string}
-      roles:
-        type: array
-        items: {type: string}
-  UserListResponse:
-    type: object
-    properties:
-      success: {type: boolean}
-      message: {type: string}
-      data:
-        type: array
-        items:
-          type: object
-          additionalProperties: true
+info:
+  contact: {}
+paths:
+  /api/posts/limit:
+    get:
+      description: Fetch latest posts with limit=5
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              additionalProperties: true
+              type: object
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Get latest posts
+      tags:
+      - posts
+  /posts:
+    post:
+      consumes:
+      - application/json
+      description: |-
+        Create a new post with categories, visibility, and posting role.
+        Requirements:
+        • Auth via Bearer token
+        • body.postText required
+        • body.postAs.org_path & body.postAs.position_key required
+      parameters:
+      - description: Bearer <JWT>
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Post payload
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/dto.CreatePostDTO'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/dto.PostResponse'
+        "400":
+          description: Bad request (missing fields / invalid org_path or position_key)
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "401":
+          description: Unauthorized (missing/invalid token)
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "404":
+          description: User not found
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Create a post
+      tags:
+      - posts
+swagger: "2.0"

@@ -59,6 +59,7 @@ func CreatePostWithMeta(client *mongo.Client, UserID bson.ObjectID, body dto.Cre
 		UpdatedAt:    now,
 		LikeCount:    0,
 		CommentCount: 0,
+		Status: "active",
 	}
 
 	res, err := postsCol.InsertOne(ctx, post)
@@ -99,7 +100,8 @@ func CreatePostWithMeta(client *mongo.Client, UserID bson.ObjectID, body dto.Cre
 
 
 	// 5) ดึง user info (critical)
-	userInfo, err := repo.FindUserInfo(db, UserID, ctx)
+	colUsers := db.Collection("users")
+	userInfo, err := repo.FindUserInfo(colUsers, UserID, ctx)
 	if err != nil {
 		if errors.Is(err, mongo.ErrNoDocuments) {
 			rollback()
@@ -129,3 +131,87 @@ func CreatePostWithMeta(client *mongo.Client, UserID bson.ObjectID, body dto.Cre
 
 	return resp, nil
 }
+
+
+func GetPostDetail(ctx context.Context, db *mongo.Database, postID bson.ObjectID) (dto.PostResponse, error) {
+	var out dto.PostResponse
+
+	colPosts := db.Collection("posts")
+	colUsers := db.Collection("users")
+	colPositions := db.Collection("positions")
+	colOrgNodes := db.Collection("org_unit_node")
+	colPostRoleVis := db.Collection("post_role_visibility")
+	colCats := db.Collection("post_categories")
+
+	// 1) post
+	post, err := repo.FindPostByID(colPosts, postID, ctx)
+	if err != nil {
+		return out, fmt.Errorf("post not found or fetch error: %w", err)
+	}
+
+	if post.Status != "active" {
+		return out, fmt.Errorf("post is not active")
+	}
+
+	// 2) user
+	user, err := repo.FindUserInfo(colUsers, post.UserID, ctx)
+	if err != nil {
+		return out, fmt.Errorf("fetch user: %w", err)
+	}
+	fullName := user.FirstName
+	if user.LastName != "" {
+		fullName = user.FirstName + " " + user.LastName
+	}
+
+	// 3) position
+	posName := "Unknown Position"
+	if !post.PositionID.IsZero() {
+		if name, err := repo.FindPositionName(colPositions, post.PositionID, ctx); err == nil && name != "" {
+			posName = name
+		}
+	}
+
+	// 4) org (short_name/path จาก repo.FindOrgNode)
+	orgPath := ""
+	if !post.RolePathID.IsZero() {
+		if n, err := repo.FindOrgNode(colOrgNodes, post.RolePathID, ctx); err == nil {
+			orgPath = n
+		}
+	}
+
+	// 5) visibility
+	vis, err := repo.FindVisibilityPaths(colPostRoleVis, colOrgNodes, post.ID, ctx)
+	if err != nil {
+		return out, fmt.Errorf("fetch visibility: %w", err)
+	}
+
+	// 6) categories
+	catIDs, err := repo.FindCategoryIDs(colCats, post.ID, ctx)
+	if err != nil {
+		return out, fmt.Errorf("fetch categories: %w", err)
+	}
+
+	// 8) map -> response
+	out = dto.PostResponse{
+		UserID:       post.UserID.Hex(),
+		Name:         fullName,
+		Username:     user.Username,
+		PostText:     post.PostText,
+		LikeCount:    post.LikeCount,
+		CommentCount: post.CommentCount,
+		PostAs: dto.PostAs{
+			OrgPath:     orgPath,
+			PositionKey: posName,
+			Tag:         post.Tags,
+		},
+		CategoryIDs:  catIDs,
+		Visibility:   vis,
+		OrgOfContent: orgPath,
+		CreatedAt:    post.CreatedAt.UTC().Format(time.RFC3339),
+		UpdatedAt:    post.UpdatedAt.UTC().Format(time.RFC3339),
+		Status:       post.Status,
+	}
+	return out, nil
+}
+
+

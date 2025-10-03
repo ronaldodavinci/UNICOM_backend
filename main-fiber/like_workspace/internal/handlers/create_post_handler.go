@@ -3,11 +3,13 @@ package handlers
 import (
 	"context"
 	"errors"
+	"time"
 
 	"like_workspace/dto"
 	"like_workspace/services"
 
 	"github.com/gofiber/fiber/v2"
+	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
 )
 
@@ -78,5 +80,50 @@ func CreatePostHandler(client *mongo.Client) fiber.Handler {
 		}
 
 		return c.Status(fiber.StatusCreated).JSON(post)
+	}
+}
+
+// GET /posts/:post_id
+
+// GetIndividualPostHandler godoc
+// @Summary      Get a post detail
+// @Description  Return post detail (user, position, org path, visibility, categories, likes count, etc.)
+// @Tags         posts
+// @Accept       json
+// @Produce      json
+// @Param        post_id  path  string  true  "Post ID (hex)"
+// @Success      200  {object}  dto.PostResponse
+// @Failure      400  {object}  dto.ErrorResponse
+// @Failure      404  {object}  dto.ErrorResponse
+// @Failure      500  {object}  dto.ErrorResponse
+func GetIndividualPostHandler(client *mongo.Client) fiber.Handler {
+	const dbName = "lll_workspace"
+
+	return func(c *fiber.Ctx) error {
+		postIDHex := c.Params("post_id")
+		if postIDHex == "" {
+			return fiber.NewError(fiber.StatusBadRequest, "missing post_id in route")
+		}
+		postID, err := bson.ObjectIDFromHex(postIDHex)
+		if err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, "invalid post_id")
+		}
+
+		// context พร้อม timeout
+		ctx, cancel := context.WithTimeout(c.Context(), 5*time.Second)
+		defer cancel()
+
+		db := client.Database(dbName)
+
+		resp, err := services.GetPostDetail(ctx, db, postID)
+		if err != nil {
+			// ถ้าถูก wrap ด้วย %w จาก service จะเช็ค ErrNoDocuments ได้
+			if errors.Is(err, mongo.ErrNoDocuments) {
+				return fiber.NewError(fiber.StatusNotFound, "post not found")
+			}
+			return fiber.NewError(fiber.StatusInternalServerError, err.Error())
+		}
+
+		return c.Status(fiber.StatusOK).JSON(resp)
 	}
 }

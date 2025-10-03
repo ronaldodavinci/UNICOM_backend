@@ -77,7 +77,6 @@ func InsertRoleVisibility(db *mongo.Database, postID bson.ObjectID, visibility d
 		docs := model.PostRoleVisibility{
 			PostID: postID,
 			NodeID: nil,
-			Scope:  "self",
 		}
 		_, err := col.InsertOne(ctx, docs)
 		return err
@@ -93,17 +92,14 @@ func InsertRoleVisibility(db *mongo.Database, postID bson.ObjectID, visibility d
 			Path   string        `bson:"path"`
 			Status string        `bson:"status"`
 		}
-		err := nodeCol.FindOne(ctx, bson.M{"path": aud.OrgPath, "status": "active"}).Decode(&nodeDoc)
+		err := nodeCol.FindOne(ctx, bson.M{"path": aud, "status": "active"}).Decode(&nodeDoc)
 		if err != nil {
-			return errors.New("org_path not found: " + aud.OrgPath)
+			return errors.New("org_path not found: " + aud)
 		}
-
-		scope := aud.Scope
 
 		doc := model.PostRoleVisibility{
 			PostID: postID,
 			NodeID: &nodeDoc.ID, // pointer เพื่อเก็บ ObjectID
-			Scope:  scope,
 		}
 		docs = append(docs, doc)
 	}
@@ -112,8 +108,129 @@ func InsertRoleVisibility(db *mongo.Database, postID bson.ObjectID, visibility d
 	return err
 }
 
-func FindUserInfo(db *mongo.Database, userID bson.ObjectID, ctx context.Context) (user dto.UserInfoResponse , err error) {
-	col := db.Collection("users")
+func FindUserInfo(col *mongo.Collection, userID bson.ObjectID, ctx context.Context) (user dto.UserInfoResponse , err error) {
 	err = col.FindOne(ctx, bson.M{"_id": userID, "status": "active"}).Decode(&user)
 	return user, err
 }
+
+// GetIndividualPostDetail
+
+func FindPostByID(col *mongo.Collection, id bson.ObjectID, ctx context.Context) (model.Post, error) {
+	var p model.Post
+	err := col.FindOne(ctx, bson.M{"_id": id}).Decode(&p)
+	return p, err
+}
+
+func FindPositionName(col *mongo.Collection, id bson.ObjectID, ctx context.Context) (string, error) {
+	var doc struct {
+		Name string `bson:"name"`
+	}
+	err := col.FindOne(ctx, bson.M{"_id": id, "status": "active"}).Decode(&doc)
+	if err != nil {
+		return "", err
+	}
+	return doc.Name, nil
+}
+
+func FindOrgNode(col *mongo.Collection, id bson.ObjectID, ctx context.Context) (string, error) {
+	var doc struct {
+		OrgPath string `bson:"path"`
+	}
+	err := col.FindOne(ctx, bson.M{"_id": id, "status": "active"}).Decode(&doc)
+	return doc.OrgPath, err
+}
+
+
+// ดึง visibility ของโพสต์จาก post_role_visibility -> แปลง role_id เป็น org_unit_node.path
+func FindVisibilityPaths(
+    colPRV *mongo.Collection,       // post_role_visibility
+    colOrg *mongo.Collection,       // org_unit_node
+    postID bson.ObjectID,
+    ctx context.Context,
+) (dto.Visibility, error) {
+
+    // 1) หา role_id ทั้งหมดที่ผูกกับ post_id
+    cur, err := colPRV.Find(ctx,
+        bson.M{"post_id": postID},
+        options.Find().SetProjection(bson.M{"role_id": 1}))
+    if err != nil {
+        return dto.Visibility{}, err
+    }
+    defer cur.Close(ctx)
+
+    roleIDs := make([]bson.ObjectID, 0, 8)
+    for cur.Next(ctx) {
+        var row struct {
+            RoleID bson.ObjectID `bson:"role_id"`
+        }
+        if err := cur.Decode(&row); err != nil {
+            return dto.Visibility{}, err
+        }
+        roleIDs = append(roleIDs, row.RoleID)
+    }
+    if err := cur.Err(); err != nil {
+        return dto.Visibility{}, err
+    }
+
+    // ถ้าไม่มี record → access=public, audience=[]
+    if len(roleIDs) == 0 {
+        return dto.Visibility{Access: "public", Audience: []string{}}, nil
+    }
+
+    // 2) มี record → access=private แล้ว resolve path จาก org_unit_node
+    //    (สมมติ role_id == _id ของ org_unit_node; ถ้า schema จริงต่างออกไป ให้ปรับ join ตรงนี้)
+    cur2, err := colOrg.Find(ctx,
+        bson.M{"_id": bson.M{"$in": roleIDs}, "status": "active"},
+        options.Find().SetProjection(bson.M{"path": 1}))
+    if err != nil {
+        return dto.Visibility{}, err
+    }
+    defer cur2.Close(ctx)
+
+    // เก็บ path แบบ unique
+    pathSet := make(map[string]struct{}, len(roleIDs))
+    for cur2.Next(ctx) {
+        var node struct {
+            Path string `bson:"path"`
+        }
+        if err := cur2.Decode(&node); err != nil {
+            return dto.Visibility{}, err
+        }
+        if node.Path != "" {
+            pathSet[node.Path] = struct{}{}
+        }
+    }
+    if err := cur2.Err(); err != nil {
+        return dto.Visibility{}, err
+    }
+
+    audience := make([]string, 0, len(pathSet))
+    for p := range pathSet {
+        audience = append(audience, p)
+    }
+
+    return dto.Visibility{Access: "private", Audience: audience}, nil
+}
+
+// ดึง category_ids ของโพสต์จาก post_categories
+func FindCategoryIDs(col *mongo.Collection, postID bson.ObjectID, ctx context.Context) ([]string, error) {
+	cur, err := col.Find(ctx, bson.M{"post_id": postID}, options.Find().SetProjection(bson.M{"category_id": 1}))
+	if err != nil {
+		return nil, err
+	}
+	defer cur.Close(ctx)
+
+	var ids []string
+	for cur.Next(ctx) {
+		var row struct {
+			CategoryID bson.ObjectID `bson:"category_id"`
+		}
+		if err := cur.Decode(&row); err != nil {
+			return nil, err
+		}
+		ids = append(ids, row.CategoryID.Hex())
+	}
+	return ids, cur.Err()
+}
+
+
