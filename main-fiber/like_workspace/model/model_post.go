@@ -36,7 +36,6 @@ type Post struct {
 	UpdatedAt    time.Time     `json:"updatedAt"  		bson:"updated_at"`
 	LikeCount    int           `json:"likeCount"  		bson:"like_count"`
 	CommentCount int           `json:"CommmentCount"  	bson:"comment_count"`
-	Media 		[]Media 	   `json:"media"`
 }
 
 type QueryOptions struct {
@@ -51,4 +50,5 @@ type QueryOptions struct {
 	UntilID    bson.ObjectID
 
 	ViewerID bson.ObjectID
+	AllowedNodeIDs []bson.ObjectID   
 }

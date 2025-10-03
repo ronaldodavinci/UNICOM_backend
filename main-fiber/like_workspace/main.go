@@ -62,14 +62,14 @@ func main() {
 	app.Use(middleware.JWTUidOnly())
 
 	// จากนี่ไปต้องมี JWT (หรือถูก mock ด้วย X-User-ID)
-	app.Use(middleware.RequireAuth())
+	// app.Use(middleware.RequireAuth())
 
 	//เอาไว้ตรวจสอบ Locals ว่ามี user_id มั้ย งานจริงใช้ RequireAuth ด้านบนแทน ปิดไว้ก่อน
-	// app.Get("/whoami", func(c *fiber.Ctx) error {
-	// 	return c.JSON(fiber.Map{
-	// 		"user_id": c.Locals("user_id"),
-	// 	})
-	// })
+	app.Get("/whoami", func(c *fiber.Ctx) error {
+		return c.JSON(fiber.Map{
+			"user_id": c.Locals("user_id"),
+		})
+	})
 
 	// app.Get("/limit", handlers.GetPostsLimit(client))
 

@@ -1,79 +1,4 @@
-// // handlers/feed_handler.go (หรือไฟล์ที่กำกับ endpoint /feed)
-// package handlers
-
-// import (
-// 	"context"
-// 	"strconv"
-
-// 	"github.com/gofiber/fiber/v2"
-// 	"go.mongodb.org/mongo-driver/v2/bson"
-
-// 	"like_workspace/model"
-// )
-
-// type FeedRepository interface {
-// 	List(ctx context.Context, opts model.QueryOptions) ([]model.FrontPost, *bson.ObjectID, error)
-// }
-
-// type FeedService struct {
-// 	Repo FeedRepository
-// }
-
-// func NewFeedService(repo FeedRepository) *FeedService { return &FeedService{Repo: repo} }
-
-// func (s *FeedService) FeedHandler(c *fiber.Ctx) error {
-// 	limit, _ := strconv.ParseInt(c.Query("limit", "20"), 10, 64)
-// 	var until bson.ObjectID
-// 	if cur := c.Query("cursor"); cur != "" {
-// 		until, _ = bson.ObjectIDFromHex(cur)
-// 	}
-
-// 	// TODO: ดึง roles ผู้ชมจาก context/middleware ของคุณ
-// 	var viewerRoles []string
-// 	if v := c.Locals("roles"); v != nil {
-// 		if rr, ok := v.([]string); ok {
-// 			viewerRoles = rr
-// 		}
-// 	}
-	
-// 	opts := model.QueryOptions{
-// 		TextSearch: c.Query("q"),
-// 		Tags:       parseCSV(c.Query("tag")),
-// 		Categories: parseCSV(c.Query("category")),
-// 		Limit:      limit,
-// 		UntilID:    until,
-// 		Roles:      viewerRoles,
-// 	}
-
-// 	items, next, err := s.Repo.List(c.Context(), opts)
-// 	if err != nil {
-// 		return fiber.NewError(fiber.StatusInternalServerError, err.Error())
-// 	}
-
-// 	resp := fiber.Map{"items": items}
-// 	if next != nil {
-// 		resp["next_cursor"] = next.Hex()
-// 	}
-// 	return c.JSON(resp)
-// }
-
-// func parseCSV(q string) []string {
-// 	if q == "" { return nil }
-// 	res := []string{}
-// 	start := 0
-// 	for i := 0; i <= len(q); i++ {
-// 		if i == len(q) || q[i] == ',' {
-// 			part := q[start:i]
-// 			for len(part) > 0 && part[0] == ' ' { part = part[1:] }
-// 			for len(part) > 0 && part[len(part)-1] == ' ' { part = part[:len(part)-1] }
-// 			if part != "" { res = append(res, part) }
-// 			start = i+1
-// 		}
-// 	}
-// 	return res
-// }
-
-// handlers/feed_handler.go
+// internal/handlers/feed_handler.go
 package handlers
 
 import (
@@ -83,8 +8,10 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"go.mongodb.org/mongo-driver/v2/bson"
+	"go.mongodb.org/mongo-driver/v2/mongo"
 
 	"like_workspace/model"
+	"like_workspace/internal/accessctx"
 )
 
 type FeedRepository interface {
@@ -92,35 +19,56 @@ type FeedRepository interface {
 }
 
 type FeedService struct {
-	Repo FeedRepository
+	Repo   FeedRepository
+	Client *mongo.Client
 }
 
-func NewFeedService(repo FeedRepository) *FeedService { return &FeedService{Repo: repo} }
+func NewFeedService(repo FeedRepository, client *mongo.Client) *FeedService {
+	return &FeedService{Repo: repo, Client: client}
+}
 
 func (s *FeedService) FeedHandler(c *fiber.Ctx) error {
 	limit, _ := strconv.ParseInt(c.Query("limit", "20"), 10, 64)
 
-	// cursor/จนถึงไอดีนี้ (เลื่อนลง)
 	var until bson.ObjectID
 	if cur := c.Query("cursor"); cur != "" {
-		until, _ = bson.ObjectIDFromHex(cur)
+		if oid, err := bson.ObjectIDFromHex(cur); err == nil {
+			until = oid
+		}
 	}
 
-	// ===== ViewerID จาก query (?viewer_id=...) =====
+	// viewerID จาก query หรือจาก auth locals
 	var viewerID bson.ObjectID
-	if vid := c.Query("viewer_id"); vid != "" {
-		if oid, err := bson.ObjectIDFromHex(vid); err == nil {
+	if qs := c.Query("user"); qs != "" {
+		if oid, err := bson.ObjectIDFromHex(strings.TrimSpace(qs)); err == nil {
 			viewerID = oid
+		}
+	}
+	if viewerID == (bson.ObjectID{}) {
+		if uidHex, _ := c.Locals("userId").(string); uidHex != "" {
+			if oid, err := bson.ObjectIDFromHex(strings.TrimSpace(uidHex)); err == nil {
+				viewerID = oid
+			}
+		}
+	}
+
+	// ดึง subtree node_ids ของผู้ชม (สำหรับ visibility)
+	var allowedNodeIDs []bson.ObjectID
+	if viewerID != (bson.ObjectID{}) {
+		if va, err := accessctx.BuildViewerAccess(c.Context(), s.Client.Database("lll_workspace"), viewerID); err == nil && va != nil {
+			allowedNodeIDs = va.SubtreeNodeIDs
 		}
 	}
 
 	opts := model.QueryOptions{
-		TextSearch: c.Query("q"),
-		Tags:       splitCSV(c.Query("tag")),
-		Categories: splitCSV(c.Query("category")),
-		Limit:      limit,
-		UntilID:    until,
-		ViewerID:   viewerID, // 👈 ใช้ไอดีผู้ใช้แทน roles
+		Roles:          splitCSV(c.Query("role")),         // 👈 กรองแบบสตริงหลายค่า
+		Categories:     splitCSV(c.Query("category")),     // 👈 กรองแบบสตริงหลายค่า
+		AuthorIDs:      parseAuthorIDs(splitCSV(c.Query("author"))),
+		TextSearch:     c.Query("q"),
+		Limit:          limit,
+		UntilID:        until,
+		ViewerID:       viewerID,
+		AllowedNodeIDs: allowedNodeIDs,
 	}
 
 	items, next, err := s.Repo.List(c.Context(), opts)
@@ -146,6 +94,19 @@ func splitCSV(s string) []string {
 		p = strings.TrimSpace(p)
 		if p != "" {
 			out = append(out, p)
+		}
+	}
+	return out
+}
+
+func parseAuthorIDs(ids []string) []bson.ObjectID {
+	if len(ids) == 0 {
+		return nil
+	}
+	out := make([]bson.ObjectID, 0, len(ids))
+	for _, h := range ids {
+		if oid, err := bson.ObjectIDFromHex(strings.TrimSpace(h)); err == nil {
+			out = append(out, oid)
 		}
 	}
 	return out

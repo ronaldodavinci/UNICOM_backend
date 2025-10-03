@@ -24,12 +24,12 @@ func Register(app *fiber.App, d Deps) {
 	
 	// GET /api/users
 	// Example:
-	//   curl -X GET http://localhost:3000/api/users
+	//   curl -X GET http://localhost:8000/api/users
 	users := api.Group("/users")
 
 	// Postman:
 	//   Method: GET
-	//   URL:    http://localhost:3000/api/users
+	//   URL:    http://localhost:8000/api/users
 	users.Get("/", func(c *fiber.Ctx) error {
 		return handlers.GetUserHandler(c, d.Client)
 	})
@@ -41,29 +41,33 @@ func Register(app *fiber.App, d Deps) {
 
 	// POST /api/posts/blog
 	// Example:
-	//   curl -X POST http://localhost:3000/api/posts/blog \
+	//   curl -X POST http://localhost:8000/api/posts/blog \
 	//   -H "Content-Type: application/json" \
 	//   -d '{"title":"hello","body":"world"}'
 	posts.Post("/blog", handlers.CreatePostHandler(d.Client))
 	
 	// GET /api/posts/visibility/cursor
 	// Example:
-	//   curl -X GET http://localhost:3000/api/posts/visibility
+	//   curl -X GET http://localhost:8000/api/posts/visibility
 
 	posts.Get("/visibility/cursor", handlers.GetPostsVisibilityCursor(d.Client))
 	
 	// GET /api/posts/feed
 	// Example:
-	//   curl -X GET http://localhost:3000/api/posts/feed
-	//	 curl -X GET "http://localhost:3000/api/posts/feed?cursor=..."
-	//	 curl -X GET "http://localhost:3000/api/posts/feed?tag=..."
-	//	 curl -X GET "http://localhost:3000/api/posts/feed?category=..."
-	//	 curl -X GET "http://localhost:3000/api/posts/feed?author=..."
-	//	 curl -X GET "http://localhost:3000/api/posts/feed?q=..."
-	//	 curl -X GET "http://localhost:3000/api/posts/feed?viewer_id=..."
+	//   curl -X GET http://localhost:8000/api/posts/feed
+	//	 curl -X GET "http://localhost:8000/api/posts/feed?cursor=..."
+	//	 curl -X GET "http://localhost:8000/api/posts/feed?tag=..."
+	//	 curl -X GET "http://localhost:8000/api/posts/feed?category=..."
+	//	 curl -X GET "http://localhost:8000/api/posts/feed?author=..."
+	//	 curl -X GET "http://localhost:8000/api/posts/feed?q=..."
+	//	 curl -X GET "http://localhost:8000/api/posts/feed?user=..."
 	repo := repository.NewMongoFeedRepo(d.Client)
-	feedRepo := handlers.NewFeedService(repo)
-	posts.Get("/feed", feedRepo.FeedHandler)
+	feedSvc := handlers.NewFeedService(repo, d.Client)
+	posts.Get("/feed", feedSvc.FeedHandler)
+
+	// GET /debug/viewer
+	//   curl -X GET http://localhost:8000/debug/viewer?user=...
+	RegisterDebug(app, d.Client)
 	
 	// ============================================================
 	// Misc
