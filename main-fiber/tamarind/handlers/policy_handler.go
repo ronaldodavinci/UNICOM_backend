@@ -1,22 +1,40 @@
 package handlers
 
 import (
-	"github.com/gofiber/fiber/v2"
-	"github.com/pllus/main-fiber/tamarind/repositories"
+    "github.com/gofiber/fiber/v2"
+    "github.com/pllus/main-fiber/tamarind/models"
+    "github.com/pllus/main-fiber/tamarind/repositories"
+    "time"
 )
 
 type PolicyHandler struct {
-	policyRepo *repositories.PolicyRepository
+    repo *repositories.PolicyRepository
 }
 
 func NewPolicyHandler(r *repositories.PolicyRepository) *PolicyHandler {
-	return &PolicyHandler{policyRepo: r}
+    return &PolicyHandler{repo: r}
 }
 
+// POST /api/policies
 func (h *PolicyHandler) CreatePolicy(c *fiber.Ctx) error {
-	return c.JSON(fiber.Map{"message": "create policy success"})
+    var req models.Policy
+    if err := c.BodyParser(&req); err != nil {
+        return fiber.NewError(fiber.StatusBadRequest, "invalid body")
+    }
+    req.CreatedAt = time.Now()
+
+    if err := h.repo.Insert(c.Context(), req); err != nil {
+        return fiber.NewError(fiber.StatusInternalServerError, err.Error())
+    }
+
+    return c.JSON(fiber.Map{"message": "policy created", "data": req})
 }
 
+// GET /api/policies
 func (h *PolicyHandler) ListPolicies(c *fiber.Ctx) error {
-	return c.JSON(fiber.Map{"data": []string{"policy1", "policy2"}})
+    policies, err := h.repo.FindAll(c.Context())
+    if err != nil {
+        return fiber.NewError(fiber.StatusInternalServerError, err.Error())
+    }
+    return c.JSON(policies)
 }

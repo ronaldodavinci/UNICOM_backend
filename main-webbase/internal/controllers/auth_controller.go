@@ -3,6 +3,7 @@ package controllers
 import (
 	"context"
 	"main-webbase/internal/models"
+	"main-webbase/database"
 	"os"
 	"time"
 
@@ -26,8 +27,7 @@ import (
 // @Failure 500 {object} map[string]interface{} "Failed to create user"
 // @Router /register [post]
 func Register(c *fiber.Ctx, client *mongo.Client) error {
-
-	collection := client.Database("big_workspace").Collection("user")
+	collection := database.DB.Collection("users")
 
 	var registerRequest models.RegisterRequest
 	if err := c.BodyParser(&registerRequest); err != nil {
@@ -95,7 +95,7 @@ func Login(c *fiber.Ctx, client *mongo.Client) error {
 	}
 
 	// Find the user in the database by their username
-	collection := client.Database("big_workspace").Collection("user")
+	collection := database.DB.Collection("users")
 
 	var user models.User
 	filter := bson.M{"email": loginRequest.Email}

@@ -56,7 +56,7 @@ func (s *AuthzService) Can(ctx context.Context, userID primitive.ObjectID, orgPa
 	// 4. match memberships with policies
 	for _, m := range mems {
 		for _, p := range pols {
-			if p.Name == m.PositionKey && (orgPath == "" || orgPath == m.OrgPath) {
+			if p.PositionKey == m.PositionKey && (orgPath == "" || orgPath == m.OrgPath) {
 				return true, nil
 			}
 		}

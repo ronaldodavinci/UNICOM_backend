@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/pllus/main-fiber/tamarind/repositories"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 type Audience struct {
@@ -19,7 +20,7 @@ func NewAudienceService(m *repositories.MembershipRepository) *AudienceService {
 	return &AudienceService{membershipRepo: m}
 }
 
-func (s *AudienceService) GetAudience(ctx context.Context, userID any) (Audience, error) {
+func (s *AudienceService) GetAudience(ctx context.Context, userID primitive.ObjectID) (Audience, error) {
 	mems, err := s.membershipRepo.FindByUser(ctx, userID)
 	if err != nil {
 		return Audience{}, err
