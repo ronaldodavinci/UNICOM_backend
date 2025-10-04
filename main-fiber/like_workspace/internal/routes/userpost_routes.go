@@ -1,6 +1,8 @@
 package routes
 
 import (
+	"context"
+
 	"github.com/gofiber/fiber/v2"
 	"go.mongodb.org/mongo-driver/v2/mongo"
 
@@ -69,6 +71,19 @@ func Register(app *fiber.App, d Deps) {
 	// /debug/viewer?user=... ยังไว้ทดสอบได้ (ออปชัน)
 	RegisterDebug(app, d.Client)
 
+	// ============================================================
+	// Trending
+	// ============================================================	
+	trRepo := repository.NewMongoHashtagTrendingRepoWithDBName(d.Client)
+	_ = trRepo.EnsureIndexes(context.Background()) // optional
+	trHdl := handlers.NewHashtagTrendingHandler(trRepo)
+
+	trending := api.Group("/trending")
+	trending.Get("/today", trHdl.TopToday) // แบบที่ 1
+	trending.Get("/all",   trHdl.TopAll)   // แบบที่ 2
+	trending.Get("/one",   trHdl.CountOne)
+	trending.Get("/posts", trHdl.ListPostsByTag) // แบบที่ 3 (รายละเอียดโพสต์)
+	
 	// ============================================================
 	// Misc
 	// ============================================================

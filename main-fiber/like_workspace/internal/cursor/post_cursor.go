@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"time"
 
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/v2/bson"
 )
 
 type PostCursor struct {
@@ -13,7 +13,7 @@ type PostCursor struct {
 	ID        string `json:"id"`
 }
 
-func EncodePostCursor(t time.Time, id primitive.ObjectID) string {
+func EncodePostCursor(t time.Time, id bson.ObjectID) string {
 	b, _ := json.Marshal(PostCursor{
 		CreatedAt: t.UnixMilli(),
 		ID:        id.Hex(),
@@ -21,18 +21,18 @@ func EncodePostCursor(t time.Time, id primitive.ObjectID) string {
 	return base64.StdEncoding.EncodeToString(b)
 }
 
-func DecodePostCursor(s string) (time.Time, primitive.ObjectID, error) {
+func DecodePostCursor(s string) (time.Time, bson.ObjectID, error) {
 	raw, err := base64.StdEncoding.DecodeString(s)
 	if err != nil {
-		return time.Time{}, primitive.NilObjectID, err
+		return time.Time{}, bson.NilObjectID, err
 	}
 	var p PostCursor
 	if err := json.Unmarshal(raw, &p); err != nil {
-		return time.Time{}, primitive.NilObjectID, err
+		return time.Time{}, bson.NilObjectID, err
 	}
-	oid, err := primitive.ObjectIDFromHex(p.ID)
+	oid, err := bson.ObjectIDFromHex(p.ID)
 	if err != nil {
-		return time.Time{}, primitive.NilObjectID, err
+		return time.Time{}, bson.NilObjectID, err
 	}
 	return time.UnixMilli(p.CreatedAt).UTC(), oid, nil
 }

@@ -11,22 +11,35 @@ import (
 
 func RegisterDebug(app *fiber.App, client *mongo.Client) {
 	db := client.Database("lll_workspace")
+
+	// ต้องแน่ใจว่าได้ติดตั้ง middleware.JWTUidOnly() ก่อนถึงเส้นทางนี้
 	app.Get("/debug/viewer", func(c *fiber.Ctx) error {
-		user := c.Query("user") // รับ user_id (hex) จาก query
-		if user == "" {
-			return fiber.NewError(fiber.StatusBadRequest, "missing ?user=<hex ObjectID>")
+		// ✅ รับ uid/sub จาก JWT ที่ middleware เซ็ตไว้ใน Locals("user_id")
+		v := c.Locals("user_id")
+		if v == nil {
+			return fiber.ErrUnauthorized
 		}
-		uid, err := bson.ObjectIDFromHex(user)
-		if err != nil {
-			return fiber.NewError(fiber.StatusBadRequest, "invalid user ObjectID")
+		uidStr, ok := v.(string)
+		if !ok || uidStr == "" {
+			return fiber.NewError(fiber.StatusUnauthorized, "invalid user_id in context")
 		}
 
-		va, err := accessctx.BuildViewerAccess(c.Context(), db, uid)
+		// ✅ uid/sub ของคุณเป็น ObjectID (ตามโปรแกรม gen token)
+		userOID, err := bson.ObjectIDFromHex(uidStr)
+		if err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, "user_id must be a hex ObjectID")
+		}
+
+		// ✅ สร้าง ViewerAccess จาก _id ของผู้ใช้ปัจจุบัน
+		va, err := accessctx.BuildViewerAccess(c.Context(), db, userOID)
 		if err != nil {
 			return fiber.NewError(fiber.StatusInternalServerError, err.Error())
 		}
 
-		// คืนข้อมูลทั้งหมดให้ดู
+		// (ถ้าต้องการใช้งานต่อใน chain อื่น ๆ ก็สามารถ c.Locals("viewer", va) ได้)
+		// c.Locals("viewer", va)
+
+		// ✅ คืนข้อมูลเพื่อดีบัก
 		return c.JSON(fiber.Map{
 			"userId":          va.UserID.Hex(),
 			"memberships":     va.Memberships,

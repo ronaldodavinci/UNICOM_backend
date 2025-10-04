@@ -3,7 +3,6 @@ package utils
 import (
     "time"
     "go.mongodb.org/mongo-driver/v2/bson"
-    "go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 func ExtractTime(m bson.M, key string) (time.Time, bool) {
@@ -14,7 +13,7 @@ func ExtractTime(m bson.M, key string) (time.Time, bool) {
 	switch tv := v.(type) {
 	case time.Time:
 		return tv, true
-	case primitive.DateTime:
+	case bson.DateTime:
 		return tv.Time(), true
 	case string:
 		if t, err := time.Parse(time.RFC3339Nano, tv); err == nil {

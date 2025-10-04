@@ -238,7 +238,7 @@ func (r *mongoFeedRepo) List(ctx context.Context, opts model.QueryOptions) ([]mo
 		}}},
 		bson.D{{Key: "$addFields", Value: bson.M{
 			"visibilityAccess": bson.M{
-				"$cond": bson.A{"$hasVisibility", "org", "public"},
+				"$cond": bson.A{"$hasVisibility", "private", "public"},
 			},
 		}}},
 		bson.D{{Key: "$addFields", Value: bson.M{
