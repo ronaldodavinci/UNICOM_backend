@@ -117,9 +117,9 @@ func Login(c *fiber.Ctx, client *mongo.Client) error {
 
 	// Create JWT Claims
 	claims := jwt.MapClaims{
-		"Email":   user.Email,
-		"user_id": user.ID.Hex(),
-		"exp":     time.Now().Add(time.Hour * 72).Unix(),
+		"uid": user.ID.Hex(), 
+		"sub": user.ID.Hex(), // ทำไว้ 2 ชั้น เป็นมาตรฐานเอาไว้ใช้ใน Middleware ด้วย
+		"exp": time.Now().Add(time.Hour * 72).Unix(),
 	}
 
 	// Create token
@@ -128,8 +128,9 @@ func Login(c *fiber.Ctx, client *mongo.Client) error {
 	// Sign token with a secret key (use an environment variable!)
 	secret := os.Getenv("JWT_SECRET")
 	if secret == "" {
-		secret = "your_strong_secret_key"
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Missing JWT_SECRET"})
 	}
+	
 	t, err := token.SignedString([]byte(secret))
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Could not sign token"})

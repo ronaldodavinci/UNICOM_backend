@@ -8,6 +8,7 @@ package main
 
 import (
 	"log"
+	"os"
 
 	_ "main-webbase/docs"
 
@@ -17,13 +18,16 @@ import (
 	"main-webbase/config"
 	"main-webbase/database"
 	"main-webbase/internal/routes"
-
-	"go.mongodb.org/mongo-driver/mongo"
+	"main-webbase/internal/middleware"
 )
 
-var client *mongo.Client
-
 func main() {
+	secret := os.Getenv("JWT_SECRET")
+	if secret == "" {
+		panic("JWT_SECRET is required")
+	}
+	log.Printf("env: JWT_SECRET len=%d", len(os.Getenv("JWT_SECRET")))
+
 	// Load configuration
 	cfg := config.LoadConfig()
 
@@ -35,7 +39,7 @@ func main() {
 	app := fiber.New()
 
 	// app.Use(func(c *fiber.Ctx) error {
-	// 	c.Locals("user_id", "68bd6ff6f80438824239b8a9") // 👈 ใช้ ObjectID จริงของ user
+	// 	c.Locals("user_id", "68bd6ff6f80438824239b8a9")
 	// 	c.Locals("is_Root", false)
 	// 	return c.Next()
 	// })
@@ -46,25 +50,21 @@ func main() {
 	// Health
 	app.Get("/healthz", func(c *fiber.Ctx) error { return c.SendString("ok") })
 
-	// Routes
-	// Auth
+	// Get JWT with login
 	routes.SetupAuth(app, client)
 
-	// Users
-	routes.SetupRoutesUser(app, client)
-
-	// Role
+	app.Use(middleware.JWTUidOnly(secret))
+	
+	// Routes
+	routes.SetupRoutesUser(app)
 	routes.SetupRoutesAbility(app)
 	routes.SetupRoutesOrg(app)
 	routes.SetupRoutesMembership(app)
 	routes.SetupRoutesPosition(app)
 	routes.SetupRoutesPolicy(app)
-
-	// Posts
 	// routes.SetupRoutesPost(app, client)
-
-	//Events
 	routes.SetupRoutesEvent(app)
+
 
 	// RUN SERVER
 	log.Fatal(app.Listen(":" + cfg.Port))
