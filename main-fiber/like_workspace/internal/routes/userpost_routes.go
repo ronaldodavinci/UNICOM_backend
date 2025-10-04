@@ -74,6 +74,13 @@ func Register(app *fiber.App, d Deps) {
 	// ============================================================
 	// Trending
 	// ============================================================	
+	// GET /api/trending
+	// ใช้ JWT token + InjectViewer แทนการส่ง ?user=
+	// Examples:
+	//   curl -X GET "http://localhost:8000/api/trending/today" -H "Authorization: Bearer <JWT>"
+	//   curl -X GET "http://localhost:8000/api/trending/all" -H "Authorization: Bearer <JWT>"
+	//   curl -X GET "http://localhost:8000/api/trending/one?tag=..." -H "Authorization: Bearer <JWT>"
+	//   curl -X GET "http://localhost:8000/api/trending/posts?tag=..." -H "Authorization: Bearer <JWT>"
 	trRepo := repository.NewMongoHashtagTrendingRepoWithDBName(d.Client)
 	_ = trRepo.EnsureIndexes(context.Background()) // optional
 	trHdl := handlers.NewHashtagTrendingHandler(trRepo)
