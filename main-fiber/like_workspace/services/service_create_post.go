@@ -19,7 +19,7 @@ var ErrUserNotFound = errors.New("user not found")
 var ErrOrgNodeNotFound = errors.New("org node not found")
 var ErrPositionNotFound = errors.New("position not found")
 
-func CreatePostWithMeta(client *mongo.Client, UserID bson.ObjectID, body dto.CreatePostDTO, ctx context.Context) (dto.PostResponse, error) {
+func CreatePostWithMeta(client *mongo.Client, UserID string, body dto.CreatePostDTO, ctx context.Context) (dto.PostResponse, error) {
 	db := client.Database("lll_workspace")
 	now := time.Now().UTC()
 
@@ -46,9 +46,12 @@ func CreatePostWithMeta(client *mongo.Client, UserID bson.ObjectID, body dto.Cre
 	// 0.1) เตรียม tags จาก PostText
 	tagsSlice := u.ExtractHashtags(body.PostText)
 
+	UserIDs, err := bson.ObjectIDFromHex(UserID)
+
+
 	// 1) Insert post
 	post := model.Post{
-		UserID:       UserID,
+		UserID:       UserIDs,
 		RolePathID:   rolePathID, // เปลี่ยนจาก RolePath(string) → ObjectID
 		PositionID:   positionID, // เปลี่ยนจาก Position(string) → ObjectID
 		Hashtag:      tagsSlice,  // เก็บ string (เช่น "smo,eng,ku66")
@@ -99,7 +102,7 @@ func CreatePostWithMeta(client *mongo.Client, UserID bson.ObjectID, body dto.Cre
 
 	// 5) ดึง user info (critical)
 	colUsers := db.Collection("users")
-	userInfo, err := repo.FindUserInfo(colUsers, UserID, ctx)
+	userInfo, err := repo.FindUserInfo(colUsers, UserIDs, ctx)
 	if err != nil {
 		if errors.Is(err, mongo.ErrNoDocuments) {
 			rollback()
@@ -111,7 +114,7 @@ func CreatePostWithMeta(client *mongo.Client, UserID bson.ObjectID, body dto.Cre
 
 	// 6) ประกอบ response (ส่ง string id กลับตาม requirement)
 	resp = dto.PostResponse{
-		UserID:       UserID.Hex(),
+		UserID:       UserID,
 		Name:         userInfo.FirstName, // แก้เป็น display name ที่ต้องการได้
 		Username:     userInfo.Username,
 		PostText:     post.PostText,

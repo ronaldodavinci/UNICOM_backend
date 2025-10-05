@@ -12,6 +12,7 @@ func PostRoutes(app *fiber.App, client *mongo.Client) {
 
 	post.Post("/", handlers.CreatePostHandler(client))
 
-	// ดึงโพสต์เดี่ยวตาม post_id
 	post.Get("/:post_id", handlers.GetIndividualPostHandler(client))
+
+	app.Delete("/posts/:id", handlers.DeletePostHandler(client))
 }

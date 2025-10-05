@@ -114,13 +114,11 @@ func FindUserInfo(col *mongo.Collection, userID bson.ObjectID, ctx context.Conte
 }
 
 // GetIndividualPostDetail
-
 func FindPostByID(col *mongo.Collection, id bson.ObjectID, ctx context.Context) (model.Post, error) {
 	var p model.Post
 	err := col.FindOne(ctx, bson.M{"_id": id}).Decode(&p)
 	return p, err
 }
-
 func FindPositionName(col *mongo.Collection, id bson.ObjectID, ctx context.Context) (string, error) {
 	var doc struct {
 		Name string `bson:"name"`
@@ -131,7 +129,6 @@ func FindPositionName(col *mongo.Collection, id bson.ObjectID, ctx context.Conte
 	}
 	return doc.Name, nil
 }
-
 func FindOrgNode(col *mongo.Collection, id bson.ObjectID, ctx context.Context) (string, error) {
 	var doc struct {
 		OrgPath string `bson:"path"`
@@ -139,8 +136,6 @@ func FindOrgNode(col *mongo.Collection, id bson.ObjectID, ctx context.Context) (
 	err := col.FindOne(ctx, bson.M{"_id": id, "status": "active"}).Decode(&doc)
 	return doc.OrgPath, err
 }
-
-
 // ดึง visibility ของโพสต์จาก post_role_visibility -> แปลง role_id เป็น org_unit_node.path
 func FindVisibilityPaths(
     colPRV *mongo.Collection,       // post_role_visibility
@@ -211,7 +206,6 @@ func FindVisibilityPaths(
 
     return dto.Visibility{Access: "private", Audience: audience}, nil
 }
-
 // ดึง category_ids ของโพสต์จาก post_categories
 func FindCategoryIDs(col *mongo.Collection, postID bson.ObjectID, ctx context.Context) ([]string, error) {
 	cur, err := col.Find(ctx, bson.M{"post_id": postID}, options.Find().SetProjection(bson.M{"category_id": 1}))
@@ -234,3 +228,25 @@ func FindCategoryIDs(col *mongo.Collection, postID bson.ObjectID, ctx context.Co
 }
 
 
+// DeletePostHandler
+func DeletePost(db *mongo.Database, postID bson.ObjectID, ctx context.Context) error {
+	col := db.Collection("posts")
+
+	// filter หาจาก _id
+	filter := bson.M{"_id": postID, "status": "active"}
+	update := bson.M{
+		"$set": bson.M{
+			"status": "inactive",
+		},
+	}
+
+	result, err := col.UpdateOne(ctx, filter, update)
+	if err != nil {
+		return err
+	}
+	if result.MatchedCount == 0 {
+		return errors.New("post not found or already inactive")
+	}
+
+	return nil
+}

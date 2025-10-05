@@ -1,11 +1,4 @@
 definitions:
-  dto.Audience:
-    properties:
-      org_path:
-        type: string
-      scope:
-        type: string
-    type: object
   dto.CreatePostDTO:
     properties:
       categoryIds:
@@ -70,6 +63,10 @@ definitions:
       createdAt:
         example: "2025-09-07T13:47:47Z"
         type: string
+      hashtag:
+        items:
+          type: string
+        type: array
       likeCount:
         description: |-
           PictureUrl    []string `json:"pictureUrl"    example:"['https://example.com/pic1.jpg','https://example.com/pic2.jpg']"`
@@ -119,48 +116,26 @@ definitions:
         type: string
       audience:
         items:
-          $ref: '#/definitions/dto.Audience'
+          type: string
         type: array
     type: object
 info:
   contact: {}
 paths:
-  /api/posts/limit:
-    get:
-      description: Fetch latest posts with limit=5
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            items:
-              additionalProperties: true
-              type: object
-            type: array
-        "500":
-          description: Internal Server Error
-          schema:
-            additionalProperties: true
-            type: object
-      summary: Get latest posts
-      tags:
-      - posts
   /posts:
     post:
       consumes:
       - application/json
-      description: |-
-        Create a new post with categories, visibility, and posting role.
-        Requirements:
-        • Auth via Bearer token
-        • body.postText required
-        • body.postAs.org_path & body.postAs.position_key required
+      description: Create a new post with categories, visibility and media URLs
       parameters:
-      - description: Bearer <JWT>
+      - description: Bearer {token}
         in: header
         name: Authorization
         required: true
+        type: string
+      - description: Idempotency key
+        in: header
+        name: X-Request-Id
         type: string
       - description: Post payload
         in: body
@@ -176,24 +151,85 @@ paths:
           schema:
             $ref: '#/definitions/dto.PostResponse'
         "400":
-          description: Bad request (missing fields / invalid org_path or position_key)
+          description: Bad Request
           schema:
             $ref: '#/definitions/dto.ErrorResponse'
         "401":
-          description: Unauthorized (missing/invalid token)
+          description: Unauthorized
           schema:
             $ref: '#/definitions/dto.ErrorResponse'
         "404":
-          description: User not found
+          description: Not Found
           schema:
             $ref: '#/definitions/dto.ErrorResponse'
         "500":
-          description: Internal server error
+          description: Internal Server Error
           schema:
             $ref: '#/definitions/dto.ErrorResponse'
       security:
       - BearerAuth: []
       summary: Create a post
+      tags:
+      - posts
+  /posts/{id}:
+    delete:
+      description: เปลี่ยนสถานะโพสต์จาก active เป็น inactive (soft delete)
+      parameters:
+      - description: Post ID (hex)
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      summary: 'Soft delete post (status: active -> inactive)'
+      tags:
+      - posts
+  /posts/{post_id}:
+    get:
+      consumes:
+      - application/json
+      description: Return post detail (user, position, org path, visibility, categories,
+        likes count, etc.)
+      parameters:
+      - description: Post ID (hex)
+        in: path
+        name: post_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.PostResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      summary: Get a post detail
       tags:
       - posts
 swagger: "2.0"

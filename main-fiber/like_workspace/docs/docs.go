@@ -15,37 +15,6 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
-        "/api/posts/limit": {
-            "get": {
-                "description": "Fetch latest posts with limit=5",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "posts"
-                ],
-                "summary": "Get latest posts",
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "array",
-                            "items": {
-                                "type": "object",
-                                "additionalProperties": true
-                            }
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    }
-                }
-            }
-        },
         "/posts": {
             "post": {
                 "security": [
@@ -53,7 +22,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Create a new post with categories, visibility, and posting role.\nRequirements:\n• Auth via Bearer token\n• body.postText required\n• body.postAs.org_path \u0026 body.postAs.position_key required",
+                "description": "Create a new post with categories, visibility and media URLs",
                 "consumes": [
                     "application/json"
                 ],
@@ -67,10 +36,16 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Bearer \u003cJWT\u003e",
+                        "description": "Bearer {token}",
                         "name": "Authorization",
                         "in": "header",
                         "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Idempotency key",
+                        "name": "X-Request-Id",
+                        "in": "header"
                     },
                     {
                         "description": "Post payload",
@@ -90,25 +65,116 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "Bad request (missing fields / invalid org_path or position_key)",
+                        "description": "Bad Request",
                         "schema": {
                             "$ref": "#/definitions/dto.ErrorResponse"
                         }
                     },
                     "401": {
-                        "description": "Unauthorized (missing/invalid token)",
+                        "description": "Unauthorized",
                         "schema": {
                             "$ref": "#/definitions/dto.ErrorResponse"
                         }
                     },
                     "404": {
-                        "description": "User not found",
+                        "description": "Not Found",
                         "schema": {
                             "$ref": "#/definitions/dto.ErrorResponse"
                         }
                     },
                     "500": {
-                        "description": "Internal server error",
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/posts/{id}": {
+            "delete": {
+                "description": "เปลี่ยนสถานะโพสต์จาก active เป็น inactive (soft delete)",
+                "tags": [
+                    "posts"
+                ],
+                "summary": "Soft delete post (status: active -\u003e inactive)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Post ID (hex)",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/posts/{post_id}": {
+            "get": {
+                "description": "Return post detail (user, position, org path, visibility, categories, likes count, etc.)",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "posts"
+                ],
+                "summary": "Get a post detail",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Post ID (hex)",
+                        "name": "post_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/dto.PostResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
                         "schema": {
                             "$ref": "#/definitions/dto.ErrorResponse"
                         }
@@ -118,17 +184,6 @@ const docTemplate = `{
         }
     },
     "definitions": {
-        "dto.Audience": {
-            "type": "object",
-            "properties": {
-                "org_path": {
-                    "type": "string"
-                },
-                "scope": {
-                    "type": "string"
-                }
-            }
-        },
         "dto.CreatePostDTO": {
             "type": "object",
             "required": [
@@ -227,6 +282,12 @@ const docTemplate = `{
                     "type": "string",
                     "example": "2025-09-07T13:47:47Z"
                 },
+                "hashtag": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
                 "likeCount": {
                     "description": "PictureUrl    []string ` + "`" + `json:\"pictureUrl\"    example:\"['https://example.com/pic1.jpg','https://example.com/pic2.jpg']\"` + "`" + `\nVideoUrl      []string ` + "`" + `json:\"videoUrl\"      example:\"['https://example.com/vid1.mp4','https://example.com/vid2.mp4']\"` + "`" + `",
                     "type": "integer",
@@ -297,7 +358,7 @@ const docTemplate = `{
                 "audience": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/dto.Audience"
+                        "type": "string"
                     }
                 }
             }

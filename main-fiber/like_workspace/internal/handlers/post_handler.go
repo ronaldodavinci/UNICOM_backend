@@ -7,38 +7,36 @@ import (
 
 	"like_workspace/dto"
 	"like_workspace/services"
+	mid "like_workspace/internal/middleware"
+	repo "like_workspace/internal/repository"
 
 	"github.com/gofiber/fiber/v2"
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
 )
 
+// POST /posts
+
 // CreatePostHandler godoc
 // @Summary      Create a post
-// @Description  Create a new post with categories, visibility, and posting role.
-// @Description  Requirements:
-// @Description   • Auth via Bearer token
-// @Description   • body.postText required
-// @Description   • body.postAs.org_path & body.postAs.position_key required
+// @Description  Create a new post with categories, visibility and media URLs
 // @Tags         posts
-// @Security     BearerAuth
 // @Accept       json
 // @Produce      json
-// @Param        Authorization  header    string              true  "Bearer <JWT>"
-// @Param        data           body      dto.CreatePostDTO   true  "Post payload"
-// @Success      201            {object}  dto.PostResponse    "Created"
-// @Failure      400            {object}  dto.ErrorResponse   "Bad request (missing fields / invalid org_path or position_key)"
-// @Failure      401            {object}  dto.ErrorResponse   "Unauthorized (missing/invalid token)"
-// @Failure      404            {object}  dto.ErrorResponse   "User not found"
-// @Failure      500            {object}  dto.ErrorResponse   "Internal server error"
+// @Security     BearerAuth
+// @Param        Authorization  header    string             true  "Bearer {token}"
+// @Param        X-Request-Id   header    string             false "Idempotency key"
+// @Param        data           body      dto.CreatePostDTO  true  "Post payload"
+// @Success      201            {object}  dto.PostResponse
+// @Failure      400            {object}  dto.ErrorResponse
+// @Failure      401            {object}  dto.ErrorResponse
+// @Failure      404            {object}  dto.ErrorResponse
+// @Failure      500            {object}  dto.ErrorResponse
 // @Router       /posts [post]
 func CreatePostHandler(client *mongo.Client) fiber.Handler {
 	return func(c *fiber.Ctx) error {
-		userID, ok := services.FetchUserID(c)
-		if !ok {
-			return c.Status(fiber.StatusUnauthorized).
-				JSON(dto.ErrorResponse{Message: "missing userId in context"})
-		}
+		userID, _ := mid.UIDFromLocals(c)
+
 
 		var body dto.CreatePostDTO
 		if err := c.BodyParser(&body); err != nil {
@@ -96,6 +94,7 @@ func CreatePostHandler(client *mongo.Client) fiber.Handler {
 // @Failure      400  {object}  dto.ErrorResponse
 // @Failure      404  {object}  dto.ErrorResponse
 // @Failure      500  {object}  dto.ErrorResponse
+// @Router       /posts/{post_id} [get]
 func GetIndividualPostHandler(client *mongo.Client) fiber.Handler {
 	const dbName = "lll_workspace"
 
@@ -125,5 +124,40 @@ func GetIndividualPostHandler(client *mongo.Client) fiber.Handler {
 		}
 
 		return c.Status(fiber.StatusOK).JSON(resp)
+	}
+}
+
+// DeletePostHandlerWithClient สร้าง Fiber handler โดยรับ mongo.Client + dbName
+// @Summary      Soft delete post (status: active -> inactive)
+// @Description  เปลี่ยนสถานะโพสต์จาก active เป็น inactive (soft delete)
+// @Tags         posts
+// @Param        id   path      string  true  "Post ID (hex)"
+// @Success      204
+// @Failure      400  {object}  dto.ErrorResponse
+// @Failure      404  {object}  dto.ErrorResponse
+// @Failure      500  {object}  dto.ErrorResponse
+// @Router       /posts/{id} [delete]
+func DeletePostHandler(client *mongo.Client) fiber.Handler {
+	return func(c *fiber.Ctx) error {
+		idParam := c.Params("id")
+		postID, err := bson.ObjectIDFromHex(idParam)
+		if err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, "invalid post id")
+		}
+
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+
+		db := client.Database("lll_workspace")
+
+		err = repo.DeletePost(db, postID, ctx)
+		if err != nil {
+			if err.Error() == "post not found or already inactive" {
+				return fiber.NewError(fiber.StatusNotFound, err.Error())
+			}
+			return fiber.NewError(fiber.StatusInternalServerError, err.Error())
+		}
+
+		return c.SendStatus(fiber.StatusNoContent)
 	}
 }
