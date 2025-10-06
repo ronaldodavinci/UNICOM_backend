@@ -9,9 +9,9 @@ import (
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
 
-	"like_workspace/dto"
-	"like_workspace/internal/repository"
-	"like_workspace/model"
+	"github.com/Software-eng-01204341/Backend/dto"
+	"github.com/Software-eng-01204341/Backend/internal/repository"
+	"github.com/Software-eng-01204341/Backend/model"
 )
 
 // like หรือ unlike (toggle)

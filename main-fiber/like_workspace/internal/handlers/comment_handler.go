@@ -4,10 +4,10 @@ import (
 	"net/http"
 	"strings"
 
-	config "like_workspace/configs"
-	"like_workspace/dto"
-	"like_workspace/internal/repository"
-	"like_workspace/model"
+	config "github.com/Software-eng-01204341/Backend/configs"
+	"github.com/Software-eng-01204341/Backend/dto"
+	"github.com/Software-eng-01204341/Backend/internal/repository"
+	"github.com/Software-eng-01204341/Backend/model"
 
 	"github.com/gofiber/fiber/v2"
 	"go.mongodb.org/mongo-driver/v2/bson"

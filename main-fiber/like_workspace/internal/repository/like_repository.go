@@ -6,7 +6,7 @@ import (
 
 	"go.mongodb.org/mongo-driver/v2/mongo"
 	"go.mongodb.org/mongo-driver/v2/bson"
-	"like_workspace/model"
+	"github.com/Software-eng-01204341/Backend/model"
 )
 
 func InsertLike(ctx context.Context, likesCol *mongo.Collection, likeDoc model.Like) (dup bool, err error) {

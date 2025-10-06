@@ -11,7 +11,7 @@ import (
 	"go.mongodb.org/mongo-driver/v2/mongo"
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
 
-	"like_workspace/model"
+	"github.com/Software-eng-01204341/Backend/model"
 )
 
 type FeedRepository interface {
