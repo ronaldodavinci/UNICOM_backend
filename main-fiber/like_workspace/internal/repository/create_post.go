@@ -4,9 +4,9 @@ import (
 	"context"
 	"errors"
 
-	"like_workspace/dto"
-	"like_workspace/internal/utils"
-	"like_workspace/model"
+	"github.com/Software-eng-01204341/Backend/dto"
+	"github.com/Software-eng-01204341/Backend/internal/utils"
+	"github.com/Software-eng-01204341/Backend/model"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"

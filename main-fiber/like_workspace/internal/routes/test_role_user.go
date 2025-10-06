@@ -6,7 +6,7 @@ import (
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
 
-	"like_workspace/internal/accessctx"
+	"github.com/Software-eng-01204341/Backend/internal/accessctx"
 )
 
 func RegisterDebug(app *fiber.App, client *mongo.Client) {

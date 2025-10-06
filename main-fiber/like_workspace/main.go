@@ -10,16 +10,16 @@ import (
 	// "github.com/gofiber/fiber/v2/middleware/cors"
 	// "github.com/gofiber/fiber/v2/middleware/logger"
 	// "github.com/gofiber/fiber/v2/middleware/recover"
-	"like_workspace/database"
-	_ "like_workspace/docs"
+	"github.com/Software-eng-01204341/Backend/database"
+	_ "github.com/Software-eng-01204341/Backend/docs"
 
-	// "like_workspace/internal/handlers"
-	"like_workspace/bootstrap"
-	"like_workspace/internal/middleware"
-	"like_workspace/internal/routes"
+	// "github.com/Software-eng-01204341/Backend/internal/handlers"
+	"github.com/Software-eng-01204341/Backend/bootstrap"
+	"github.com/Software-eng-01204341/Backend/internal/middleware"
+	"github.com/Software-eng-01204341/Backend/internal/routes"
 
 	"github.com/gofiber/swagger"
-	// "like_workspace/internal/handlers"
+	// "github.com/Software-eng-01204341/Backend/internal/handlers"
 )
 
 func init() {
