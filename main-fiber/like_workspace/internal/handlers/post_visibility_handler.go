@@ -5,9 +5,9 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/Software-eng-01204341/Backend/dto"
-	"github.com/Software-eng-01204341/Backend/internal/accessctx"
-	"github.com/Software-eng-01204341/Backend/internal/repository"
+	"like_workspace/dto"
+	"like_workspace/internal/accessctx"
+	"like_workspace/internal/repository"
 
 	"github.com/gofiber/fiber/v2"
 	"go.mongodb.org/mongo-driver/v2/bson"

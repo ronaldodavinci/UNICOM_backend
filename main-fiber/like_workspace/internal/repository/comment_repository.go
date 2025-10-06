@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/Software-eng-01204341/Backend/internal/cursor"
-	"github.com/Software-eng-01204341/Backend/model"
+	"like_workspace/internal/cursor"
+	"like_workspace/model"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"

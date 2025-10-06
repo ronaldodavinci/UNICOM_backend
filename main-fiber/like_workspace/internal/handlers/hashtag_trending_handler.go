@@ -6,7 +6,7 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 
-	"github.com/Software-eng-01204341/Backend/internal/repository"
+	"like_workspace/internal/repository"
 )
 
 type HashtagTrendingHandler struct {

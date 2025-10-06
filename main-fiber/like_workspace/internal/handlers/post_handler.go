@@ -5,10 +5,10 @@ import (
 	"errors"
 	"time"
 
-	"github.com/Software-eng-01204341/Backend/dto"
-	"github.com/Software-eng-01204341/Backend/services"
-	mid "github.com/Software-eng-01204341/Backend/internal/middleware"
-	repo "github.com/Software-eng-01204341/Backend/internal/repository"
+	"like_workspace/dto"
+	"like_workspace/services"
+	mid "like_workspace/internal/middleware"
+	repo "like_workspace/internal/repository"
 
 	"github.com/gofiber/fiber/v2"
 	"go.mongodb.org/mongo-driver/v2/bson"

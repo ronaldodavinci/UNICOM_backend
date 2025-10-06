@@ -6,10 +6,10 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/Software-eng-01204341/Backend/dto"
-	repo "github.com/Software-eng-01204341/Backend/internal/repository"
-	u "github.com/Software-eng-01204341/Backend/internal/utils"
-	"github.com/Software-eng-01204341/Backend/model"
+	"like_workspace/dto"
+	repo "like_workspace/internal/repository"
+	u "like_workspace/internal/utils"
+	"like_workspace/model"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
@@ -47,7 +47,6 @@ func CreatePostWithMeta(client *mongo.Client, UserID string, body dto.CreatePost
 	tagsSlice := u.ExtractHashtags(body.PostText)
 
 	UserIDs, err := bson.ObjectIDFromHex(UserID)
-
 
 	// 1) Insert post
 	post := model.Post{

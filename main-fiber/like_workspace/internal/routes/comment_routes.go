@@ -4,8 +4,8 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"go.mongodb.org/mongo-driver/v2/mongo"
 
-	"github.com/Software-eng-01204341/Backend/internal/handlers"
-	"github.com/Software-eng-01204341/Backend/internal/repository"
+	"like_workspace/internal/handlers"
+	"like_workspace/internal/repository"
 )
 
 // **ยังไม่ได้ทำ JWT/Session + middleware ที่จะรู้ว่า userId = ใคร, role = อะไร จาก token เลยใช้เป็นการ mockผ่านheader

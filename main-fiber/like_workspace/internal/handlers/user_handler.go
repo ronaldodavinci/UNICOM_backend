@@ -7,7 +7,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"go.mongodb.org/mongo-driver/v2/mongo"
 
-	"github.com/Software-eng-01204341/Backend/internal/repository"
+	"like_workspace/internal/repository"
 )
 
 // GetUserHandler godoc
