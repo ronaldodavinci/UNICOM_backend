@@ -26,7 +26,7 @@ import (
 // @Failure 400 {object} map[string]interface{} "Invalid request body or email already exists"
 // @Failure 500 {object} map[string]interface{} "Failed to create user"
 // @Router /register [post]
-func Register(c *fiber.Ctx, client *mongo.Client) error {
+func Register(c *fiber.Ctx) error {
 	collection := database.DB.Collection("users")
 
 	var registerRequest models.RegisterRequest
@@ -88,7 +88,7 @@ func Register(c *fiber.Ctx, client *mongo.Client) error {
 // @Failure 401 {object} map[string]interface{} "Invalid credentials"
 // @Failure 500 {object} map[string]interface{} "Database or token error"
 // @Router /login [post]
-func Login(c *fiber.Ctx, client *mongo.Client) error {
+func Login(c *fiber.Ctx) error {
 	var loginRequest models.LoginRequest
 	if err := c.BodyParser(&loginRequest); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request body"})

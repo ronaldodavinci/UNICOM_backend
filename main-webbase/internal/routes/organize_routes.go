@@ -12,4 +12,6 @@ func SetupRoutesOrg(app *fiber.App) {
 
 	org := app.Group("/org/units")
 	org.Get("/tree", handler.GetTree)
+
+	org.Post("/", controllers.CreateOrgUnitHandler())
 }

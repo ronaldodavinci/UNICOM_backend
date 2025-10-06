@@ -51,7 +51,7 @@ func main() {
 	app.Get("/healthz", func(c *fiber.Ctx) error { return c.SendString("ok") })
 
 	// Get JWT with login
-	routes.SetupAuth(app, client)
+	routes.SetupAuth(app)
 
 	app.Use(middleware.JWTUidOnly(secret))
 	

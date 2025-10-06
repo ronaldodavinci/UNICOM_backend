@@ -9,3 +9,17 @@ type OrgUnitNode struct {
 	ShortName string            `json:"short_name,omitempty"`
 	Children  []*OrgUnitNode    `json:"children,omitempty"`
 }
+
+type OrgUnitDTO struct {
+	ParentPath   string            	`json:"parent_path"`
+	Name       	 string 			`json:"name"`
+	Slug      	 string             `json:"slug,omitempty"`
+	Type       	 string            	`json:"type"`
+}
+
+type OrgUnitReport struct {
+	OrgID    	string                `json:"org_id"`
+	OrgPath 	string                `json:"org_path"`
+	Name    	string				  `json:"name"`
+	ShortName   string 			  	  `json:"short_name"`      
+}

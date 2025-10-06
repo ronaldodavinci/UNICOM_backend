@@ -2,7 +2,7 @@ package repository
 
 import (
 	"context"
-	"time"
+	"fmt"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
@@ -20,12 +20,19 @@ func NewPositionRepository() *PositionRepository {
 	}
 }
 
-func (r *PositionRepository) Insert(ctx context.Context, p models.Position) error {
-	p.ID = bson.NewObjectID()
-	p.CreatedAt = time.Now()
-	p.UpdatedAt = time.Now()
-	_, err := r.col.InsertOne(ctx, p)
-	return err
+func FindPositionByKeyandPath(ctx context.Context, key string, path string) (*models.Position, error) {
+	col := database.DB.Collection("positions")
+
+	var position models.Position
+	err := col.FindOne(ctx, bson.M{"key": key, "scope.org_path": path,}).Decode(&position)
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			return nil, fmt.Errorf("position not found (key=%s, org_path=%s)", key, path)
+		}
+		return nil, fmt.Errorf("error finding position: %w", err)
+	}
+
+	return &position, nil
 }
 
 func (r *PositionRepository) FindAll(ctx context.Context) ([]models.Position, error) {

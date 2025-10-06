@@ -3,7 +3,8 @@ package controllers
 import (
 	"github.com/gofiber/fiber/v2"
 	"main-webbase/internal/repository"
-    "main-webbase/internal/models"
+    "main-webbase/internal/services"
+    "main-webbase/dto"
 )
 
 type PositionHandler struct {
@@ -25,17 +26,39 @@ func NewPositionHandler(r *repository.PositionRepository) *PositionHandler {
 // @Failure      400 {object} map[string]interface{}
 // @Failure      500 {object} map[string]interface{}
 // @Router       /positions [post]
-func (h *PositionHandler) CreatePosition(c *fiber.Ctx) error {
-    var req models.Position
-    if err := c.BodyParser(&req); err != nil {
-        return fiber.NewError(fiber.StatusBadRequest, "invalid body")
-    }
+func CreatePosition() fiber.Handler {
+    return func(c *fiber.Ctx) error {
+        var body dto.PositionCreateDTO
+        if err := c.BodyParser(&body); err != nil {
+            return fiber.NewError(fiber.StatusBadRequest, "invalid body")
+        }
 
-    if err := h.positionRepo.Insert(c.Context(), req); err != nil {
-        return fiber.NewError(fiber.StatusInternalServerError, err.Error())
-    }
+        position, policy, err := services.CreatePositionWithPolicy(body, c.Context())
+		if err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		}
 
-    return c.JSON(fiber.Map{"message": "create position success"})
+        return c.Status(fiber.StatusCreated).JSON(fiber.Map{
+            "message":   "create position success",
+            "position": fiber.Map{
+                "id":        position.ID.Hex(),
+                "key":       position.Key,
+                "org_path":  position.Scope.OrgPath,
+                "status":    position.Status,
+                "rank":      position.Rank,
+                "createdAt": position.CreatedAt,
+            },
+            "policy": fiber.Map{
+                "id":           policy.ID.Hex(),
+                "position_key": policy.PositionKey,
+                "scope":        policy.Scope,
+                "org_prefix":   policy.OrgPrefix,
+                "actions":      policy.Actions,
+                "enabled":      policy.Enabled,
+                "createdAt":    policy.CreatedAt,
+            },
+        })
+    }
 }
 
 // ListPositions godoc

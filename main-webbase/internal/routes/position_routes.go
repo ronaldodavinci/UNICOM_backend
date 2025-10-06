@@ -6,11 +6,11 @@ import (
 	"main-webbase/internal/repository"
 )
 
-func SetupRoutesPosition(api fiber.Router) {
+func SetupRoutesPosition(app *fiber.App) {
 	repo := repository.NewPositionRepository()
 	h := controllers.NewPositionHandler(repo)
 
-	positions := api.Group("/positions")
-	positions.Post("/", h.CreatePosition)
+	positions := app.Group("/positions")
+	positions.Post("/", controllers.CreatePosition())
 	positions.Get("/", h.ListPositions)
 }

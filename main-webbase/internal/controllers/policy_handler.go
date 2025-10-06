@@ -1,59 +1,55 @@
 package controllers
 
 import (
-    "time"
-
 	"github.com/gofiber/fiber/v2"
-	"main-webbase/internal/repository"
-    "main-webbase/internal/models"
+    "main-webbase/internal/services"
+    "main-webbase/internal/middleware"
+    "main-webbase/dto"
 )
 
-type PolicyHandler struct {
-    repo *repository.PolicyRepository
-}
+func UpdatePolicyHandler() fiber.Handler {
+    return func(c *fiber.Ctx) error {
+        var body dto.PolicyUpdateDTO
+        if err := c.BodyParser(&body); err != nil {
+            return fiber.NewError(fiber.StatusBadRequest, "invalid body")
+        }
 
-func NewPolicyHandler(r *repository.PolicyRepository) *PolicyHandler {
-    return &PolicyHandler{repo: r}
-}
+        uid, err := middleware.UIDFromLocals(c)
+        if err != nil {
+            return fiber.NewError(fiber.StatusUnauthorized, "unauthorized")
+        }
 
-// CreatePolicy godoc
-// @Summary      Create a new policy
-// @Description  Adds a new policy to the system
-// @Tags         policies
-// @Accept       json
-// @Produce      json
-// @Param        policy body models.Role true "Policy data"
-// @Success      200 {object} map[string]string
-// @Failure      400 {object} map[string]interface{}
-// @Failure      500 {object} map[string]interface{}
-// @Router       /policies [post]
-func (h *PolicyHandler) CreatePolicy(c *fiber.Ctx) error {
-    var req models.Policy
-    if err := c.BodyParser(&req); err != nil {
-        return fiber.NewError(fiber.StatusBadRequest, "invalid body")
+        userPolicy, err := services.MyUserPolicy(c.Context(), uid)
+        if err != nil {
+            return fiber.NewError(fiber.StatusNotFound, "target policy not found")
+        }
+
+        targetPolicy, err := services.FindPolicyByKeyandPath(c.Context(), body.Key, body.OrgPath)
+        if err != nil {
+            return fiber.NewError(fiber.StatusNotFound, "target policy not found")
+        }
+        if targetPolicy == nil {
+			return fiber.NewError(fiber.StatusNotFound, "target policy not found")
+		}
+
+        if err := services.CanManagePolicy(userPolicy, targetPolicy); err != nil {
+			return fiber.NewError(fiber.StatusForbidden, "no permission to manage this policy")
+		}
+
+        targetPolicy.Actions = body.Actions
+
+        if err := services.UpdatedPolicy(c.Context(), targetPolicy); err != nil {
+            return fiber.NewError(fiber.StatusInternalServerError, "failed to update policy")
+        }
+        return c.Status(fiber.StatusCreated).JSON(fiber.Map{
+            "message":   "update policy success",
+            "policy": fiber.Map{
+                "position_key": targetPolicy.PositionKey,
+                "org_prefix":   targetPolicy.OrgPrefix,
+                "actions":      targetPolicy.Actions,
+                "enabled":      targetPolicy.Enabled,
+                "createdAt":    targetPolicy.CreatedAt,
+            },
+        })
     }
-    req.CreatedAt = time.Now()
-
-    if err := h.repo.Insert(c.Context(), req); err != nil {
-        return fiber.NewError(fiber.StatusInternalServerError, err.Error())
-    }
-
-    return c.JSON(fiber.Map{"message": "policy created", "data": req})
-}
-
-// ListPolicies godoc
-// @Summary      List policies
-// @Description  Returns a list of policies
-// @Tags         policies
-// @Accept       json
-// @Produce      json
-// @Success      200 {object} map[string][]string
-// @Failure      500 {object} map[string]interface{}
-// @Router       /policies [get]
-func (h *PolicyHandler) ListPolicies(c *fiber.Ctx) error {
-    policies, err := h.repo.FindAll(c.Context())
-    if err != nil {
-        return fiber.NewError(fiber.StatusInternalServerError, err.Error())
-    }
-    return c.JSON(policies)
 }

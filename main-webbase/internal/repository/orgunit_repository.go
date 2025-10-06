@@ -28,3 +28,23 @@ func (r *OrgUnitRepository) Find(ctx context.Context, filter bson.M) ([]models.O
 	}
 	return result, nil
 }
+
+func FindByOrgPath(ctx context.Context, path string) (*models.OrgUnitNode, error) {
+	col := database.DB.Collection("org_units")
+
+	var node models.OrgUnitNode
+	err := col.FindOne(ctx, bson.M{"org_path": path}).Decode(&node)
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			return nil, nil
+		}
+		return nil, err
+	}
+	
+	return &node, nil
+}
+
+func NodeCreate(ctx context.Context, node models.OrgUnitNode) error {
+	_, err := database.DB.Collection("org_unit_nodes").InsertOne(ctx, node)
+	return err
+}

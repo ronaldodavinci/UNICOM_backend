@@ -3,14 +3,14 @@ package controllers
 import (
 	"github.com/gofiber/fiber/v2"
 	"main-webbase/internal/models"
-	"main-webbase/internal/repository"
+	repo "main-webbase/internal/repository"
 )
 
 type MembershipHandler struct {
-	membershipRepo *repository.MembershipRepository
+	membershipRepo *repo.MembershipRepository
 }
 
-func NewMembershipHandler(r *repository.MembershipRepository) *MembershipHandler {
+func NewMembershipHandler(r *repo.MembershipRepository) *MembershipHandler {
 	return &MembershipHandler{membershipRepo: r}
 }
 
@@ -25,15 +25,17 @@ func NewMembershipHandler(r *repository.MembershipRepository) *MembershipHandler
 // @Failure      400 {object} map[string]interface{}
 // @Failure      500 {object} map[string]interface{}
 // @Router       /memberships [post]
-func (h *MembershipHandler) CreateMembership(c *fiber.Ctx) error {
-	var req models.Membership
-	if err := c.BodyParser(&req); err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, "invalid body")
+func CreateMembership() fiber.Handler {
+	return func (c *fiber.Ctx) error {
+		var req models.Membership
+		if err := c.BodyParser(&req); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, "invalid body")
+		}
+		if err := repo.InsertMembership(c.Context(), req); err != nil {
+			return fiber.NewError(fiber.StatusInternalServerError, err.Error())
+		}
+		return c.JSON(fiber.Map{"message": "membership created", "data": req})
 	}
-	if err := h.membershipRepo.Insert(c.Context(), req); err != nil {
-		return fiber.NewError(fiber.StatusInternalServerError, err.Error())
-	}
-	return c.JSON(fiber.Map{"message": "membership created", "data": req})
 }
 
 // ListMemberships godoc

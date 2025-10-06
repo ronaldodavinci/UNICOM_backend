@@ -11,6 +11,6 @@ func SetupRoutesMembership(api fiber.Router) {
 	h := controllers.NewMembershipHandler(repo)
 
 	memberships := api.Group("/memberships")
-	memberships.Post("/", h.CreateMembership)
+	memberships.Post("/", controllers.CreateMembership())
 	memberships.Get("/", h.ListMemberships)
 }

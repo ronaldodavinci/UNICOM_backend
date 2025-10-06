@@ -1,12 +1,15 @@
 package controllers
 
 import (
+	"context"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"main-webbase/dto"
 	"main-webbase/internal/repository"
+	"main-webbase/internal/services"
 )
 
 type OrgTreeHandler struct {
@@ -15,6 +18,30 @@ type OrgTreeHandler struct {
 
 func NewOrgTreeHandler(r *repository.OrgUnitRepository) *OrgTreeHandler {
 	return &OrgTreeHandler{orgRepo: r}
+}
+
+func CreateOrgUnitHandler() fiber.Handler {
+	return func(c *fiber.Ctx) error {
+		var body dto.OrgUnitDTO
+		if err := c.BodyParser(&body); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, "invalid request body")
+		}
+
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+
+		node, err := services.CreateOrgUnit(body, ctx)
+		if err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		}
+
+		return c.Status(fiber.StatusCreated).JSON(dto.OrgUnitReport{
+			OrgID:	   	node.ID.Hex(),
+			OrgPath: 	node.OrgPath,
+			Name:    	node.Name,
+			ShortName:  node.ShortName,
+		})
+	}
 }
 
 // GetTree godoc

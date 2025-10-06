@@ -2,9 +2,12 @@ package services
 
 import (
 	"context"
+	"strings"
+	"errors"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"main-webbase/internal/repository"
+	"main-webbase/internal/models"
 )
 
 type AuthzService struct {
@@ -62,4 +65,51 @@ func (s *AuthzService) Can(ctx context.Context, userID bson.ObjectID, orgPath st
 		}
 	}
 	return false, nil
+}
+
+func CanManagePolicy(userPolicies []models.Policy, target *models.Policy) error {
+	
+	partTrimmed := strings.Trim(target.OrgPrefix, "/")
+	segs := []string{}
+
+	if partTrimmed != "" {
+		segs = strings.Split(partTrimmed, "/")
+	}
+
+	ancestors := []string{"/"}
+	for i := 1; i <= len(segs); i++ {
+		ancestor := "/" + strings.Join(segs[:i], "/")
+		ancestors = append(ancestors, ancestor)
+	}
+	// ได้ ancestors = ["/", "/faculty", "/faculty/eng", "/faculty/eng/smo"] จาก "/faculty/eng/smo"
+	
+	for _, policy := range userPolicies {
+		if !policy.Enabled {
+			continue
+		}
+		hasAction := false
+		for _, act := range policy.Actions {
+			if act == "membership:assign" {
+				hasAction = true
+				break
+			}
+		}
+		if !hasAction {
+			continue
+		}
+
+		if policy.Scope == "exact" && policy.OrgPrefix == target.OrgPrefix {
+			return nil
+		}
+
+		if policy.Scope == "subtree" {
+			for _, anc := range ancestors {
+				if policy.OrgPrefix == anc {
+					return nil
+				}
+			}
+		}
+	}
+
+	return errors.New("no permission to manage this policy")
 }

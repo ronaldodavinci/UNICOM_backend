@@ -22,25 +22,3 @@ type User struct {
 	CreatedAt    time.Time `bson:"createdAt,omitempty" json:"createdAt,omitempty"`
 	UpdatedAt    time.Time `bson:"updatedAt,omitempty" json:"updatedAt,omitempty"`
 }
-
-// bson คือ ชื่อที่ขึ้นใน Database mongo Ex.
-// {
-//   "firstname": "Alice",
-//   "lastname": "Smith",
-//   "thaiprename": "นางสาว",
-//   "gender": "Female",
-//   "typeperson": "student",
-//   "studentid": "65012345",
-//   "advisorid": "123"
-// }
-
-// json คือ ขื่อที่ใช้ใน API Ex.
-// {
-//     "first_name": "Alice",
-//     "last_name": "Smith",
-//     "thaiprename": "นางสาว",
-//     "gender": "Female",
-//     "type_person": "student",
-//     "student_id": "65012345",
-//     "advisor_id": "123"
-// }
