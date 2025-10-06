@@ -2,24 +2,24 @@ package controllers
 
 import (
 	"context"
-	"sort"
-	"strings"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"main-webbase/dto"
-	"main-webbase/internal/repository"
 	"main-webbase/internal/services"
 )
 
-type OrgTreeHandler struct {
-	orgRepo *repository.OrgUnitRepository
-}
-
-func NewOrgTreeHandler(r *repository.OrgUnitRepository) *OrgTreeHandler {
-	return &OrgTreeHandler{orgRepo: r}
-}
-
+// CreateOrgUnitHandler godoc
+// @Summary      Create a new organization unit
+// @Description  Creates a new organization unit node in the hierarchy
+// @Tags         Org Units
+// @Accept       json
+// @Produce      json
+// @Param        body  body      dto.OrgUnitDTO  true  "Org Unit Data"
+// @Success      201   {object}  dto.OrgUnitReport
+// @Failure      400   {object}  map[string]string{"error": "invalid request body"}
+// @Failure      500   {object}  map[string]string{"error": "internal server error"}
+// @Router       /org/units [post]
 func CreateOrgUnitHandler() fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		var body dto.OrgUnitDTO
@@ -44,54 +44,30 @@ func CreateOrgUnitHandler() fiber.Handler {
 	}
 }
 
-// GetTree godoc
-// @Summary      Get organization unit tree
-// @Description  Returns a tree of all organization units, sorted by label. Optional language code for labels.
-// @Tags         org
+// GetOrgTree godoc
+// @Summary      Get organization tree
+// @Description  Returns an organization tree starting from a given path and optional depth
+// @Tags         Org Units
 // @Accept       json
 // @Produce      json
-// @Param        lang query string false "Language code for labels (e.g. 'en', 'ru')"
-// @Success      200 {array} dto.OrgUnitNode
-// @Failure      500 {object} map[string]interface{}
+// @Param        start  query     string  true   "Starting org path"
+// @Param        depth  query     int     false  "Depth of tree to fetch"
+// @Success      200    {array}   dto.OrgUnitTree
+// @Failure      400    {object}  map[string]string{"error": "invalid query parameters"}
+// @Failure      500    {object}  map[string]string{"error": "internal server error"}
 // @Router       /org/units/tree [get]
-func (h *OrgTreeHandler) GetTree(c *fiber.Ctx) error {
-	lang := c.Query("lang")
+func GetOrgTree() fiber.Handler {
+	return func(c *fiber.Ctx) error {
+		var query dto.OrgUnitTreeQuery
+		if err := c.QueryParser(&query); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, "invalid query parameters")
+		}
 
-	// simple repo fetch
-	orgs, err := h.orgRepo.Find(c.Context(), map[string]any{})
-	if err != nil {
-		return fiber.NewError(fiber.StatusInternalServerError, "db error")
-	}
+		tree, err := services.BuildOrgTree(context.Background(), query)
+		if err != nil {
+			return fiber.NewError(fiber.StatusInternalServerError, err.Error())
+		}
 
-	nodes := []*dto.OrgUnitNode{}
-	for _, o := range orgs {
-		nodes = append(nodes, &dto.OrgUnitNode{
-			OrgPath:   o.OrgPath,
-			Type:      o.Type,
-			Label:     pickLabel(o.Label, lang, o.ShortName, o.OrgPath),
-			Labels:    o.Label,
-			ShortName: o.ShortName,
-			Children:  []*dto.OrgUnitNode{},
-		})
+		return c.JSON(tree)
 	}
-
-	// sort nodes for output
-	sort.Slice(nodes, func(i, j int) bool {
-		return strings.ToLower(nodes[i].Label) < strings.ToLower(nodes[j].Label)
-	})
-	return c.JSON(nodes)
-}
-
-func pickLabel(labels map[string]string, lang, short, path string) string {
-	if v, ok := labels[lang]; ok && v != "" {
-		return v
-	}
-	if short != "" {
-		return short
-	}
-	parts := strings.Split(strings.Trim(path, "/"), "/")
-	if len(parts) > 0 {
-		return parts[len(parts)-1]
-	}
-	return path
 }

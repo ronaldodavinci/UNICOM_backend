@@ -5,6 +5,7 @@ import (
 	"errors"
 	"strings"
 	"time"
+	"sort"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
 
@@ -80,7 +81,7 @@ func CreateOrgUnit(body dto.OrgUnitDTO, ctx context.Context) (*models.OrgUnitNod
 	if parent != "/" {
 		parentNode, err := repo.FindByOrgPath(ctx, parent)
 		if err != nil {
-			return nil, errors.New("Error connected to database")
+			return nil, errors.New("error connected to database")
 		}
 		if parentNode == nil {
 			return nil, errors.New("parent path not found")
@@ -89,7 +90,7 @@ func CreateOrgUnit(body dto.OrgUnitDTO, ctx context.Context) (*models.OrgUnitNod
 
 	duplicateNode, err := repo.FindByOrgPath(ctx, orgpath)
 	if err != nil {
-		return nil, errors.New("Error connected to database")
+		return nil, errors.New("error connected to database")
 	}
 	if duplicateNode != nil {
 		return nil, errors.New("this node already exists")
@@ -141,4 +142,70 @@ func CreateOrgUnit(body dto.OrgUnitDTO, ctx context.Context) (*models.OrgUnitNod
 	}
 
 	return node, nil
+}
+
+func BuildOrgTree(ctx context.Context, query dto.OrgUnitTreeQuery) ([]*dto.OrgUnitTree, error) {
+	orgUnits, err := repo.FindByPrefix(ctx, query.Start)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(orgUnits) == 0 {
+		return []*dto.OrgUnitTree{}, nil
+	}
+
+	nodes := map[string]*dto.OrgUnitTree{}
+	links := map[string]string{}
+
+	for _, orgunit := range orgUnits {
+		node := &dto.OrgUnitTree{
+			OrgPath: 	orgunit.OrgPath,
+			Type:    	orgunit.Type,
+			Label:   	orgunit.Name,
+			ShortName:	orgunit.ShortName,
+			Children:   []*dto.OrgUnitTree{},
+			Sort:       orgunit.Depth,
+		}
+		nodes[orgunit.OrgPath] = node
+		links[orgunit.OrgPath] = orgunit.ParentPath
+	}
+
+	var roots []*dto.OrgUnitTree
+	for path, node := range nodes {
+		parentPath := links[path]
+		if parentPath == "" || nodes[parentPath] == nil {
+			roots = append(roots, node)
+		} else {
+			nodes[parentPath].Children = append(nodes[parentPath].Children, node)
+		}
+	}
+
+	var sortChildren func(list []*dto.OrgUnitTree)
+	sortChildren = func(list []*dto.OrgUnitTree) {
+		sort.Slice(list, func(i, j int) bool {
+			return strings.ToLower(list[i].Label) < strings.ToLower(list[j].Label)
+		})
+		for _, c := range list {
+			sortChildren(c.Children)
+		}
+	}
+	sortChildren(roots)
+
+	if query.Depth > 0 {
+		var prune func(list []*dto.OrgUnitTree, level int)
+		prune = func(list []*dto.OrgUnitTree, level int) {
+			if level >= query.Depth {
+				for _, n := range list {
+					n.Children = nil
+				}
+				return
+			}	
+			for _, n := range list {
+				prune(n.Children, level + 1)
+			}
+		}
+		prune(roots, 1)
+	}
+
+	return roots, nil
 }

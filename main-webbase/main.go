@@ -57,7 +57,7 @@ func main() {
 	
 	// Routes
 	routes.SetupRoutesUser(app)
-	routes.SetupRoutesAbility(app)
+	// routes.SetupRoutesAbility(app)
 	routes.SetupRoutesOrg(app)
 	routes.SetupRoutesMembership(app)
 	routes.SetupRoutesPosition(app)

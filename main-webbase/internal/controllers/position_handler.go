@@ -2,29 +2,23 @@ package controllers
 
 import (
 	"github.com/gofiber/fiber/v2"
-	"main-webbase/internal/repository"
+	// "main-webbase/internal/repository"
     "main-webbase/internal/services"
     "main-webbase/dto"
 )
 
-type PositionHandler struct {
-	positionRepo *repository.PositionRepository
-}
-
-func NewPositionHandler(r *repository.PositionRepository) *PositionHandler {
-	return &PositionHandler{positionRepo: r}
-}
-
 // CreatePosition godoc
-// @Summary      Create a new position
-// @Description  Adds a new position to the system
-// @Tags         positions
+// @Summary      Create a new Position with Policy
+// @Description  Create a new position and attach a policy. Policy actions support only:
+//               "membership:assign", "organize:create", "event:create".
+//               Any missing action in update will be removed from the policy.
+// @Tags         Positions
 // @Accept       json
 // @Produce      json
-// @Param        position body models.Position true "Position data"
-// @Success      200 {object} map[string]string
-// @Failure      400 {object} map[string]interface{}
-// @Failure      500 {object} map[string]interface{}
+// @Param        body  body      dto.PositionCreateDTO  true  "Position & Policy data"
+// @Success      201   {object}  map[string]interface{}
+// @Failure      400   {object}  map[string]string{"error": "invalid body"}
+// @Failure      500   {object}  map[string]string{"error": "internal server error"}
 // @Router       /positions [post]
 func CreatePosition() fiber.Handler {
     return func(c *fiber.Ctx) error {
@@ -61,7 +55,7 @@ func CreatePosition() fiber.Handler {
     }
 }
 
-// ListPositions godoc
+// ListPositions 
 // @Summary      List positions
 // @Description  Returns a list of positions
 // @Tags         positions
@@ -70,10 +64,10 @@ func CreatePosition() fiber.Handler {
 // @Success      200 {object} map[string][]string
 // @Failure      500 {object} map[string]interface{}
 // @Router       /positions [get]
-func (h *PositionHandler) ListPositions(c *fiber.Ctx) error {
-    positions, err := h.positionRepo.FindAll(c.Context())
-    if err != nil {
-        return fiber.NewError(fiber.StatusInternalServerError, err.Error())
-    }
-    return c.JSON(fiber.Map{"data": positions})
-}
+// func (h *PositionHandler) ListPositions(c *fiber.Ctx) error {
+//     positions, err := h.positionRepo.FindAll(c.Context())
+//     if err != nil {
+//         return fiber.NewError(fiber.StatusInternalServerError, err.Error())
+//     }
+//     return c.JSON(fiber.Map{"data": positions})
+// }

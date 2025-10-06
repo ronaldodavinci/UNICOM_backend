@@ -5,8 +5,24 @@ import (
     "main-webbase/internal/services"
     "main-webbase/internal/middleware"
     "main-webbase/dto"
+    repo "main-webbase/internal/repository"
 )
 
+// UpdatePolicyHandler godoc
+// @Summary      Update Policy actions
+// @Description  Updates policy actions for a position. Only the actions sent will be kept. Supported actions:
+//               "membership:assign", "organize:create", "event:create". Sending fewer actions will remove the rest.
+// @Tags         Policies
+// @Accept       json
+// @Produce      json
+// @Param        body  body      dto.PolicyUpdateDTO  true  "Policy update data"
+// @Success      201   {object}  map[string]interface{}
+// @Failure      400   {object}  map[string]string{"error": "invalid body"}
+// @Failure      401   {object}  map[string]string{"error": "unauthorized"}
+// @Failure      403   {object}  map[string]string{"error": "no permission to manage this policy"}
+// @Failure      404   {object}  map[string]string{"error": "target policy not found"}
+// @Failure      500   {object}  map[string]string{"error": "failed to update policy"}
+// @Router       /policies [put]
 func UpdatePolicyHandler() fiber.Handler {
     return func(c *fiber.Ctx) error {
         var body dto.PolicyUpdateDTO
@@ -24,7 +40,7 @@ func UpdatePolicyHandler() fiber.Handler {
             return fiber.NewError(fiber.StatusNotFound, "target policy not found")
         }
 
-        targetPolicy, err := services.FindPolicyByKeyandPath(c.Context(), body.Key, body.OrgPath)
+        targetPolicy, err := repo.FindPolicyByKeyandPath(c.Context(), body.Key, body.OrgPath)
         if err != nil {
             return fiber.NewError(fiber.StatusNotFound, "target policy not found")
         }

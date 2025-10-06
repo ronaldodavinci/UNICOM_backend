@@ -5,16 +5,6 @@ import (
 	"time"
 )
 
-// OrgUnit document stored in "org_units"
-type OrgUnit struct {
-	OrgPath   string            `bson:"org_path"`
-	Parent    string            `bson:"parent_path,omitempty"`
-	Type      string            `bson:"type,omitempty"`
-	Label     map[string]string `bson:"label,omitempty"`
-	ShortName string            `bson:"short_name,omitempty"`
-	Sort      int               `bson:"sort,omitempty"`
-}
-
 type OrgUnitNode struct {
 	ID           bson.ObjectID   	`bson:"_id,omitempty" json:"id"`
 	OrgPath   	 string            	`bson:"org_path" json:"org_path"`

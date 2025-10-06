@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"errors"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
@@ -55,4 +56,22 @@ func (r *PolicyRepository) FindByPositionsAndAction(ctx context.Context, posKeys
 		return nil, err
 	}
 	return policies, nil
+}
+
+func FindPolicyByKeyandPath(ctx context.Context, key string, path string) (*models.Policy, error) {
+	col := database.DB.Collection("policies")
+	filter := bson.M{
+		"position_key": key,
+		"org_prefix":   path,
+	}
+	var policy models.Policy
+	err := col.FindOne(ctx, filter).Decode(&policy)
+	if err != nil {
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	return &policy, nil
 }

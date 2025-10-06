@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
-	"go.mongodb.org/mongo-driver/v2/mongo"
 
 	"main-webbase/dto"
 	"main-webbase/internal/models"
@@ -60,24 +59,6 @@ func CreatePositionWithPolicy(body dto.PositionCreateDTO, ctx context.Context) (
 	}
 	
 	return position, policy, nil
-}
-
-func FindPolicyByKeyandPath(ctx context.Context, key string, path string) (*models.Policy, error) {
-	col := database.DB.Collection("policies")
-	filter := bson.M{
-		"position_key": key,
-		"org_prefix":   path,
-	}
-	var policy models.Policy
-	err := col.FindOne(ctx, filter).Decode(&policy)
-	if err != nil {
-		if errors.Is(err, mongo.ErrNoDocuments) {
-			return nil, nil
-		}
-		return nil, err
-	}
-
-	return &policy, nil
 }
 
 func MyUserPolicy(ctx context.Context, uid string) ([]models.Policy, error) {

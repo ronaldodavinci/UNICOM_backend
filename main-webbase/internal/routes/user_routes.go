@@ -9,6 +9,9 @@ import (
 func SetupRoutesUser(app *fiber.App) {
 	user := app.Group("/users")
 
+	user.Get("/myprofile", controllers.GetMyProfileHandler())
+	user.Get("/profile", controllers.GetUserProfileHandler())
+
 	user.Get("/", controllers.GetAllUser())
 
 	// Query by field

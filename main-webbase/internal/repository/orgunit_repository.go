@@ -17,18 +17,6 @@ func NewOrgUnitRepository() *OrgUnitRepository {
 	return &OrgUnitRepository{col: database.DB.Collection("org_units")}
 }
 
-func (r *OrgUnitRepository) Find(ctx context.Context, filter bson.M) ([]models.OrgUnit, error) {
-	cur, err := r.col.Find(ctx, filter)
-	if err != nil {
-		return nil, err
-	}
-	var result []models.OrgUnit
-	if err := cur.All(ctx, &result); err != nil {
-		return nil, err
-	}
-	return result, nil
-}
-
 func FindByOrgPath(ctx context.Context, path string) (*models.OrgUnitNode, error) {
 	col := database.DB.Collection("org_units")
 
@@ -45,6 +33,30 @@ func FindByOrgPath(ctx context.Context, path string) (*models.OrgUnitNode, error
 }
 
 func NodeCreate(ctx context.Context, node models.OrgUnitNode) error {
-	_, err := database.DB.Collection("org_unit_nodes").InsertOne(ctx, node)
+	_, err := database.DB.Collection("org_units").InsertOne(ctx, node)
 	return err
+}
+
+func FindByPrefix(ctx context.Context, path string) ([]models.OrgUnitNode, error) {
+	col := database.DB.Collection("org_units")
+
+	filter := bson.M{
+		"$or": []bson.M{
+			{"ancestors": path},
+			{"org_path": path},
+		},
+	}
+
+	cur, err := col.Find(ctx, filter)
+	if err != nil {
+		return nil, err
+	}
+	defer cur.Close(ctx)
+
+	var results []models.OrgUnitNode
+	if err := cur.All(ctx, &results); err != nil {
+		return nil, err
+	}
+
+	return results, nil
 }

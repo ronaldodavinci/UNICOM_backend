@@ -1,6 +1,5 @@
 package dto
 
-// Response node for org tree
 type OrgUnitNode struct {
 	OrgPath   string            `json:"org_path"`
 	Type      string            `json:"type,omitempty"`
@@ -22,4 +21,18 @@ type OrgUnitReport struct {
 	OrgPath 	string                `json:"org_path"`
 	Name    	string				  `json:"name"`
 	ShortName   string 			  	  `json:"short_name"`      
+}
+
+type OrgUnitTreeQuery struct {
+	Start string `query:"start"`
+	Depth int    `query:"depth"`
+}
+
+type OrgUnitTree struct {
+	OrgPath   string         `json:"org_path"`
+	Type      string         `json:"type,omitempty"`
+	Label     string         `json:"label,omitempty"`
+	ShortName string         `json:"short_name,omitempty"`
+	Children  []*OrgUnitTree `json:"children,omitempty"`
+	Sort      int            `json:"-"`
 }

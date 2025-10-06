@@ -6,24 +6,16 @@ import (
 	repo "main-webbase/internal/repository"
 )
 
-type MembershipHandler struct {
-	membershipRepo *repo.MembershipRepository
-}
-
-func NewMembershipHandler(r *repo.MembershipRepository) *MembershipHandler {
-	return &MembershipHandler{membershipRepo: r}
-}
-
 // CreateMembership godoc
 // @Summary      Create a new membership
-// @Description  Adds a new membership for a user in an organization
-// @Tags         memberships
+// @Description  Assigns a user to an organization and position
+// @Tags         Memberships
 // @Accept       json
 // @Produce      json
-// @Param        membership body models.Membership true "Membership data"
-// @Success      200 {object} map[string]string
-// @Failure      400 {object} map[string]interface{}
-// @Failure      500 {object} map[string]interface{}
+// @Param        body  body      models.Membership  true  "Membership data"
+// @Success      200   {object}  models.Membership "membership created"
+// @Failure      400   {object}  map[string]string{"error": "invalid body"}
+// @Failure      500   {object}  map[string]string{"error": "internal server error"}
 // @Router       /memberships [post]
 func CreateMembership() fiber.Handler {
 	return func (c *fiber.Ctx) error {
@@ -38,7 +30,7 @@ func CreateMembership() fiber.Handler {
 	}
 }
 
-// ListMemberships godoc
+// ListMemberships 
 // @Summary      List memberships
 // @Description  Returns a list of memberships
 // @Tags         memberships
@@ -47,10 +39,10 @@ func CreateMembership() fiber.Handler {
 // @Success      200 {object} map[string][]string
 // @Failure      500 {object} map[string]interface{}
 // @Router       /memberships [get]
-func (h *MembershipHandler) ListMemberships(c *fiber.Ctx) error {
-	mems, err := h.membershipRepo.FindAll(c.Context())
-	if err != nil {
-		return fiber.NewError(fiber.StatusInternalServerError, err.Error())
-	}
-	return c.JSON(mems)
-}
+// func (h *MembershipHandler) ListMemberships(c *fiber.Ctx) error {
+// 	mems, err := h.membershipRepo.FindAll(c.Context())
+// 	if err != nil {
+// 		return fiber.NewError(fiber.StatusInternalServerError, err.Error())
+// 	}
+// 	return c.JSON(mems)
+// }

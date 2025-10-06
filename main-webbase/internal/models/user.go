@@ -22,3 +22,18 @@ type User struct {
 	CreatedAt    time.Time `bson:"createdAt,omitempty" json:"createdAt,omitempty"`
 	UpdatedAt    time.Time `bson:"updatedAt,omitempty" json:"updatedAt,omitempty"`
 }
+
+// User
+// UserFirstname
+// UserLastname
+// Othercomponent...
+// Membership 1 (cspk member) {
+// Orgunit detail
+// Position detail
+// Policy detail
+// }
+// Membership 2 (comengineer student) {
+// Orgunit detail
+// Position detail
+// Policy detail
+// }
