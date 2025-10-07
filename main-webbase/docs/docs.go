@@ -15,65 +15,6 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
-        "/abilities": {
-            "get": {
-                "description": "Returns allowed actions for the user in the given org_path",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "abilities"
-                ],
-                "summary": "Get user abilities",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Organization Path",
-                        "name": "org_path",
-                        "in": "query",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/dto.AbilitiesResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    }
-                }
-            }
-        },
         "/event": {
             "get": {
                 "description": "Return all events that the current user can see",
@@ -289,7 +230,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/models.Membership"
+                            "$ref": "#/definitions/models.MembershipRequestDTO"
                         }
                     }
                 ],
@@ -297,7 +238,7 @@ const docTemplate = `{
                     "200": {
                         "description": "membership created",
                         "schema": {
-                            "$ref": "#/definitions/models.Membership"
+                            "$ref": "#/definitions/models.MembershipRequestDTO"
                         }
                     },
                     "400": {
@@ -773,23 +714,6 @@ const docTemplate = `{
         }
     },
     "definitions": {
-        "dto.AbilitiesResponse": {
-            "type": "object",
-            "properties": {
-                "abilities": {
-                    "type": "object",
-                    "additionalProperties": {
-                        "type": "boolean"
-                    }
-                },
-                "org_path": {
-                    "type": "string"
-                },
-                "version": {
-                    "type": "string"
-                }
-            }
-        },
         "dto.ErrorResponse": {
             "type": "object",
             "properties": {
@@ -983,9 +907,6 @@ const docTemplate = `{
                 "constraints": {
                     "$ref": "#/definitions/models.Constraints"
                 },
-                "created_at": {
-                    "type": "string"
-                },
                 "display": {
                     "type": "object",
                     "additionalProperties": {
@@ -1004,12 +925,6 @@ const docTemplate = `{
                                 "type": "string"
                             }
                         },
-                        "created_at": {
-                            "type": "string"
-                        },
-                        "effect": {
-                            "type": "string"
-                        },
                         "enabled": {
                             "type": "boolean"
                         },
@@ -1026,9 +941,6 @@ const docTemplate = `{
                     "$ref": "#/definitions/models.Scope"
                 },
                 "status": {
-                    "type": "string"
-                },
-                "updated_at": {
                     "type": "string"
                 }
             }
@@ -1102,31 +1014,16 @@ const docTemplate = `{
                 }
             }
         },
-        "models.Membership": {
+        "models.MembershipRequestDTO": {
             "type": "object",
             "properties": {
                 "active": {
                     "type": "boolean"
                 },
-                "created_at": {
-                    "type": "string"
-                },
-                "id": {
-                    "type": "string"
-                },
-                "org_ancestors": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                },
                 "org_path": {
                     "type": "string"
                 },
                 "position_key": {
-                    "type": "string"
-                },
-                "updated_at": {
                     "type": "string"
                 },
                 "user_id": {

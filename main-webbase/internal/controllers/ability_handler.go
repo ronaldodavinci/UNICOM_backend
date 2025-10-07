@@ -1,20 +1,20 @@
 package controllers
 
-import (
-	"github.com/gofiber/fiber/v2"
+// import (
+// 	"github.com/gofiber/fiber/v2"
 
-	"main-webbase/internal/services"
-)
+// 	"main-webbase/internal/services"
+// )
 
-type AbilitiesHandler struct {
-	authzService *services.AuthzService
-}
+// type AbilitiesHandler struct {
+// 	authzService *services.AuthzService
+// }
 
-func NewAbilitiesHandler(s *services.AuthzService) *AbilitiesHandler {
-	return &AbilitiesHandler{authzService: s}
-}
+// func NewAbilitiesHandler(s *services.AuthzService) *AbilitiesHandler {
+// 	return &AbilitiesHandler{authzService: s}
+// }
 
-// GetAbilities godoc
+// GetAbilities 
 // @Summary      Get user abilities
 // @Description  Returns allowed actions for the user in the given org_path
 // @Tags         abilities
@@ -26,28 +26,28 @@ func NewAbilitiesHandler(s *services.AuthzService) *AbilitiesHandler {
 // @Failure      401 {object} map[string]string
 // @Failure      500 {object} map[string]string
 // @Router       /abilities [get]
-func (h *AbilitiesHandler) GetAbilities(c *fiber.Ctx) error {
-	userID, err := services.UserIDFrom(c)
-	if err != nil {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Unauthorized"})
-	}
+// func (h *AbilitiesHandler) GetAbilities(c *fiber.Ctx) error {
+// 	userID, err := services.UserIDFrom(c)
+// 	if err != nil {
+// 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Unauthorized"})
+// 	}
 
-	// กำหนด action ที่ต้องการตรวจสอบ เช่น membership, position, event, post ฯลฯ
-	actions := []string{
-		"membership:assign",
-		"membership:revoke",
-		"position:create",
-		"policy:write",
-		"event:create",
-		"event:manage",
-		"post:create",
-		"post:moderate",
-	}
+// 	// กำหนด action ที่ต้องการตรวจสอบ เช่น membership, position, event, post ฯลฯ
+// 	actions := []string{
+// 		"membership:assign",
+// 		"membership:revoke",
+// 		"position:create",
+// 		"policy:write",
+// 		"event:create",
+// 		"event:manage",
+// 		"post:create",
+// 		"post:moderate",
+// 	}
 
-	result, err := h.authzService.AbilitiesFor(c.Context(), userID, "", actions)
-	if err != nil {
-		return fiber.NewError(fiber.StatusInternalServerError, err.Error())
-	}
+// 	result, err := h.authzService.AbilitiesFor(c.Context(), userID, "", actions)
+// 	if err != nil {
+// 		return fiber.NewError(fiber.StatusInternalServerError, err.Error())
+// 	}
 
-	return c.JSON(result)
-}
+// 	return c.JSON(result)
+// }

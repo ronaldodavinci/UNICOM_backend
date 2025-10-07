@@ -19,20 +19,6 @@ func NewMembershipRepository() *MembershipRepository {
 	return &MembershipRepository{col: database.DB.Collection("memberships")}
 }
 
-func (r *MembershipRepository) FindByUser(ctx context.Context, userID bson.ObjectID) ([]models.Membership, error) {
-	cur, err := r.col.Find(ctx, bson.M{"user_id": userID})
-	if err != nil {
-		return nil, err
-	}
-	defer cur.Close(ctx)
-
-	var memberships []models.Membership
-	if err := cur.All(ctx, &memberships); err != nil {
-		return nil, err
-	}
-	return memberships, nil
-}
-
 func (r *MembershipRepository) FindAll(ctx context.Context) ([]models.Membership, error) {
 	cur, err := r.col.Find(ctx, bson.M{})
 	if err != nil {
@@ -47,7 +33,7 @@ func (r *MembershipRepository) FindAll(ctx context.Context) ([]models.Membership
 	return memberships, nil
 }
 
-func InsertMembership(ctx context.Context, m models.Membership) error {
+func InsertMembership(ctx context.Context, m models.MembershipRequestDTO) error {
 	// 1. Check if OrgPath exists
 	orgNode, err := FindByOrgPath(ctx, m.OrgPath)
 	if err != nil {
@@ -67,12 +53,38 @@ func InsertMembership(ctx context.Context, m models.Membership) error {
 	}
 
 	// 3. Create membership
-	m.ID = bson.NewObjectID()
-	m.CreatedAt = time.Now()
-	m.UpdatedAt = time.Now()
-	m.Active = true // optional: auto set active when created
+	userID, err := bson.ObjectIDFromHex(m.UserID)
+	if err != nil {
+		return fmt.Errorf("invalid user_id: %w", err)
+	}
+	m.Active = true
 
-	_, err = database.DB.Collection("memberships").InsertOne(ctx, m)
+	// 4. Check if membership already exists
+	col := database.DB.Collection("memberships")
+	existing := col.FindOne(ctx, bson.M{
+		"user_id":      userID,
+		"org_path":     m.OrgPath,
+		"position_key": m.PositionKey,
+	})
+	if existing.Err() == nil {
+		return fmt.Errorf("membership already exists for user_id=%s, org_path=%s, position_key=%s",
+			m.UserID, m.OrgPath, m.PositionKey)
+	} else if existing.Err() != mongo.ErrNoDocuments {
+		return fmt.Errorf("error checking existing membership: %w", existing.Err())
+	}
+
+	membership := models.Membership{
+		ID:           bson.NewObjectID(),
+		UserID:       userID,
+		OrgPath:      m.OrgPath,
+		PositionKey:  m.PositionKey,
+		Active:       m.Active,
+		OrgAncestors: orgNode.Ancestors,
+		CreatedAt:    time.Now(),
+		UpdatedAt:    time.Now(),
+	}
+
+	_, err = database.DB.Collection("memberships").InsertOne(ctx, membership)
 	if err != nil {
 		return fmt.Errorf("error inserting membership: %w", err)
 	}

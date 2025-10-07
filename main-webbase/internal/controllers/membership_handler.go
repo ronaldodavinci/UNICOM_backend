@@ -12,14 +12,14 @@ import (
 // @Tags         Memberships
 // @Accept       json
 // @Produce      json
-// @Param        body  body      models.Membership  true  "Membership data"
-// @Success      200   {object}  models.Membership "membership created"
+// @Param        body  body      models.MembershipRequestDTO  true  "Membership data"
+// @Success      200   {object}  models.MembershipRequestDTO "membership created"
 // @Failure      400   {object}  dto.ErrorResponse "invalid body"
 // @Failure      500   {object}  dto.ErrorResponse "internal server error"
 // @Router       /memberships [post]
 func CreateMembership() fiber.Handler {
 	return func (c *fiber.Ctx) error {
-		var req models.Membership
+		var req models.MembershipRequestDTO
 		if err := c.BodyParser(&req); err != nil {
 			return fiber.NewError(fiber.StatusBadRequest, "invalid body")
 		}

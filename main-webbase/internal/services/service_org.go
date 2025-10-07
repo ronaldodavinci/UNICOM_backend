@@ -69,13 +69,14 @@ func CreateOrgUnit(body dto.OrgUnitDTO, ctx context.Context) (*models.OrgUnitNod
 		return nil, errors.New("name, slug, parent_path and type are required (if parent is root, enter '/' as parent path)")
 	}
 
+	slug := strings.ToLower(body.Slug)
 	// Check parent path & orgpath correct 
 	parent := body.ParentPath
 	orgpath := ""
 	if parent == "/" {
-		orgpath = "/" + body.Slug
+		orgpath = "/" + slug
 	}	else {
-		orgpath = parent + "/" + body.Slug
+		orgpath = parent + "/" + slug
 	}
 
 	if parent != "/" {
