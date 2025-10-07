@@ -14,8 +14,8 @@ import (
 // @Produce      json
 // @Param        body  body      models.Membership  true  "Membership data"
 // @Success      200   {object}  models.Membership "membership created"
-// @Failure      400   {object}  map[string]string{"error": "invalid body"}
-// @Failure      500   {object}  map[string]string{"error": "internal server error"}
+// @Failure      400   {object}  dto.ErrorResponse "invalid body"
+// @Failure      500   {object}  dto.ErrorResponse "internal server error"
 // @Router       /memberships [post]
 func CreateMembership() fiber.Handler {
 	return func (c *fiber.Ctx) error {

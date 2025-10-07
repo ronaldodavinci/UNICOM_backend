@@ -16,12 +16,12 @@ import (
 // @Accept       json
 // @Produce      json
 // @Param        body  body      dto.PolicyUpdateDTO  true  "Policy update data"
-// @Success      201   {object}  map[string]interface{}
-// @Failure      400   {object}  map[string]string{"error": "invalid body"}
-// @Failure      401   {object}  map[string]string{"error": "unauthorized"}
-// @Failure      403   {object}  map[string]string{"error": "no permission to manage this policy"}
-// @Failure      404   {object}  map[string]string{"error": "target policy not found"}
-// @Failure      500   {object}  map[string]string{"error": "failed to update policy"}
+// @Success      201   {object}  map[string]interface{} "policy updated successfully"
+// @Failure      400   {object}  dto.ErrorResponse "invalid body"
+// @Failure      401   {object}  dto.ErrorResponse "unauthorized"
+// @Failure      403   {object}  dto.ErrorResponse "no permission to manage this policy"
+// @Failure      404   {object}  dto.ErrorResponse "target policy not found"
+// @Failure      500   {object}  dto.ErrorResponse "failed to update policy"
 // @Router       /policies [put]
 func UpdatePolicyHandler() fiber.Handler {
     return func(c *fiber.Ctx) error {

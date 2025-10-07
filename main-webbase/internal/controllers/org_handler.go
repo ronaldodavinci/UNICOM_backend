@@ -17,8 +17,8 @@ import (
 // @Produce      json
 // @Param        body  body      dto.OrgUnitDTO  true  "Org Unit Data"
 // @Success      201   {object}  dto.OrgUnitReport
-// @Failure      400   {object}  map[string]string{"error": "invalid request body"}
-// @Failure      500   {object}  map[string]string{"error": "internal server error"}
+// @Failure      400   {object}  dto.ErrorResponse "invalid request body"
+// @Failure      500   {object}  dto.ErrorResponse "internal server error"
 // @Router       /org/units [post]
 func CreateOrgUnitHandler() fiber.Handler {
 	return func(c *fiber.Ctx) error {
@@ -53,8 +53,8 @@ func CreateOrgUnitHandler() fiber.Handler {
 // @Param        start  query     string  true   "Starting org path"
 // @Param        depth  query     int     false  "Depth of tree to fetch"
 // @Success      200    {array}   dto.OrgUnitTree
-// @Failure      400    {object}  map[string]string{"error": "invalid query parameters"}
-// @Failure      500    {object}  map[string]string{"error": "internal server error"}
+// @Failure      400   {object}  dto.ErrorResponse "invalid query parameters"
+// @Failure      500   {object}  dto.ErrorResponse "internal server error"
 // @Router       /org/units/tree [get]
 func GetOrgTree() fiber.Handler {
 	return func(c *fiber.Ctx) error {

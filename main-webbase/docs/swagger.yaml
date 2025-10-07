@@ -11,6 +11,12 @@ definitions:
       version:
         type: string
     type: object
+  dto.ErrorResponse:
+    properties:
+      error:
+        example: invalid body
+        type: string
+    type: object
   dto.EventReport:
     properties:
       event_id:
@@ -65,23 +71,128 @@ definitions:
       start_time:
         type: string
     type: object
-  dto.OrgUnitNode:
+  dto.MembershipProfileDTO:
+    properties:
+      membership_name:
+        description: e.g., Position Display Name
+        type: string
+      org_unit:
+        $ref: '#/definitions/models.OrgUnitNode'
+      policies:
+        $ref: '#/definitions/models.Policy'
+      position:
+        $ref: '#/definitions/models.Position'
+    type: object
+  dto.OrgUnitDTO:
+    properties:
+      name:
+        type: string
+      parent_path:
+        type: string
+      slug:
+        type: string
+      type:
+        type: string
+    type: object
+  dto.OrgUnitReport:
+    properties:
+      name:
+        type: string
+      org_id:
+        type: string
+      org_path:
+        type: string
+      short_name:
+        type: string
+    type: object
+  dto.OrgUnitTree:
     properties:
       children:
         items:
-          $ref: '#/definitions/dto.OrgUnitNode'
+          $ref: '#/definitions/dto.OrgUnitTree'
         type: array
       label:
         type: string
-      labels:
-        additionalProperties:
-          type: string
-        type: object
       org_path:
         type: string
       short_name:
         type: string
       type:
+        type: string
+    type: object
+  dto.PolicyUpdateDTO:
+    properties:
+      actions:
+        items:
+          type: string
+        type: array
+      enabled:
+        type: boolean
+      key:
+        type: string
+      org_path:
+        type: string
+    type: object
+  dto.PositionCreateDTO:
+    properties:
+      constraints:
+        $ref: '#/definitions/models.Constraints'
+      created_at:
+        type: string
+      display:
+        additionalProperties:
+          type: string
+        type: object
+      key:
+        type: string
+      policy:
+        properties:
+          actions:
+            items:
+              type: string
+            type: array
+          created_at:
+            type: string
+          effect:
+            type: string
+          enabled:
+            type: boolean
+          type:
+            description: '"exact" or "subtree"'
+            type: string
+        type: object
+      rank:
+        type: integer
+      scope:
+        $ref: '#/definitions/models.Scope'
+      status:
+        type: string
+      updated_at:
+        type: string
+    type: object
+  dto.UserProfileDTO:
+    properties:
+      advisor_id:
+        type: string
+      email:
+        type: string
+      firstname:
+        type: string
+      gender:
+        type: string
+      id:
+        type: string
+      lastname:
+        type: string
+      memberships:
+        items:
+          $ref: '#/definitions/dto.MembershipProfileDTO'
+        type: array
+      student_id:
+        type: string
+      thaiprefix:
+        type: string
+      type_person:
         type: string
     type: object
   models.AudienceItem:
@@ -92,6 +203,11 @@ definitions:
         description: '"exact" | "subtree"'
         type: string
     type: object
+  models.Constraints:
+    properties:
+      exclusive_per_org:
+        type: boolean
+    type: object
   models.LoginRequest:
     properties:
       email:
@@ -101,32 +217,98 @@ definitions:
     type: object
   models.Membership:
     properties:
-      _id:
-        type: string
       active:
         type: boolean
-      joined_at:
-        type: string
-      org_path:
-        type: string
-      position_key:
-        type: string
-      user_id:
-        type: string
-    type: object
-  models.Position:
-    properties:
       created_at:
         type: string
       id:
         type: string
+      org_ancestors:
+        items:
+          type: string
+        type: array
+      org_path:
+        type: string
+      position_key:
+        type: string
+      updated_at:
+        type: string
+      user_id:
+        type: string
+    type: object
+  models.OrgUnitNode:
+    properties:
+      ancestors:
+        items:
+          type: string
+        type: array
+      created_at:
+        type: string
+      depth:
+        type: integer
+      id:
+        type: string
       name:
         type: string
-      scope:
+      org_path:
+        type: string
+      parent_path:
+        type: string
+      shortname:
+        type: string
+      slug:
         type: string
       status:
         type: string
+      type:
+        type: string
       updated_at:
+        type: string
+    type: object
+  models.Policy:
+    properties:
+      _id:
+        type: string
+      actions:
+        items:
+          type: string
+        type: array
+      created_at:
+        type: string
+      enabled:
+        type: boolean
+      org_prefix:
+        type: string
+      position_key:
+        type: string
+      scope:
+        description: exact (control only the same orgpath) & subtree (control orgpath
+          under this path)
+        type: string
+      updatedAt:
+        type: string
+    type: object
+  models.Position:
+    properties:
+      _id:
+        type: string
+      constraints:
+        $ref: '#/definitions/models.Constraints'
+      createdAt:
+        type: string
+      display:
+        additionalProperties:
+          type: string
+        type: object
+      key:
+        type: string
+      rank:
+        type: integer
+      scope:
+        $ref: '#/definitions/models.Scope'
+      status:
+        type: string
+      updatedAt:
         type: string
     type: object
   models.PostedAs:
@@ -159,18 +341,12 @@ definitions:
       type_person:
         type: string
     type: object
-  models.Role:
+  models.Scope:
     properties:
-      id:
+      inherit:
+        type: boolean
+      org_path:
         type: string
-      label:
-        type: string
-      name:
-        type: string
-      permissions:
-        items:
-          type: string
-        type: array
     type: object
   models.Visibility:
     properties:
@@ -374,37 +550,14 @@ paths:
       tags:
       - auth
   /memberships:
-    get:
-      consumes:
-      - application/json
-      description: Returns a list of memberships
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            additionalProperties:
-              items:
-                type: string
-              type: array
-            type: object
-        "500":
-          description: Internal Server Error
-          schema:
-            additionalProperties: true
-            type: object
-      summary: List memberships
-      tags:
-      - memberships
     post:
       consumes:
       - application/json
-      description: Adds a new membership for a user in an organization
+      description: Assigns a user to an organization and position
       parameters:
       - description: Membership data
         in: body
-        name: membership
+        name: body
         required: true
         schema:
           $ref: '#/definitions/models.Membership'
@@ -412,35 +565,66 @@ paths:
       - application/json
       responses:
         "200":
-          description: OK
+          description: membership created
           schema:
-            additionalProperties:
-              type: string
-            type: object
+            $ref: '#/definitions/models.Membership'
         "400":
-          description: Bad Request
+          description: invalid body
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/dto.ErrorResponse'
         "500":
-          description: Internal Server Error
+          description: internal server error
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/dto.ErrorResponse'
       summary: Create a new membership
       tags:
-      - memberships
+      - Memberships
+  /org/units:
+    post:
+      consumes:
+      - application/json
+      description: Creates a new organization unit node in the hierarchy
+      parameters:
+      - description: Org Unit Data
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/dto.OrgUnitDTO'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/dto.OrgUnitReport'
+        "400":
+          description: invalid request body
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: internal server error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      summary: Create a new organization unit
+      tags:
+      - Org Units
   /org/units/tree:
     get:
       consumes:
       - application/json
-      description: Returns a tree of all organization units, sorted by label. Optional
-        language code for labels.
+      description: Returns an organization tree starting from a given path and optional
+        depth
       parameters:
-      - description: Language code for labels (e.g. 'en', 'ru')
+      - description: Starting org path
         in: query
-        name: lang
+        name: start
+        required: true
         type: string
+      - description: Depth of tree to fetch
+        in: query
+        name: depth
+        type: integer
       produces:
       - application/json
       responses:
@@ -448,130 +632,95 @@ paths:
           description: OK
           schema:
             items:
-              $ref: '#/definitions/dto.OrgUnitNode'
+              $ref: '#/definitions/dto.OrgUnitTree'
             type: array
-        "500":
-          description: Internal Server Error
+        "400":
+          description: invalid query parameters
           schema:
-            additionalProperties: true
-            type: object
-      summary: Get organization unit tree
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: internal server error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      summary: Get organization tree
       tags:
-      - org
+      - Org Units
   /policies:
-    get:
+    put:
       consumes:
       - application/json
-      description: Returns a list of policies
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            additionalProperties:
-              items:
-                type: string
-              type: array
-            type: object
-        "500":
-          description: Internal Server Error
-          schema:
-            additionalProperties: true
-            type: object
-      summary: List policies
-      tags:
-      - policies
-    post:
-      consumes:
-      - application/json
-      description: Adds a new policy to the system
+      description: 'Updates policy actions for a position. Only the actions sent will
+        be kept. Supported actions:'
       parameters:
-      - description: Policy data
+      - description: Policy update data
         in: body
-        name: policy
+        name: body
         required: true
         schema:
-          $ref: '#/definitions/models.Role'
+          $ref: '#/definitions/dto.PolicyUpdateDTO'
       produces:
       - application/json
       responses:
-        "200":
-          description: OK
+        "201":
+          description: policy updated successfully
           schema:
-            additionalProperties:
-              type: string
+            additionalProperties: true
             type: object
         "400":
-          description: Bad Request
+          description: invalid body
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/dto.ErrorResponse'
+        "401":
+          description: unauthorized
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "403":
+          description: no permission to manage this policy
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "404":
+          description: target policy not found
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
         "500":
-          description: Internal Server Error
+          description: failed to update policy
           schema:
-            additionalProperties: true
-            type: object
-      summary: Create a new policy
+            $ref: '#/definitions/dto.ErrorResponse'
+      summary: Update Policy actions
       tags:
-      - policies
+      - Policies
   /positions:
-    get:
-      consumes:
-      - application/json
-      description: Returns a list of positions
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            additionalProperties:
-              items:
-                type: string
-              type: array
-            type: object
-        "500":
-          description: Internal Server Error
-          schema:
-            additionalProperties: true
-            type: object
-      summary: List positions
-      tags:
-      - positions
     post:
       consumes:
       - application/json
-      description: Adds a new position to the system
+      description: 'Create a new position and attach a policy. Policy actions support
+        only:'
       parameters:
-      - description: Position data
+      - description: Position & Policy data
         in: body
-        name: position
+        name: body
         required: true
         schema:
-          $ref: '#/definitions/models.Position'
+          $ref: '#/definitions/dto.PositionCreateDTO'
       produces:
       - application/json
       responses:
-        "200":
-          description: OK
+        "201":
+          description: position created successfully
           schema:
-            additionalProperties:
-              type: string
+            additionalProperties: true
             type: object
         "400":
-          description: Bad Request
+          description: invalid body
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/dto.ErrorResponse'
         "500":
-          description: Internal Server Error
+          description: internal server error
           schema:
-            additionalProperties: true
-            type: object
-      summary: Create a new position
+            $ref: '#/definitions/dto.ErrorResponse'
+      summary: Create a new Position with Policy
       tags:
-      - positions
+      - Positions
   /register:
     post:
       consumes:
@@ -689,4 +838,52 @@ paths:
       summary: Delete user by ID
       tags:
       - users
+  /users/myprofile:
+    get:
+      description: Returns the profile of the currently authenticated user
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.UserProfileDTO'
+        "401":
+          description: unauthorized
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: internal server error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      summary: Get my profile
+      tags:
+      - Users
+  /users/profile/{id}:
+    get:
+      description: Returns profile information for a given user ID
+      parameters:
+      - description: User ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.UserProfileDTO'
+        "404":
+          description: user not found
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: internal server error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      summary: Get user profile by ID
+      tags:
+      - Users
 swagger: "2.0"

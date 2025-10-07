@@ -14,6 +14,7 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/swagger"
+	"github.com/joho/godotenv"
 
 	"main-webbase/config"
 	"main-webbase/database"
@@ -22,6 +23,11 @@ import (
 )
 
 func main() {
+
+	if err := godotenv.Load(); err != nil {
+		log.Println("⚠️ Warning: .env file not found, using system environment variables")
+	}
+	
 	secret := os.Getenv("JWT_SECRET")
 	if secret == "" {
 		panic("JWT_SECRET is required")

@@ -20,9 +20,9 @@ import (
 // @Produce      json
 // @Param        id   path      string  true  "User ID"
 // @Success      200  {object}  dto.UserProfileDTO
-// @Failure      404  {object}  map[string]string{"error": "user not found"}
-// @Failure      500  {object}  map[string]string{"error": "internal server error"}
-// @Router       /users/profile [get]
+// @Failure      404  {object}  dto.ErrorResponse "user not found"
+// @Failure      500  {object}  dto.ErrorResponse "internal server error"
+// @Router       /users/profile/{id} [get]
 func GetUserProfileHandler() fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		userID := c.Params("id")
@@ -42,8 +42,8 @@ func GetUserProfileHandler() fiber.Handler {
 // @Tags         Users
 // @Produce      json
 // @Success      200  {object}  dto.UserProfileDTO
-// @Failure      401  {object}  map[string]string{"error": "unauthorized"}
-// @Failure      500  {object}  map[string]string{"error": "internal server error"}
+// @Failure      401  {object}  dto.ErrorResponse "unauthorized"
+// @Failure      500  {object}  dto.ErrorResponse "internal server error"
 // @Router       /users/myprofile [get]
 func GetMyProfileHandler() fiber.Handler {
 	return func(c *fiber.Ctx) error {

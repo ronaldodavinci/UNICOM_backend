@@ -23,3 +23,7 @@ type UserProfileDTO struct {
 	AdvisorID  string                   `json:"advisor_id,omitempty"`
 	Memberships []MembershipProfileDTO  `json:"memberships"`
 }
+
+type ErrorResponse struct {
+	Error string `json:"error" example:"invalid body"`
+}

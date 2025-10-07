@@ -270,42 +270,8 @@ const docTemplate = `{
             }
         },
         "/memberships": {
-            "get": {
-                "description": "Returns a list of memberships",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "memberships"
-                ],
-                "summary": "List memberships",
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "array",
-                                "items": {
-                                    "type": "string"
-                                }
-                            }
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    }
-                }
-            },
             "post": {
-                "description": "Adds a new membership for a user in an organization",
+                "description": "Assigns a user to an organization and position",
                 "consumes": [
                     "application/json"
                 ],
@@ -313,13 +279,13 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "memberships"
+                    "Memberships"
                 ],
                 "summary": "Create a new membership",
                 "parameters": [
                     {
                         "description": "Membership data",
-                        "name": "membership",
+                        "name": "body",
                         "in": "body",
                         "required": true,
                         "schema": {
@@ -329,34 +295,29 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "OK",
+                        "description": "membership created",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/models.Membership"
                         }
                     },
                     "400": {
-                        "description": "Bad Request",
+                        "description": "invalid body",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/dto.ErrorResponse"
                         }
                     },
                     "500": {
-                        "description": "Internal Server Error",
+                        "description": "internal server error",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/dto.ErrorResponse"
                         }
                     }
                 }
             }
         },
-        "/org/units/tree": {
-            "get": {
-                "description": "Returns a tree of all organization units, sorted by label. Optional language code for labels.",
+        "/org/units": {
+            "post": {
+                "description": "Creates a new organization unit node in the hierarchy",
                 "consumes": [
                     "application/json"
                 ],
@@ -364,14 +325,67 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "org"
+                    "Org Units"
                 ],
-                "summary": "Get organization unit tree",
+                "summary": "Create a new organization unit",
+                "parameters": [
+                    {
+                        "description": "Org Unit Data",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/dto.OrgUnitDTO"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/dto.OrgUnitReport"
+                        }
+                    },
+                    "400": {
+                        "description": "invalid request body",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/org/units/tree": {
+            "get": {
+                "description": "Returns an organization tree starting from a given path and optional depth",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Org Units"
+                ],
+                "summary": "Get organization tree",
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Language code for labels (e.g. 'en', 'ru')",
-                        "name": "lang",
+                        "description": "Starting org path",
+                        "name": "start",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Depth of tree to fetch",
+                        "name": "depth",
                         "in": "query"
                     }
                 ],
@@ -381,23 +395,28 @@ const docTemplate = `{
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/dto.OrgUnitNode"
+                                "$ref": "#/definitions/dto.OrgUnitTree"
                             }
                         }
                     },
-                    "500": {
-                        "description": "Internal Server Error",
+                    "400": {
+                        "description": "invalid query parameters",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
                         }
                     }
                 }
             }
         },
         "/policies": {
-            "get": {
-                "description": "Returns a list of policies",
+            "put": {
+                "description": "Updates policy actions for a position. Only the actions sent will be kept. Supported actions:",
                 "consumes": [
                     "application/json"
                 ],
@@ -405,118 +424,64 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "policies"
+                    "Policies"
                 ],
-                "summary": "List policies",
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "array",
-                                "items": {
-                                    "type": "string"
-                                }
-                            }
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    }
-                }
-            },
-            "post": {
-                "description": "Adds a new policy to the system",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "policies"
-                ],
-                "summary": "Create a new policy",
+                "summary": "Update Policy actions",
                 "parameters": [
                     {
-                        "description": "Policy data",
-                        "name": "policy",
+                        "description": "Policy update data",
+                        "name": "body",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/models.Role"
+                            "$ref": "#/definitions/dto.PolicyUpdateDTO"
                         }
                     }
                 ],
                 "responses": {
-                    "200": {
-                        "description": "OK",
+                    "201": {
+                        "description": "policy updated successfully",
                         "schema": {
                             "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "additionalProperties": true
                         }
                     },
                     "400": {
-                        "description": "Bad Request",
+                        "description": "invalid body",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "no permission to manage this policy",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "target policy not found",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
                         }
                     },
                     "500": {
-                        "description": "Internal Server Error",
+                        "description": "failed to update policy",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/dto.ErrorResponse"
                         }
                     }
                 }
             }
         },
         "/positions": {
-            "get": {
-                "description": "Returns a list of positions",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "positions"
-                ],
-                "summary": "List positions",
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "array",
-                                "items": {
-                                    "type": "string"
-                                }
-                            }
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    }
-                }
-            },
             "post": {
-                "description": "Adds a new position to the system",
+                "description": "Create a new position and attach a policy. Policy actions support only:",
                 "consumes": [
                     "application/json"
                 ],
@@ -524,42 +489,38 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "positions"
+                    "Positions"
                 ],
-                "summary": "Create a new position",
+                "summary": "Create a new Position with Policy",
                 "parameters": [
                     {
-                        "description": "Position data",
-                        "name": "position",
+                        "description": "Position \u0026 Policy data",
+                        "name": "body",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/models.Position"
+                            "$ref": "#/definitions/dto.PositionCreateDTO"
                         }
                     }
                 ],
                 "responses": {
-                    "200": {
-                        "description": "OK",
+                    "201": {
+                        "description": "position created successfully",
                         "schema": {
                             "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "additionalProperties": true
                         }
                     },
                     "400": {
-                        "description": "Bad Request",
+                        "description": "invalid body",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/dto.ErrorResponse"
                         }
                     },
                     "500": {
-                        "description": "Internal Server Error",
+                        "description": "internal server error",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/dto.ErrorResponse"
                         }
                     }
                 }
@@ -686,6 +647,79 @@ const docTemplate = `{
                 }
             }
         },
+        "/users/myprofile": {
+            "get": {
+                "description": "Returns the profile of the currently authenticated user",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Users"
+                ],
+                "summary": "Get my profile",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/dto.UserProfileDTO"
+                        }
+                    },
+                    "401": {
+                        "description": "unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/users/profile/{id}": {
+            "get": {
+                "description": "Returns profile information for a given user ID",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Users"
+                ],
+                "summary": "Get user profile by ID",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "User ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/dto.UserProfileDTO"
+                        }
+                    },
+                    "404": {
+                        "description": "user not found",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/users/{id}": {
             "delete": {
                 "description": "Delete a user with given ID",
@@ -753,6 +787,15 @@ const docTemplate = `{
                 },
                 "version": {
                     "type": "string"
+                }
+            }
+        },
+        "dto.ErrorResponse": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "type": "string",
+                    "example": "invalid body"
                 }
             }
         },
@@ -839,23 +882,69 @@ const docTemplate = `{
                 }
             }
         },
-        "dto.OrgUnitNode": {
+        "dto.MembershipProfileDTO": {
+            "type": "object",
+            "properties": {
+                "membership_name": {
+                    "description": "e.g., Position Display Name",
+                    "type": "string"
+                },
+                "org_unit": {
+                    "$ref": "#/definitions/models.OrgUnitNode"
+                },
+                "policies": {
+                    "$ref": "#/definitions/models.Policy"
+                },
+                "position": {
+                    "$ref": "#/definitions/models.Position"
+                }
+            }
+        },
+        "dto.OrgUnitDTO": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string"
+                },
+                "parent_path": {
+                    "type": "string"
+                },
+                "slug": {
+                    "type": "string"
+                },
+                "type": {
+                    "type": "string"
+                }
+            }
+        },
+        "dto.OrgUnitReport": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string"
+                },
+                "org_id": {
+                    "type": "string"
+                },
+                "org_path": {
+                    "type": "string"
+                },
+                "short_name": {
+                    "type": "string"
+                }
+            }
+        },
+        "dto.OrgUnitTree": {
             "type": "object",
             "properties": {
                 "children": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/dto.OrgUnitNode"
+                        "$ref": "#/definitions/dto.OrgUnitTree"
                     }
                 },
                 "label": {
                     "type": "string"
-                },
-                "labels": {
-                    "type": "object",
-                    "additionalProperties": {
-                        "type": "string"
-                    }
                 },
                 "org_path": {
                     "type": "string"
@@ -864,6 +953,120 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "type": {
+                    "type": "string"
+                }
+            }
+        },
+        "dto.PolicyUpdateDTO": {
+            "type": "object",
+            "properties": {
+                "actions": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "enabled": {
+                    "type": "boolean"
+                },
+                "key": {
+                    "type": "string"
+                },
+                "org_path": {
+                    "type": "string"
+                }
+            }
+        },
+        "dto.PositionCreateDTO": {
+            "type": "object",
+            "properties": {
+                "constraints": {
+                    "$ref": "#/definitions/models.Constraints"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "display": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "key": {
+                    "type": "string"
+                },
+                "policy": {
+                    "type": "object",
+                    "properties": {
+                        "actions": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
+                        "created_at": {
+                            "type": "string"
+                        },
+                        "effect": {
+                            "type": "string"
+                        },
+                        "enabled": {
+                            "type": "boolean"
+                        },
+                        "type": {
+                            "description": "\"exact\" or \"subtree\"",
+                            "type": "string"
+                        }
+                    }
+                },
+                "rank": {
+                    "type": "integer"
+                },
+                "scope": {
+                    "$ref": "#/definitions/models.Scope"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                }
+            }
+        },
+        "dto.UserProfileDTO": {
+            "type": "object",
+            "properties": {
+                "advisor_id": {
+                    "type": "string"
+                },
+                "email": {
+                    "type": "string"
+                },
+                "firstname": {
+                    "type": "string"
+                },
+                "gender": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "lastname": {
+                    "type": "string"
+                },
+                "memberships": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/dto.MembershipProfileDTO"
+                    }
+                },
+                "student_id": {
+                    "type": "string"
+                },
+                "thaiprefix": {
+                    "type": "string"
+                },
+                "type_person": {
                     "type": "string"
                 }
             }
@@ -877,6 +1080,14 @@ const docTemplate = `{
                 "scope": {
                     "description": "\"exact\" | \"subtree\"",
                     "type": "string"
+                }
+            }
+        },
+        "models.Constraints": {
+            "type": "object",
+            "properties": {
+                "exclusive_per_org": {
+                    "type": "boolean"
                 }
             }
         },
@@ -894,14 +1105,20 @@ const docTemplate = `{
         "models.Membership": {
             "type": "object",
             "properties": {
-                "_id": {
-                    "type": "string"
-                },
                 "active": {
                     "type": "boolean"
                 },
-                "joined_at": {
+                "created_at": {
                     "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "org_ancestors": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 },
                 "org_path": {
                     "type": "string"
@@ -909,16 +1126,28 @@ const docTemplate = `{
                 "position_key": {
                     "type": "string"
                 },
+                "updated_at": {
+                    "type": "string"
+                },
                 "user_id": {
                     "type": "string"
                 }
             }
         },
-        "models.Position": {
+        "models.OrgUnitNode": {
             "type": "object",
             "properties": {
+                "ancestors": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
                 "created_at": {
                     "type": "string"
+                },
+                "depth": {
+                    "type": "integer"
                 },
                 "id": {
                     "type": "string"
@@ -926,13 +1155,93 @@ const docTemplate = `{
                 "name": {
                     "type": "string"
                 },
-                "scope": {
+                "org_path": {
+                    "type": "string"
+                },
+                "parent_path": {
+                    "type": "string"
+                },
+                "shortname": {
+                    "type": "string"
+                },
+                "slug": {
                     "type": "string"
                 },
                 "status": {
                     "type": "string"
                 },
+                "type": {
+                    "type": "string"
+                },
                 "updated_at": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.Policy": {
+            "type": "object",
+            "properties": {
+                "_id": {
+                    "type": "string"
+                },
+                "actions": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "enabled": {
+                    "type": "boolean"
+                },
+                "org_prefix": {
+                    "type": "string"
+                },
+                "position_key": {
+                    "type": "string"
+                },
+                "scope": {
+                    "description": "exact (control only the same orgpath) \u0026 subtree (control orgpath under this path)",
+                    "type": "string"
+                },
+                "updatedAt": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.Position": {
+            "type": "object",
+            "properties": {
+                "_id": {
+                    "type": "string"
+                },
+                "constraints": {
+                    "$ref": "#/definitions/models.Constraints"
+                },
+                "createdAt": {
+                    "type": "string"
+                },
+                "display": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "key": {
+                    "type": "string"
+                },
+                "rank": {
+                    "type": "integer"
+                },
+                "scope": {
+                    "$ref": "#/definitions/models.Scope"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "updatedAt": {
                     "type": "string"
                 }
             }
@@ -983,23 +1292,14 @@ const docTemplate = `{
                 }
             }
         },
-        "models.Role": {
+        "models.Scope": {
             "type": "object",
             "properties": {
-                "id": {
-                    "type": "string"
+                "inherit": {
+                    "type": "boolean"
                 },
-                "label": {
+                "org_path": {
                     "type": "string"
-                },
-                "name": {
-                    "type": "string"
-                },
-                "permissions": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
                 }
             }
         },

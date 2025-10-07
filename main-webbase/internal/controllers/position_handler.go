@@ -16,9 +16,9 @@ import (
 // @Accept       json
 // @Produce      json
 // @Param        body  body      dto.PositionCreateDTO  true  "Position & Policy data"
-// @Success      201   {object}  map[string]interface{}
-// @Failure      400   {object}  map[string]string{"error": "invalid body"}
-// @Failure      500   {object}  map[string]string{"error": "internal server error"}
+// @Success      201   {object}  map[string]interface{} "position created successfully"
+// @Failure      400   {object}  dto.ErrorResponse "invalid body"
+// @Failure      500   {object}  dto.ErrorResponse "internal server error"
 // @Router       /positions [post]
 func CreatePosition() fiber.Handler {
     return func(c *fiber.Ctx) error {
