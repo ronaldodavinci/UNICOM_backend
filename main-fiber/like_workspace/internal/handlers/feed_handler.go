@@ -13,8 +13,10 @@ import (
 	"github.com/Software-eng-01204341/Backend/model"
 )
 
+// ✅ อัปเดตให้รองรับ Popular feed
 type FeedRepository interface {
 	List(ctx context.Context, opts model.QueryOptions) ([]model.FrontPost, *bson.ObjectID, error)
+	ListPopular(ctx context.Context, opts model.QueryOptions) ([]model.FrontPost, *bson.ObjectID, error)
 }
 
 type FeedService struct {
@@ -28,6 +30,7 @@ func NewFeedService(repo FeedRepository, client *mongo.Client) *FeedService {
 
 func (s *FeedService) FeedHandler(c *fiber.Ctx) error {
 	limit, _ := strconv.ParseInt(c.Query("limit", "20"), 10, 64)
+	// หมายเหตุ: repository ฝั่ง DB ผมตั้ง cap ไว้ 20 ถ้าอยากให้มากกว่านี้ให้ปรับที่ repo ด้วย
 	if limit <= 0 {
 		limit = 20
 	}
@@ -42,9 +45,10 @@ func (s *FeedService) FeedHandler(c *fiber.Ctx) error {
 		}
 	}
 
+	// โหมดเรียง: "popular" หรือ "time" (ค่าเริ่มต้น)
+	sortBy := strings.ToLower(strings.TrimSpace(c.Query("sort", "time")))
+
 	// ✅ ใช้ viewer จาก middleware (JWT + InjectViewer)
-	// ✅ viewer มาจาก middleware InjectViewer
-	// ใช้เพื่อกำหนดสิทธิ์การมองเห็น feed ของ user
 	vAny := c.Locals("viewer")
 	if vAny == nil {
 		return fiber.ErrUnauthorized
@@ -68,7 +72,18 @@ func (s *FeedService) FeedHandler(c *fiber.Ctx) error {
 		AllowedNodeIDs: allowedNodeIDs,
 	}
 
-	items, next, err := s.Repo.List(c.Context(), opts)
+	var (
+		items []model.FrontPost
+		next  *bson.ObjectID
+		err   error
+	)
+
+	// ✅ เรียก popular หรือ time ตามพารามิเตอร์
+	if sortBy == "popular" {
+		items, next, err = s.Repo.ListPopular(c.Context(), opts)
+	} else {
+		items, next, err = s.Repo.List(c.Context(), opts)
+	}
 	if err != nil {
 		return fiber.NewError(fiber.StatusInternalServerError, err.Error())
 	}

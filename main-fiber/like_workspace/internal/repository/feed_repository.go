@@ -14,10 +14,18 @@ import (
 	"github.com/Software-eng-01204341/Backend/model"
 )
 
+// ================================
+// Interface
+// ================================
 type FeedRepository interface {
 	List(ctx context.Context, opts model.QueryOptions) ([]model.FrontPost, *bson.ObjectID, error)
+	// ใหม่: เรียงตามความนิยม (จำนวนไลค์มาก → น้อย)
+	ListPopular(ctx context.Context, opts model.QueryOptions) ([]model.FrontPost, *bson.ObjectID, error)
 }
 
+// ================================
+// Struct
+// ================================
 type mongoFeedRepo struct {
 	col *mongo.Collection
 }
@@ -28,96 +36,10 @@ func NewMongoFeedRepo(client *mongo.Client) FeedRepository {
 	}
 }
 
-func adoptBaseMatchFromFilter(opts model.QueryOptions) bson.D {
-	m := bson.D{}
-
-	// Cursor
-	if !opts.UntilID.IsZero() {
-		m = append(m, bson.E{Key: "_id", Value: bson.M{"$lt": opts.UntilID}})
-	} else if !opts.SinceID.IsZero() {
-		m = append(m, bson.E{Key: "_id", Value: bson.M{"$gt": opts.SinceID}})
-	}
-
-	// Authors
-	if len(opts.AuthorIDs) > 0 {
-		m = append(m, bson.E{Key: "user_id", Value: bson.M{"$in": opts.AuthorIDs}})
-	}
-
-	return m
-}
-
-func (r *mongoFeedRepo) List(ctx context.Context, opts model.QueryOptions) ([]model.FrontPost, *bson.ObjectID, error) {
-	// ----- (ใหม่) หาเวลา created_at ของเอกสาร cursor ถ้ามีส่งเข้ามา -----
-	var untilTime *time.Time
-	var sinceTime *time.Time
-
-	if !opts.UntilID.IsZero() {
-		var tmp struct{ CreatedAt time.Time `bson:"created_at"` }
-		_ = r.col.FindOne(
-			ctx,
-			bson.M{"_id": opts.UntilID},
-			options.FindOne().SetProjection(bson.M{"created_at": 1, "_id": 0}),
-		).Decode(&tmp)
-		if !tmp.CreatedAt.IsZero() {
-			t := tmp.CreatedAt.UTC()
-			untilTime = &t
-		}
-	}
-
-	if !opts.SinceID.IsZero() {
-		var tmp struct{ CreatedAt time.Time `bson:"created_at"` }
-		_ = r.col.FindOne(
-			ctx,
-			bson.M{"_id": opts.SinceID},
-			options.FindOne().SetProjection(bson.M{"created_at": 1, "_id": 0}),
-		).Decode(&tmp)
-		if !tmp.CreatedAt.IsZero() {
-			t := tmp.CreatedAt.UTC()
-			sinceTime = &t
-		}
-	}
-
-	// ----- ปรับ baseMatch ให้ใช้คู่ (created_at, _id) อัตโนมัติ -----
-	baseMatch := bson.D{}
-
-	// next page (เลื่อนลง): created_at < T  หรือ (created_at == T และ _id < ID)
-	if !opts.UntilID.IsZero() && untilTime != nil {
-		baseMatch = append(baseMatch, bson.E{
-			Key: "$or",
-			Value: []bson.M{
-				{"created_at": bson.M{"$lt": *untilTime}},
-				{"created_at": *untilTime, "_id": bson.M{"$lt": opts.UntilID}},
-			},
-		})
-	} else if !opts.SinceID.IsZero() && sinceTime != nil {
-		// previous page (ถ้าคุณรองรับ): created_at > T  หรือ (created_at == T และ _id > ID)
-		baseMatch = append(baseMatch, bson.E{
-			Key: "$or",
-			Value: []bson.M{
-				{"created_at": bson.M{"$gt": *sinceTime}},
-				{"created_at": *sinceTime, "_id": bson.M{"$gt": opts.SinceID}},
-			},
-		})
-	} else if !opts.UntilID.IsZero() {
-		// fallback กรณีหาเวลาไม่ได้ (ยังใช้ _id อย่างเดียวได้)
-		baseMatch = append(baseMatch, bson.E{Key: "_id", Value: bson.M{"$lt": opts.UntilID}})
-	} else if !opts.SinceID.IsZero() {
-		baseMatch = append(baseMatch, bson.E{Key: "_id", Value: bson.M{"$gt": opts.SinceID}})
-	}
-
-	// Authors
-	if len(opts.AuthorIDs) > 0 {
-		baseMatch = append(baseMatch, bson.E{Key: "user_id", Value: bson.M{"$in": opts.AuthorIDs}})
-	}
-
-	lim := opts.Limit
-	if lim <= 0 {
-		lim = 20
-	}
-	if lim > 20 {
-		lim = 20
-	}
-
+// ================================
+// ฟังก์ชันสร้าง pipeline ส่วนกลาง
+// ================================
+func buildCommonPipeline(baseMatch bson.D, lim int64, opts model.QueryOptions, popularityMode bool) mongo.Pipeline {
 	pipe := mongo.Pipeline{
 		{{Key: "$match", Value: baseMatch}},
 		// ===== Users =====
@@ -178,11 +100,7 @@ func (r *mongoFeedRepo) List(ctx context.Context, opts model.QueryOptions) ([]mo
 		}}}})
 	}
 
-	// ===== Role filters (string, multi) =====
-	// รองรับ:
-	//   - Org path: "/faculty/economic" (ตรงตัว)
-	//   - Org path prefix: "/faculty/*" (prefix match)
-	//   - Position key/name: "student" หรือ "Head of Dept" (case-insensitive)
+	// ===== Role filters =====
 	if len(opts.Roles) > 0 {
 		orRole := make([]bson.M, 0, len(opts.Roles)*2)
 		for _, r := range opts.Roles {
@@ -200,7 +118,6 @@ func (r *mongoFeedRepo) List(ctx context.Context, opts model.QueryOptions) ([]mo
 					orRole = append(orRole, bson.M{"orgNode.path": r})
 				}
 			} else {
-				// position key or name (case-insensitive exact)
 				re := "^" + regexp.QuoteMeta(r) + "$"
 				orRole = append(orRole, bson.M{"pos.key": bson.M{"$regex": re, "$options": "i"}})
 				orRole = append(orRole, bson.M{"pos.name": bson.M{"$regex": re, "$options": "i"}})
@@ -211,7 +128,7 @@ func (r *mongoFeedRepo) List(ctx context.Context, opts model.QueryOptions) ([]mo
 		}
 	}
 
-	// ===== Category filters (string, multi, case-insensitive; match ทั้งชื่อเต็มและ short_name) =====
+	// ===== Category filters =====
 	if len(opts.Categories) > 0 {
 		orCats := make([]bson.M, 0, len(opts.Categories)*2)
 		for _, c := range opts.Categories {
@@ -250,16 +167,14 @@ func (r *mongoFeedRepo) List(ctx context.Context, opts model.QueryOptions) ([]mo
 		}}},
 	)
 
-	// allowedByNode จาก subtree
 	if len(opts.AllowedNodeIDs) > 0 {
 		pipe = append(pipe,
 			bson.D{{Key: "$addFields", Value: bson.M{
 				"allowedByNode": bson.M{
 					"$gt": bson.A{
 						bson.M{"$size": bson.M{"$filter": bson.M{
-							"input": bson.M{"$ifNull": bson.A{"$visRoles", bson.A{}}},
-							"as":    "vr",
-							"cond":  bson.M{"$in": bson.A{"$$vr.node_id", opts.AllowedNodeIDs}},
+							"input": bson.M{"$ifNull": bson.A{"$visRoles", bson.A{}}}, "as": "vr",
+							"cond": bson.M{"$in": bson.A{"$$vr.node_id", opts.AllowedNodeIDs}},
 						}}},
 						0,
 					},
@@ -269,12 +184,11 @@ func (r *mongoFeedRepo) List(ctx context.Context, opts model.QueryOptions) ([]mo
 		pipe = append(pipe, bson.D{{Key: "$addFields", Value: bson.M{"allowedByNode": false}}})
 	}
 
-	// ===== Final visibility gating =====
 	pipe = append(pipe,
 		bson.D{{Key: "$match", Value: bson.M{"$or": []bson.M{
-			{"hasVisibility": false}, // public
-			{"allowedByNode": true},  // org-restricted แต่ viewer อยู่ subtree
-			{"isOwner": true},        // เจ้าของโพสต์
+			{"hasVisibility": false},
+			{"allowedByNode": true},
+			{"isOwner": true},
 		}}}},
 	)
 
@@ -283,7 +197,6 @@ func (r *mongoFeedRepo) List(ctx context.Context, opts model.QueryOptions) ([]mo
 		bson.D{{Key: "$project", Value: bson.M{
 			"_id":     1,
 			"user_id": 1,
-
 			"uid":      bson.M{"$toString": "$u._id"},
 			"username": bson.M{"$ifNull": bson.A{"$u.username", ""}},
 			"name": bson.M{"$concat": bson.A{
@@ -291,18 +204,14 @@ func (r *mongoFeedRepo) List(ctx context.Context, opts model.QueryOptions) ([]mo
 				" ",
 				bson.M{"$ifNull": bson.A{"$u.user_lastname", ""}},
 			}},
-
 			"message":   "$post_text",
 			"timestamp": "$created_at",
 			"likes":     bson.M{"$ifNull": bson.A{"$like_count", 0}},
 			"likedBy":   bson.A{},
-
 			"posted_as": bson.M{
 				"org_path":     bson.M{"$ifNull": bson.A{"$orgNode.path", ""}},
 				"position_key": bson.M{"$ifNull": bson.A{"$pos.key", bson.M{"$ifNull": bson.A{"$pos.name", ""}}}},
 			},
-
-			// audience
 			"audience": bson.M{
 				"$map": bson.M{
 					"input": bson.M{"$ifNull": bson.A{"$catAll", bson.A{}}},
@@ -310,25 +219,149 @@ func (r *mongoFeedRepo) List(ctx context.Context, opts model.QueryOptions) ([]mo
 					"in":    bson.M{"$ifNull": bson.A{"$$c.category_name", ""}},
 				},
 			},
-
-			"visibility": bson.M{
-				"access": "$visibilityAccess",
-			},
-
+			"visibility": bson.M{"access": "$visibilityAccess"},
 			"org_of_content": bson.M{"$ifNull": bson.A{"$orgNode.path", ""}},
 			"status":         bson.M{"$ifNull": bson.A{"$status", "active"}},
 			"created_at":     "$created_at",
 			"updated_at":     "$updated_at",
+			"like_count":     bson.M{"$ifNull": bson.A{"$like_count", 0}},
 		}}},
-
-		bson.D{{Key: "$sort", Value: bson.M{"created_at": -1, "_id": -1}}},
-		bson.D{{Key: "$limit", Value: lim + 1}},
 	)
 
+	if popularityMode {
+		pipe = append(pipe, bson.D{{Key: "$sort", Value: bson.M{"like_count": -1, "created_at": -1, "_id": -1}}})
+	} else {
+		pipe = append(pipe, bson.D{{Key: "$sort", Value: bson.M{"created_at": -1, "_id": -1}}})
+	}
+	pipe = append(pipe, bson.D{{Key: "$limit", Value: lim + 1}})
+	return pipe
+}
+
+// ================================
+// ListPopular (เรียงตามยอดไลค์มากสุด → น้อย)
+// ================================
+func (r *mongoFeedRepo) ListPopular(ctx context.Context, opts model.QueryOptions) ([]model.FrontPost, *bson.ObjectID, error) {
+	lim := opts.Limit
+	if lim <= 0 { lim = 20 }
+	if lim > 20 { lim = 20 }
+
+	var untilLike *int
+	var untilTime *time.Time
+	if !opts.UntilID.IsZero() {
+		var tmp struct {
+			LikeCount int       `bson:"like_count"`
+			CreatedAt time.Time `bson:"created_at"`
+		}
+		_ = r.col.FindOne(
+			ctx,
+			bson.M{"_id": opts.UntilID},
+			options.FindOne().SetProjection(bson.M{"like_count": 1, "created_at": 1, "_id": 0}),
+		).Decode(&tmp)
+		l := tmp.LikeCount
+		untilLike = &l
+		if !tmp.CreatedAt.IsZero() {
+			t := tmp.CreatedAt.UTC()
+			untilTime = &t
+		}
+	}
+
+	baseMatch := bson.D{}
+	if !opts.UntilID.IsZero() && untilLike != nil && untilTime != nil {
+		baseMatch = append(baseMatch, bson.E{
+			Key: "$or",
+			Value: []bson.M{
+				{"like_count": bson.M{"$lt": *untilLike}},
+				{"like_count": *untilLike, "created_at": bson.M{"$lt": *untilTime}},
+				{"like_count": *untilLike, "created_at": *untilTime, "_id": bson.M{"$lt": opts.UntilID}},
+			},
+		})
+	} else if !opts.UntilID.IsZero() {
+		baseMatch = append(baseMatch, bson.E{Key: "_id", Value: bson.M{"$lt": opts.UntilID}})
+	}
+
+	if len(opts.AuthorIDs) > 0 {
+		baseMatch = append(baseMatch, bson.E{Key: "user_id", Value: bson.M{"$in": opts.AuthorIDs}})
+	}
+
+	pipe := buildCommonPipeline(baseMatch, lim, opts, true)
+
 	cur, err := r.col.Aggregate(ctx, pipe, options.Aggregate())
-	if err != nil {
+	if err != nil { return nil, nil, err }
+	defer cur.Close(ctx)
+
+	var items []model.FrontPost
+	if err := cur.All(ctx, &items); err != nil {
 		return nil, nil, err
 	}
+
+	var next *bson.ObjectID
+	if int64(len(items)) == lim+1 {
+		last := items[len(items)-1].ID
+		items = items[:len(items)-1]
+		next = &last
+	}
+	return items, next, nil
+}
+
+// ================================
+// List (เรียงตามเวลาล่าสุด → เก่าสุด)
+// ================================
+func (r *mongoFeedRepo) List(ctx context.Context, opts model.QueryOptions) ([]model.FrontPost, *bson.ObjectID, error) {
+	var untilTime *time.Time
+	var sinceTime *time.Time
+
+	if !opts.UntilID.IsZero() {
+		var tmp struct{ CreatedAt time.Time `bson:"created_at"` }
+		_ = r.col.FindOne(ctx, bson.M{"_id": opts.UntilID}, options.FindOne().SetProjection(bson.M{"created_at": 1, "_id": 0})).Decode(&tmp)
+		if !tmp.CreatedAt.IsZero() {
+			t := tmp.CreatedAt.UTC()
+			untilTime = &t
+		}
+	}
+	if !opts.SinceID.IsZero() {
+		var tmp struct{ CreatedAt time.Time `bson:"created_at"` }
+		_ = r.col.FindOne(ctx, bson.M{"_id": opts.SinceID}, options.FindOne().SetProjection(bson.M{"created_at": 1, "_id": 0})).Decode(&tmp)
+		if !tmp.CreatedAt.IsZero() {
+			t := tmp.CreatedAt.UTC()
+			sinceTime = &t
+		}
+	}
+
+	baseMatch := bson.D{}
+	if !opts.UntilID.IsZero() && untilTime != nil {
+		baseMatch = append(baseMatch, bson.E{
+			Key: "$or",
+			Value: []bson.M{
+				{"created_at": bson.M{"$lt": *untilTime}},
+				{"created_at": *untilTime, "_id": bson.M{"$lt": opts.UntilID}},
+			},
+		})
+	} else if !opts.SinceID.IsZero() && sinceTime != nil {
+		baseMatch = append(baseMatch, bson.E{
+			Key: "$or",
+			Value: []bson.M{
+				{"created_at": bson.M{"$gt": *sinceTime}},
+				{"created_at": *sinceTime, "_id": bson.M{"$gt": opts.SinceID}},
+			},
+		})
+	} else if !opts.UntilID.IsZero() {
+		baseMatch = append(baseMatch, bson.E{Key: "_id", Value: bson.M{"$lt": opts.UntilID}})
+	} else if !opts.SinceID.IsZero() {
+		baseMatch = append(baseMatch, bson.E{Key: "_id", Value: bson.M{"$gt": opts.SinceID}})
+	}
+
+	if len(opts.AuthorIDs) > 0 {
+		baseMatch = append(baseMatch, bson.E{Key: "user_id", Value: bson.M{"$in": opts.AuthorIDs}})
+	}
+
+	lim := opts.Limit
+	if lim <= 0 { lim = 20 }
+	if lim > 20 { lim = 20 }
+
+	pipe := buildCommonPipeline(baseMatch, lim, opts, false)
+
+	cur, err := r.col.Aggregate(ctx, pipe, options.Aggregate())
+	if err != nil { return nil, nil, err }
 	defer cur.Close(ctx)
 
 	var items []model.FrontPost
