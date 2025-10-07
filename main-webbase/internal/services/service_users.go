@@ -14,6 +14,7 @@ func GetUserProfile(ctx context.Context, userID string) (*dto.UserProfileDTO, er
 	}
 
 	user := users[0]
+	
 	memberships, err := repo.GetUserMemberships(ctx, user.ID.Hex())
 	if err != nil {
 		return nil, err

@@ -95,8 +95,13 @@ func InsertMembership(ctx context.Context, m models.MembershipRequestDTO) error 
 func GetUserMemberships(ctx context.Context, uid string) ([]models.Membership, error) {
 	col := database.DB.Collection("memberships")
 
+	userID, err := bson.ObjectIDFromHex(uid)
+    if err != nil {
+        return nil, fmt.Errorf("invalid user ID: %w", err)
+    }
+
 	filter := bson.M{
-		"user_id" : uid,
+		"user_id" : userID,
 		"active"  : true,
 	}
 
