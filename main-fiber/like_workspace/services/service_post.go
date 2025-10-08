@@ -51,7 +51,6 @@ func CreatePostWithMeta(client *mongo.Client, UserID string, body dto.CreatePost
 	if err != nil {
 		return resp, ErrUserIDInvalid
 	}
-
 	// 1) Insert post
 	post := model.Post{
 		UserID:       UserIDs,
@@ -79,18 +78,18 @@ func CreatePostWithMeta(client *mongo.Client, UserID string, body dto.CreatePost
 	rollback := func() {
 		_, _ = postsCol.DeleteOne(ctx, bson.M{"_id": post.ID})
 		_, _ = db.Collection("post_categories").DeleteMany(ctx, bson.M{"post_id": post.ID})
-		_, _ = db.Collection("post_rolevisible").DeleteMany(ctx, bson.M{"post_id": post.ID})
+		_, _ = db.Collection("post_role_visible").DeleteMany(ctx, bson.M{"post_id": post.ID})
 		_, _ = db.Collection("post_hashtag").DeleteMany(ctx, bson.M{"post_id": post.ID})
 	}
 
 	// 2) hashtags (non-critical; ลงทั้งตาราง post_hashtag และเก็บ string ใน post.Tags แล้ว)
-	if err := repo.InsertHashtags(db, post, body.PostText, ctx); err != nil {
+	if err := repo.RebuildHashtags(db, post, body.PostText, ctx); err != nil {
 		fmt.Println("⚠️ hashtag insert failed:", err)
 	}
 
 	// 3) categories (critical)
 	if len(body.CategoryIDs) > 0 {
-		if err := repo.InsertCategories(db, post.ID, body.CategoryIDs, ctx); err != nil {
+		if err := repo.ReplaceCategories(db, post.ID, body.CategoryIDs, ctx); err != nil {
 			rollback()
 			return resp, err
 		}
@@ -98,7 +97,7 @@ func CreatePostWithMeta(client *mongo.Client, UserID string, body dto.CreatePost
 
 	// 4) role visibility (critical): ACCESS=private → บันทึกลง post_rolevisible โดยแปลง org_path → node_id (ObjectID)
 	if body.Visibility.Access == "private" {
-		if err := repo.InsertRoleVisibility(db, post.ID, body.Visibility, ctx); err != nil {
+		if err := repo.ReplaceRoleVisibility(db, post.ID, body.Visibility, ctx); err != nil {
 			rollback()
 			return resp, err
 		}
@@ -122,11 +121,10 @@ func CreatePostWithMeta(client *mongo.Client, UserID string, body dto.CreatePost
 		Name:         userInfo.FirstName, // แก้เป็น display name ที่ต้องการได้
 		Username:     userInfo.Username,
 		PostText:     post.PostText,
-		Media:        post.Media,
 		Hashtag:      post.Hashtag,
 		LikeCount:    post.LikeCount,
 		CommentCount: post.CommentCount,
-		LikedBy:      []string{},
+		// LikedBy:      []string{},
 		PostAs:       body.PostAs,
 		CategoryIDs:  body.CategoryIDs, // ถ้าในระบบเป็น ObjectID ให้ map เป็น hex ก่อน
 		Visibility:   body.Visibility,
@@ -172,8 +170,8 @@ func GetPostDetail(ctx context.Context, db *mongo.Database, postID bson.ObjectID
 	// 3) position
 	posName := "Unknown Position"
 	if !post.PositionID.IsZero() {
-		if name, err := repo.FindPositionName(colPositions, post.PositionID, ctx); err == nil && name != "" {
-			posName = name
+		if key, err := repo.FindPositionName(colPositions, post.PositionID, ctx); err == nil && key != "" {
+			posName = key
 		}
 	}
 

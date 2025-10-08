@@ -3,6 +3,8 @@ package repository
 import (
 	"context"
 	"errors"
+	"strings"
+	"time"
 
 	"github.com/Software-eng-01204341/Backend/dto"
 	"github.com/Software-eng-01204341/Backend/internal/utils"
@@ -31,27 +33,58 @@ func ResolvePositionIDByKey(db *mongo.Database, positionKey string, ctx context.
 	return doc.ID, err
 }
 
-func InsertHashtags(db *mongo.Database, post model.Post, text string, ctx context.Context) error {
+func RebuildHashtags(db *mongo.Database, post model.Post, text string, ctx context.Context) error {
 	hashtagsCol := db.Collection("hashtags")
+	// ลบอันเก่า
+	if _, err := hashtagsCol.DeleteMany(ctx, bson.M{
+		"$or": []bson.M{
+			{"post_id": post.ID},
+			{"postId": post.ID},
+		},
+	}); err != nil {
+		return err
+	}
+
+	// สร้างอันใหม่
 	hashtags := utils.ExtractHashtags(text)
 	if len(hashtags) == 0 {
 		return nil
 	}
+
 	dateOnly := post.CreatedAt.Format("2006-01-02")
 	docs := make([]interface{}, 0, len(hashtags))
 	for _, tag := range hashtags {
+		clean := strings.TrimSpace(strings.TrimPrefix(tag, "#"))
+		if clean == "" {
+			continue
+		}
 		docs = append(docs, model.PostHashtag{
 			PostID: post.ID,
 			Tag:    tag,
 			Date:   dateOnly,
 		})
 	}
+	if len(docs) == 0 {
+		return nil
+	}
 	_, err := hashtagsCol.InsertMany(ctx, docs, options.InsertMany().SetOrdered(false))
 	return err
 }
 
-func InsertCategories(db *mongo.Database, postID bson.ObjectID, categoryIDs []string, ctx context.Context) error {
+func ReplaceCategories(db *mongo.Database, postID bson.ObjectID, categoryIDs []string, ctx context.Context) error {
 	col := db.Collection("post_categories")
+
+	// 1) ลบของเก่า
+	if _, err := col.DeleteMany(ctx, bson.M{"post_id": postID}); err != nil {
+		return err
+	}
+
+	// 2) ไม่ส่งอะไรมาก็ไม่ต้องเพิ่ม
+	if len(categoryIDs) == 0 {
+		return nil
+	}
+
+	// 3) ใส่ของใหม่
 	docs := make([]interface{}, 0, len(categoryIDs))
 	for i, cidStr := range categoryIDs {
 		cid, err := bson.ObjectIDFromHex(cidStr)
@@ -68,23 +101,26 @@ func InsertCategories(db *mongo.Database, postID bson.ObjectID, categoryIDs []st
 	return err
 }
 
-func InsertRoleVisibility(db *mongo.Database, postID bson.ObjectID, visibility dto.Visibility, ctx context.Context) error {
+func ReplaceRoleVisibility(db *mongo.Database, postID bson.ObjectID, visibility dto.Visibility, ctx context.Context) error {
 	col := db.Collection("post_role_visibility")
 
-	audN := len(visibility.Audience)
+	// 1) ลบของเก่า
+	if _, err := col.DeleteMany(ctx, bson.M{"post_id": postID}); err != nil {
+		return err
+	}
 
-	if audN == 0 {
-		docs := model.PostRoleVisibility{
+	// 2) public (audience ว่าง)
+	if len(visibility.Audience) == 0 {
+		_, err := col.InsertOne(ctx, model.PostRoleVisibility{
 			PostID: postID,
 			NodeID: nil,
-		}
-		_, err := col.InsertOne(ctx, docs)
+		})
 		return err
 	}
 
 	// เตรียม map org_path → node_id จากตาราง org_unit_node
 	nodeCol := db.Collection("org_unit_node")
-	docs := make([]interface{}, 0, audN)
+	docs := make([]interface{}, 0, len(visibility.Audience))
 
 	for _, aud := range visibility.Audience {
 		var nodeDoc struct {
@@ -108,7 +144,7 @@ func InsertRoleVisibility(db *mongo.Database, postID bson.ObjectID, visibility d
 	return err
 }
 
-func FindUserInfo(col *mongo.Collection, userID bson.ObjectID, ctx context.Context) (user dto.UserInfoResponse , err error) {
+func FindUserInfo(col *mongo.Collection, userID bson.ObjectID, ctx context.Context) (user dto.UserInfoResponse, err error) {
 	err = col.FindOne(ctx, bson.M{"_id": userID, "status": "active"}).Decode(&user)
 	return user, err
 }
@@ -121,7 +157,7 @@ func FindPostByID(col *mongo.Collection, id bson.ObjectID, ctx context.Context) 
 }
 func FindPositionName(col *mongo.Collection, id bson.ObjectID, ctx context.Context) (string, error) {
 	var doc struct {
-		Name string `bson:"name"`
+		Name string `bson:"key"`
 	}
 	err := col.FindOne(ctx, bson.M{"_id": id, "status": "active"}).Decode(&doc)
 	if err != nil {
@@ -136,76 +172,78 @@ func FindOrgNode(col *mongo.Collection, id bson.ObjectID, ctx context.Context) (
 	err := col.FindOne(ctx, bson.M{"_id": id, "status": "active"}).Decode(&doc)
 	return doc.OrgPath, err
 }
+
 // ดึง visibility ของโพสต์จาก post_role_visibility -> แปลง role_id เป็น org_unit_node.path
 func FindVisibilityPaths(
-    colPRV *mongo.Collection,       // post_role_visibility
-    colOrg *mongo.Collection,       // org_unit_node
-    postID bson.ObjectID,
-    ctx context.Context,
+	colPRV *mongo.Collection, // post_role_visibility
+	colOrg *mongo.Collection, // org_unit_node
+	postID bson.ObjectID,
+	ctx context.Context,
 ) (dto.Visibility, error) {
 
-    // 1) หา role_id ทั้งหมดที่ผูกกับ post_id
-    cur, err := colPRV.Find(ctx,
-        bson.M{"post_id": postID},
-        options.Find().SetProjection(bson.M{"role_id": 1}))
-    if err != nil {
-        return dto.Visibility{}, err
-    }
-    defer cur.Close(ctx)
+	// 1) หา role_id ทั้งหมดที่ผูกกับ post_id
+	cur, err := colPRV.Find(ctx,
+		bson.M{"post_id": postID},
+		options.Find().SetProjection(bson.M{"role_id": 1}))
+	if err != nil {
+		return dto.Visibility{}, err
+	}
+	defer cur.Close(ctx)
 
-    roleIDs := make([]bson.ObjectID, 0, 8)
-    for cur.Next(ctx) {
-        var row struct {
-            RoleID bson.ObjectID `bson:"role_id"`
-        }
-        if err := cur.Decode(&row); err != nil {
-            return dto.Visibility{}, err
-        }
-        roleIDs = append(roleIDs, row.RoleID)
-    }
-    if err := cur.Err(); err != nil {
-        return dto.Visibility{}, err
-    }
+	roleIDs := make([]bson.ObjectID, 0, 8)
+	for cur.Next(ctx) {
+		var row struct {
+			RoleID bson.ObjectID `bson:"role_id"`
+		}
+		if err := cur.Decode(&row); err != nil {
+			return dto.Visibility{}, err
+		}
+		roleIDs = append(roleIDs, row.RoleID)
+	}
+	if err := cur.Err(); err != nil {
+		return dto.Visibility{}, err
+	}
 
-    // ถ้าไม่มี record → access=public, audience=[]
-    if len(roleIDs) == 0 {
-        return dto.Visibility{Access: "public", Audience: []string{}}, nil
-    }
+	// ถ้าไม่มี record → access=public, audience=[]
+	if len(roleIDs) == 0 {
+		return dto.Visibility{Access: "public", Audience: []string{}}, nil
+	}
 
-    // 2) มี record → access=private แล้ว resolve path จาก org_unit_node
-    //    (สมมติ role_id == _id ของ org_unit_node; ถ้า schema จริงต่างออกไป ให้ปรับ join ตรงนี้)
-    cur2, err := colOrg.Find(ctx,
-        bson.M{"_id": bson.M{"$in": roleIDs}, "status": "active"},
-        options.Find().SetProjection(bson.M{"path": 1}))
-    if err != nil {
-        return dto.Visibility{}, err
-    }
-    defer cur2.Close(ctx)
+	// 2) มี record → access=private แล้ว resolve path จาก org_unit_node
+	//    (สมมติ role_id == _id ของ org_unit_node; ถ้า schema จริงต่างออกไป ให้ปรับ join ตรงนี้)
+	cur2, err := colOrg.Find(ctx,
+		bson.M{"_id": bson.M{"$in": roleIDs}, "status": "active"},
+		options.Find().SetProjection(bson.M{"path": 1}))
+	if err != nil {
+		return dto.Visibility{}, err
+	}
+	defer cur2.Close(ctx)
 
-    // เก็บ path แบบ unique
-    pathSet := make(map[string]struct{}, len(roleIDs))
-    for cur2.Next(ctx) {
-        var node struct {
-            Path string `bson:"path"`
-        }
-        if err := cur2.Decode(&node); err != nil {
-            return dto.Visibility{}, err
-        }
-        if node.Path != "" {
-            pathSet[node.Path] = struct{}{}
-        }
-    }
-    if err := cur2.Err(); err != nil {
-        return dto.Visibility{}, err
-    }
+	// เก็บ path แบบ unique
+	pathSet := make(map[string]struct{}, len(roleIDs))
+	for cur2.Next(ctx) {
+		var node struct {
+			Path string `bson:"path"`
+		}
+		if err := cur2.Decode(&node); err != nil {
+			return dto.Visibility{}, err
+		}
+		if node.Path != "" {
+			pathSet[node.Path] = struct{}{}
+		}
+	}
+	if err := cur2.Err(); err != nil {
+		return dto.Visibility{}, err
+	}
 
-    audience := make([]string, 0, len(pathSet))
-    for p := range pathSet {
-        audience = append(audience, p)
-    }
+	audience := make([]string, 0, len(pathSet))
+	for p := range pathSet {
+		audience = append(audience, p)
+	}
 
-    return dto.Visibility{Access: "private", Audience: audience}, nil
+	return dto.Visibility{Access: "private", Audience: audience}, nil
 }
+
 // ดึง category_ids ของโพสต์จาก post_categories
 func FindCategoryIDs(col *mongo.Collection, postID bson.ObjectID, ctx context.Context) ([]string, error) {
 	cur, err := col.Find(ctx, bson.M{"post_id": postID}, options.Find().SetProjection(bson.M{"category_id": 1}))
@@ -227,26 +265,81 @@ func FindCategoryIDs(col *mongo.Collection, postID bson.ObjectID, ctx context.Co
 	return ids, cur.Err()
 }
 
-
 // DeletePostHandler
-func DeletePost(db *mongo.Database, postID bson.ObjectID, ctx context.Context) error {
+func DeletePost(db *mongo.Database, postID bson.ObjectID, ctx context.Context, userID bson.ObjectID, isRoot bool) (bool, error) {
 	col := db.Collection("posts")
 
 	// filter หาจาก _id
 	filter := bson.M{"_id": postID, "status": "active"}
+
+	if !isRoot {
+		filter["user_id"] = userID
+	}
+
 	update := bson.M{
 		"$set": bson.M{
 			"status": "inactive",
 		},
 	}
 
-	result, err := col.UpdateOne(ctx, filter, update)
+	res, err := col.UpdateOne(ctx, filter, update)
 	if err != nil {
-		return err
+		return false, err
 	}
-	if result.MatchedCount == 0 {
-		return errors.New("post not found or already inactive")
+	if res.MatchedCount == 0 {
+		// ไม่ตรงเงื่อนไข: ไม่ใช่เจ้าของ, ไม่ใช่ admin, หรือโพสต์ไม่ active/ไม่พบ
+		return false, nil
+	}
+	return res.ModifiedCount > 0, nil
+}
+
+// UpdatePostCore: อัปเดตเอกสาร posts (owner-or-admin)
+// - owner: แก้เนื้อหาได้ แต่ "ห้าม" เปลี่ยน status
+// - admin: แก้ได้ทั้งหมด รวมถึง status
+func UpdatePostCore(
+	db *mongo.Database,
+	postID, userID bson.ObjectID,
+	isRoot bool,
+	in dto.UpdatePostFullDTO,
+	rolePathID, positionID bson.ObjectID,
+	ctx context.Context,
+) (*model.Post, error) {
+
+	col := db.Collection("posts")
+
+	filter := bson.M{"_id": postID, "status": "active"}
+	if !isRoot {
+		// เจ้าของเท่านั้นถ้าไม่ใช่แอดมิน
+		filter["user_id"] = userID
+	}
+	newHashtags := utils.ExtractHashtags(in.PostText)
+	// fmt.Printf("[UpdatePost] post=%s user=%s admin=%v\n", postID.Hex(), userID.Hex(), isRoot)
+	// fmt.Printf("[UpdatePost] filter=%v\n", filter)
+	set := bson.M{
+		"post_text":   in.PostText,
+		"picture_url": in.PictureUrl,
+		"video_url":   in.VideoUrl,
+		"role_path_id": rolePathID, // map จาก org_path
+		"position_id":  positionID, // map จาก position_key
+		"tags":         in.PostAs.Tag,
+		"hashtag":      newHashtags,
+		"updated_at":   time.Now().UTC(),
 	}
 
-	return nil
+	// อนุญาตให้ admin เปลี่ยน status ได้เท่านั้น
+	if isRoot && in.Status != "" {
+		set["status"] = in.Status
+	}
+
+	update := bson.M{"$set": set}
+	after := options.FindOneAndUpdate().SetReturnDocument(options.After)
+
+	var out model.Post
+	if err := col.FindOneAndUpdate(ctx, filter, update, after).Decode(&out); err != nil {
+		if err == mongo.ErrNoDocuments {
+			return nil, nil // ให้ service/handler แปลเป็น 403/404 เอง
+		}
+		return nil, err
+	}
+	return &out, nil
 }

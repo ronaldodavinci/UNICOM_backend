@@ -6,6 +6,8 @@ import (
 
 	config "github.com/Software-eng-01204341/Backend/configs"
 	"github.com/Software-eng-01204341/Backend/dto"
+	"github.com/Software-eng-01204341/Backend/internal/accessctx"
+	mw "github.com/Software-eng-01204341/Backend/internal/middleware"
 	"github.com/Software-eng-01204341/Backend/internal/repository"
 	"github.com/Software-eng-01204341/Backend/model"
 
@@ -17,24 +19,28 @@ type CommentHandler struct {
 	Repo *repository.CommentRepository
 }
 
-// ดึง user_id จาก middleware (ต้องมีการเซ็ตมาใน c.Locals)
-func userIDFrom(c *fiber.Ctx) (bson.ObjectID, bool) {
-	if v := c.Locals("user_id"); v != nil {
-		if s, ok := v.(string); ok {
-			if oid, err := bson.ObjectIDFromHex(s); err == nil {
-				return oid, true
-			}
+func viewerFrom(c *fiber.Ctx) *accessctx.ViewerAccess {
+	v, _ := c.Locals("viewer").(*accessctx.ViewerAccess)
+	return v
+}
+
+// เป็น root ไหม: ถ้ามี OrgPath == "/" หรือ (ถ้ามี field is_root ใน User)
+// Root/Admin = มี OrgPath == "/"
+func isRootByPath(v *accessctx.ViewerAccess) bool {
+	if v == nil {
+		return false
+	}
+	for _, m := range v.Memberships {
+		if m.OrgPath == "/" {
+			return true
 		}
 	}
-	return bson.NilObjectID, false
+	return false
 }
 
 // POST /posts/:postId/comments
 func (h *CommentHandler) Create(c *fiber.Ctx) error {
-	uid, ok := userIDFrom(c)
-	if !ok {
-		return c.Status(http.StatusUnauthorized).JSON(fiber.Map{"error": "unauthorized"})
-	}
+	uid, _ := mw.UIDObjectID(c)
 
 	postID, err := bson.ObjectIDFromHex(c.Params("postId"))
 	if err != nil {
@@ -42,11 +48,16 @@ func (h *CommentHandler) Create(c *fiber.Ctx) error {
 	}
 
 	var body dto.CreateCommentReq
-	if err := c.BodyParser(&body); err != nil || len(body.Text) == 0 {
+	if err := c.BodyParser(&body); err != nil {
+		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": "invalid body"})
+	}
+
+	txt := strings.TrimSpace(body.Text)
+	if txt == "" {
 		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": "text required"})
 	}
 
-	com, err := h.Repo.Create(c.Context(), postID, uid, body.Text)
+	com, err := h.Repo.Create(c.Context(), postID, uid, txt)
 	if err != nil {
 		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 	}
@@ -88,29 +99,26 @@ func (h *CommentHandler) List(c *fiber.Ctx) error {
 
 // PUT /comments/:commentId
 func (h *CommentHandler) Update(c *fiber.Ctx) error {
-	uid, ok := userIDFrom(c)
-	if !ok {
-		return c.Status(http.StatusUnauthorized).JSON(fiber.Map{"error": "unauthorized"})
-	}
+	uid, _ := mw.UIDObjectID(c)
 
 	cid, err := bson.ObjectIDFromHex(c.Params("commentId"))
 	if err != nil {
 		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": "invalid comment id"})
 	}
 
-	var body dto.UpdateCommentReq
-	if err := c.BodyParser(&body); err != nil || len(body.Text) == 0 {
+	var body dto.CreateCommentReq
+	if err := c.BodyParser(&body); err != nil {
+		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": "invalid body"})
+	}
+
+	txt := strings.TrimSpace(body.Text)
+	if txt == "" {
 		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": "text required"})
 	}
 
-	isRoot := false
-	if v := c.Locals("is_root"); v != nil {
-		if b, ok := v.(bool); ok {
-			isRoot = b
-		}
-	}
+	isRoot := isRootByPath(viewerFrom(c))
 
-	updated, err := h.Repo.Update(c.Context(), cid, uid, body.Text, isRoot)
+	updated, err := h.Repo.Update(c.Context(), cid, uid, txt, isRoot)
 	if err != nil {
 		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 	}
@@ -122,17 +130,14 @@ func (h *CommentHandler) Update(c *fiber.Ctx) error {
 
 // DELETE /comments/:commentId
 func (h *CommentHandler) Delete(c *fiber.Ctx) error {
-	uid, ok := userIDFrom(c)
-	if !ok {
-		return c.Status(http.StatusUnauthorized).JSON(fiber.Map{"error": "unauthorized"})
-	}
+	uid, _ := mw.UIDObjectID(c)
 
 	cid, err := bson.ObjectIDFromHex(c.Params("commentId"))
 	if err != nil {
 		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": "invalid comment id"})
 	}
-
-	okDel, err := h.Repo.Delete(c.Context(), cid, uid, false /* isAdmin */)
+	isRoot := isRootByPath(viewerFrom(c))
+	okDel, err := h.Repo.Delete(c.Context(), cid, uid, isRoot)
 	if err != nil {
 		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 	}

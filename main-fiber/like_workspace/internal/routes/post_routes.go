@@ -14,5 +14,7 @@ func PostRoutes(app *fiber.App, client *mongo.Client) {
 
 	post.Get("/:post_id", handlers.GetIndividualPostHandler(client))
 
-	app.Delete("/posts/:id", handlers.DeletePostHandler(client))
+	post.Put("/:post_id", handlers.UpdatePostHandler(client))
+
+	post.Delete("/:post_id", handlers.DeletePostHandler(client))
 }

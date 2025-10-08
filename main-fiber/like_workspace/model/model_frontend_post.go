@@ -3,6 +3,7 @@ package model
 
 import (
 	"time"
+
 	"go.mongodb.org/mongo-driver/v2/bson"
 )
 
@@ -24,8 +25,6 @@ type FrontPost struct {
 	Message   string        `bson:"message" json:"message"`
 	Timestamp time.Time     `bson:"timestamp" json:"timestamp"`
 	Likes     int           `bson:"likes" json:"likes"`
-	LikedBy   any           `bson:"likedBy" json:"likedBy"` // ปรับตามจริง
-
 	PostedAs struct {
 		OrgPath     string `bson:"org_path" json:"org_path"`
 		PositionKey string `bson:"position_key" json:"position_key"`

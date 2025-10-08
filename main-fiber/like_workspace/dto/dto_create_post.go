@@ -67,7 +67,6 @@ type PostResponse struct {
 	Hashtag      []string   `json:"hashtag" bson:"hashtag"`
 	LikeCount    int        `json:"likeCount"     example:"0"`
 	CommentCount int        `json:"commentCount"  example:"0"`
-	LikedBy      []string   `json:"likedBy"       example:"['66c6248b98c56c39f018e7d2','66c6248b98c56c39f018e7d3']"`
 	PostAs       PostAs     `json:"postAs"` // which role is posting this
 	CategoryIDs  []string   `json:"categoryIds"   example:"['68bd8d30b98a8dce0eab0db6','68bd8d30b98a8dce0eab0db7']"`
 	Visibility   Visibility `json:"visibility"`     // which roles can see this post, array of roleIds
