@@ -55,7 +55,7 @@ func ListAllPostsVisibleToViewer(
 	allowedRoleIDs []bson.ObjectID, // สิทธิ์ของผู้ดู (node/role IDs ที่เข้าถึงได้)
 ) (items []bson.M, next *string, err error) {
 
-	db := client.Database("unicom")
+	db := client.Database("lll_workspace")
 	postsColl := db.Collection("posts")
 
 
