@@ -29,7 +29,7 @@ type ViewerAccess struct {
 // BuildViewerAccess สร้างภาพรวมการเข้าถึงของผู้ใช้ปัจจุบัน
 func BuildViewerAccess(ctx context.Context, db *mongo.Database, userID bson.ObjectID) (*ViewerAccess, error) {
 	mCol     := db.Collection("memberships")
-	nodeCol  := db.Collection("org_unit_node")
+	nodeCol  := db.Collection("org_units")
 
 	// 2) memberships ที่ active ของ user
 	cur, err := mCol.Find(ctx, bson.M{"user_id": userID, "active": true})
@@ -61,7 +61,7 @@ func BuildViewerAccess(ctx context.Context, db *mongo.Database, userID bson.Obje
 	for _, m := range ms {
 		// 3.1 หา node ของ path นี้เพื่อเก็บ node_id ใน summary
 		var node models.OrgUnitNode
-		if err := nodeCol.FindOne(ctx, bson.M{"path": m.OrgPath, "status": "active"}).Decode(&node); err == nil {
+		if err := nodeCol.FindOne(ctx, bson.M{"org_path": m.OrgPath, "status": "active"}).Decode(&node); err == nil {
 			summaries = append(summaries, MembershipSummary{
 				NodeID:  node.ID,
 				OrgPath: m.OrgPath,
@@ -80,7 +80,7 @@ func BuildViewerAccess(ctx context.Context, db *mongo.Database, userID bson.Obje
 		subCur, err := nodeCol.Find(ctx, bson.M{
 			"status": "active",
 			"$or": bson.A{
-				bson.M{"path": m.OrgPath},
+				bson.M{"org_path": m.OrgPath},
 				bson.M{"ancestors": m.OrgPath},
 			},
 		})

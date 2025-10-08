@@ -55,7 +55,7 @@ func ListAllPostsVisibleToViewer(
 	allowedRoleIDs []bson.ObjectID, // สิทธิ์ของผู้ดู (node/role IDs ที่เข้าถึงได้)
 ) (items []bson.M, next *string, err error) {
 
-	db := client.Database("lll_workspace")
+	db := client.Database("unicom")
 	postsColl := db.Collection("posts")
 
 
@@ -103,7 +103,7 @@ func ListAllPostsVisibleToViewer(
 			bson.D{{Key: "$expr", Value: bson.D{{Key: "$gt",
 				Value: bson.A{
 					bson.D{{Key: "$size", Value: bson.D{{Key: "$ifNull", Value: bson.A{
-					bson.D{{Key: "$setIntersection", Value: bson.A{"$prv.role_id", allowedRoleIDs}}},
+					bson.D{{Key: "$setIntersection", Value: bson.A{"$prv.node_id", allowedRoleIDs}}},
 					bson.A{},
 					}}}}},
 					0,
@@ -121,8 +121,8 @@ func ListAllPostsVisibleToViewer(
 					"private", "public",
 				}},
 			}},
-			{Key: "matched_role_ids", Value: bson.D{
-				{Key: "$setIntersection", Value: bson.A{"$prv.role_id", allowedRoleIDs}},
+			{Key: "matched_nole_ids", Value: bson.D{
+				{Key: "$setIntersection", Value: bson.A{"$prv.node_id", allowedRoleIDs}},
 			}},
 		}}},
 		bson.D{{Key: "$addFields", Value: bson.D{
