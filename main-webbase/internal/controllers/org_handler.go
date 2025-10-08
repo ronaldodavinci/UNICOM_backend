@@ -1,12 +1,12 @@
 package controllers
 
 import (
-	"context"
-	"time"
+    "context"
+    "time"
 
-	"github.com/gofiber/fiber/v2"
-	"main-webbase/dto"
-	"main-webbase/internal/services"
+    "github.com/gofiber/fiber/v2"
+    "main-webbase/dto"
+    "main-webbase/internal/services"
 )
 
 // CreateOrgUnitHandler godoc
@@ -57,16 +57,16 @@ func CreateOrgUnitHandler() fiber.Handler {
 // @Failure      500   {object}  dto.ErrorResponse "internal server error"
 // @Router       /org/units/tree [get]
 func GetOrgTree() fiber.Handler {
-	return func(c *fiber.Ctx) error {
-		var query dto.OrgUnitTreeQuery
-		if err := c.QueryParser(&query); err != nil {
-			return fiber.NewError(fiber.StatusBadRequest, "invalid query parameters")
-		}
+    return func(c *fiber.Ctx) error {
+        var query dto.OrgUnitTreeQuery
+        if err := c.QueryParser(&query); err != nil {
+            return fiber.NewError(fiber.StatusBadRequest, "invalid query parameters")
+        }
 
-		tree, err := services.BuildOrgTree(context.Background(), query)
-		if err != nil {
-			return fiber.NewError(fiber.StatusInternalServerError, err.Error())
-		}
+        tree, err := services.BuildOrgTree(context.Background(), query)
+        if err != nil {
+            return fiber.NewError(fiber.StatusInternalServerError, err.Error())
+        }
 
 		return c.JSON(tree)
 	}

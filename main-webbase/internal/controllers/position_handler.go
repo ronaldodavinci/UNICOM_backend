@@ -1,10 +1,11 @@
 package controllers
 
 import (
-	"github.com/gofiber/fiber/v2"
-	// "main-webbase/internal/repository"
+    "github.com/gofiber/fiber/v2"
+    // "main-webbase/internal/repository"
     "main-webbase/internal/services"
     "main-webbase/dto"
+    repo "main-webbase/internal/repository"
 )
 
 // CreatePosition godoc
@@ -64,10 +65,13 @@ func CreatePosition() fiber.Handler {
 // @Success      200 {object} map[string][]string
 // @Failure      500 {object} map[string]interface{}
 // @Router       /positions [get]
-// func (h *PositionHandler) ListPositions(c *fiber.Ctx) error {
-//     positions, err := h.positionRepo.FindAll(c.Context())
-//     if err != nil {
-//         return fiber.NewError(fiber.StatusInternalServerError, err.Error())
-//     }
-//     return c.JSON(fiber.Map{"data": positions})
-// }
+func ListPositions() fiber.Handler {
+    return func(c *fiber.Ctx) error {
+        r := repo.NewPositionRepository()
+        positions, err := r.FindAll(c.Context())
+        if err != nil {
+            return fiber.NewError(fiber.StatusInternalServerError, err.Error())
+        }
+        return c.JSON(fiber.Map{"data": positions})
+    }
+}

@@ -7,6 +7,8 @@ import (
 
 func SetupRoutesMembership(api fiber.Router) {
 
-	memberships := api.Group("/memberships")
-	memberships.Post("/", controllers.CreateMembership())
+    memberships := api.Group("/memberships")
+    memberships.Post("/", controllers.CreateMembership())
+    memberships.Get("/users", controllers.ListMembershipsWithUsers())
+    memberships.Patch("/:id", controllers.DeactivateMembership())
 }

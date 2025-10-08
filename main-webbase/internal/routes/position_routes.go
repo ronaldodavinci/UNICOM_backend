@@ -7,6 +7,7 @@ import (
 
 func SetupRoutesPosition(app *fiber.App) {
 
-	positions := app.Group("/positions")
-	positions.Post("/", controllers.CreatePosition())
+    positions := app.Group("/positions")
+    positions.Post("/", controllers.CreatePosition())
+    positions.Get("/", controllers.ListPositions())
 }

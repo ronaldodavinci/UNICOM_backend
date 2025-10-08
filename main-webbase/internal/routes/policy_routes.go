@@ -6,7 +6,9 @@ import (
 )
 
 func SetupRoutesPolicy(app fiber.Router) {
-	policy := app.Group("/policies")
+    policy := app.Group("/policies")
 
-	policy.Put("/", controllers.UpdatePolicyHandler())
+    policy.Put("/", controllers.UpdatePolicyHandler())
+    policy.Get("/", controllers.ListPolicies())
+    policy.Delete("/", controllers.DeletePolicyHandler())
 }
