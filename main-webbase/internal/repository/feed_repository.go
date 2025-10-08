@@ -5,7 +5,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"strings"
 	"time"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
@@ -47,113 +46,25 @@ func encodePostCursor(t time.Time, id bson.ObjectID) string {
 // ------- main repo -------
 
 // visibility:
-//
-//	""        -> รวม public + private ที่ผู้ดูมีสิทธิ์เห็น
-//	"public"  -> เฉพาะ public เท่านั้น
-//	"private" -> เฉพาะ private ที่ผู้ดูมีสิทธิ์เห็น
+
 func ListAllPostsVisibleToViewer(
 	ctx context.Context,
 	client *mongo.Client,
 	cursorStr string,
-	visibility string, // "", "public", "private"
 	limit int64,
 	allowedRoleIDs []bson.ObjectID, // สิทธิ์ของผู้ดู (node/role IDs ที่เข้าถึงได้)
-) (items []bson.M, next *string, total int64, err error) {
+) (items []bson.M, next *string, err error) {
 
 	db := client.Database("unicom")
 	postsColl := db.Collection("posts")
 
-	vis := strings.ToLower(strings.TrimSpace(visibility))
-	if vis != "" && vis != "public" && vis != "private" {
-		return nil, nil, 0, fmt.Errorf("invalid visibility: %q (use \"public\", \"private\", or empty)", visibility)
-	}
 
-	// 1) total
-	{
-		cctx, cancel := context.WithTimeout(ctx, 10*time.Second)
-		defer cancel()
-
-		// สร้าง pipeline สำหรับนับ (อย่า duplicate logic)
-		countPipe := mongo.Pipeline{
-			// join prv
-			bson.D{{Key: "$lookup", Value: bson.D{
-				{Key: "from", Value: "post_role_visibility"},
-				{Key: "localField", Value: "_id"},
-				{Key: "foreignField", Value: "post_id"},
-				{Key: "as", Value: "prv"},
-			}}},
-		}
-
-		switch vis {
-		case "public":
-			// ไม่มี prv
-			countPipe = append(countPipe, bson.D{{Key: "$match", Value: bson.D{
-				{Key: "$expr", Value: bson.D{{Key: "$eq",
-					Value: bson.A{bson.D{{Key: "$size", Value: "$prv"}}, 0}}},
-				}},
-			}})
-		case "private":
-			// private & ผู้ดูต้องมีสิทธิ์
-			countPipe = append(countPipe, bson.D{{Key: "$match", Value: bson.D{
-				{Key: "$expr", Value: bson.D{{Key: "$gt",
-					Value: bson.A{
-						bson.D{{Key: "$size",
-							Value: bson.D{{Key: "$setIntersection",
-								Value: bson.A{"$prv.role_id", allowedRoleIDs}}}}},
-						0,
-					}}},
-				}},
-			}})
-		case "":
-			// รวม public OR private ที่ผู้ดูมีสิทธิ์
-			countPipe = append(countPipe, bson.D{{Key: "$match", Value: bson.D{
-				{Key: "$or", Value: bson.A{
-					// public
-					bson.D{{Key: "$expr", Value: bson.D{{Key: "$eq",
-						Value: bson.A{bson.D{{Key: "$size", Value: "$prv"}}, 0}}}}},
-					// private & ตรงสิทธิ์
-					bson.D{{Key: "$expr", Value: bson.D{{Key: "$gt",
-						Value: bson.A{
-							bson.D{{Key: "$size",
-								Value: bson.D{{Key: "$setIntersection",
-									Value: bson.A{"$prv.role_id", allowedRoleIDs}}}}},
-							0,
-						}}},
-					}},
-				}},
-			}}})
-		}
-
-		countPipe = append(countPipe, bson.D{{Key: "$count", Value: "n"}})
-
-		cur, e := postsColl.Aggregate(cctx, countPipe)
-		if e != nil {
-			return nil, nil, 0, e
-		}
-		var tmp []bson.M
-		if e := cur.All(cctx, &tmp); e != nil {
-			return nil, nil, 0, e
-		}
-		if len(tmp) > 0 {
-			switch v := tmp[0]["n"].(type) {
-			case int32:
-				total = int64(v)
-			case int64:
-				total = v
-			case float64:
-				total = int64(v)
-			default:
-				total = 0
-			}
-		}
-	}
-
-	// 2) cursor match (created_at, _id)
+	// cursor match (created_at, _id)
 	var cursorMatch bson.D
 	if cursorStr != "" {
 		t, oid, e := decodePostCursor(cursorStr) // ⬅️ no primitive
 		if e != nil {
-			return nil, nil, 0, e
+			return nil, nil, e
 		}
 		cursorMatch = bson.D{{
 			Key: "$or",
@@ -184,42 +95,22 @@ func ListAllPostsVisibleToViewer(
 		}}},
 	)
 
-	// --- viewer-based visibility ---
-	switch vis {
-	case "public":
-		pipe = append(pipe, bson.D{{Key: "$match", Value: bson.D{
-			{Key: "$expr", Value: bson.D{{Key: "$eq",
-				Value: bson.A{bson.D{{Key: "$size", Value: "$prv"}}, 0}}},
-			}},
-		}})
-	case "private":
-		pipe = append(pipe, bson.D{{Key: "$match", Value: bson.D{
-			{Key: "$expr", Value: bson.D{{Key: "$gt",
+
+	pipe = append(pipe, bson.D{{Key: "$match", Value: bson.D{
+		{Key: "$or", Value: bson.A{
+			bson.D{{Key: "$expr", Value: bson.D{{Key: "$eq",
+				Value: bson.A{bson.D{{Key: "$size", Value: "$prv"}}, 0}}}}},
+			bson.D{{Key: "$expr", Value: bson.D{{Key: "$gt",
 				Value: bson.A{
-					bson.D{{Key: "$size",
-						Value: bson.D{{Key: "$setIntersection",
-							Value: bson.A{"$prv.role_id", allowedRoleIDs}}}}},
+					bson.D{{Key: "$size", Value: bson.D{{Key: "$ifNull", Value: bson.A{
+					bson.D{{Key: "$setIntersection", Value: bson.A{"$prv.role_id", allowedRoleIDs}}},
+					bson.A{},
+					}}}}},
 					0,
 				}}},
 			}},
-		}})
-	case "":
-		// public OR (private & ตรงสิทธิ์)
-		pipe = append(pipe, bson.D{{Key: "$match", Value: bson.D{
-			{Key: "$or", Value: bson.A{
-				bson.D{{Key: "$expr", Value: bson.D{{Key: "$eq",
-					Value: bson.A{bson.D{{Key: "$size", Value: "$prv"}}, 0}}}}},
-				bson.D{{Key: "$expr", Value: bson.D{{Key: "$gt",
-					Value: bson.A{
-						bson.D{{Key: "$size",
-							Value: bson.D{{Key: "$setIntersection",
-								Value: bson.A{"$prv.role_id", allowedRoleIDs}}}}},
-						0,
-					}}},
-				}},
-			}},
-		}}})
-	}
+		}},
+	}}})
 
 	// คำนวณ field เสริม
 	pipe = append(pipe,
@@ -248,13 +139,13 @@ func ListAllPostsVisibleToViewer(
 
 	cur, e := postsColl.Aggregate(cctx, pipe, options.Aggregate())
 	if e != nil {
-		return nil, nil, 0, e
+		return nil, nil, e
 	}
 	defer cur.Close(cctx)
 
 	var all []bson.M
 	if e := cur.All(cctx, &all); e != nil {
-		return nil, nil, 0, e
+		return nil, nil, e
 	}
 
 	// 4) next cursor
@@ -275,10 +166,10 @@ func ListAllPostsVisibleToViewer(
 			} else if t2, perr := time.Parse(time.RFC3339, v); perr == nil {
 				tm = t2.UTC()
 			} else {
-				return nil, nil, 0, fmt.Errorf("invalid created_at string: %q", v)
+				return nil, nil, fmt.Errorf("invalid created_at string: %q", v)
 			}
 		default:
-			return nil, nil, 0, fmt.Errorf("unknown created_at type: %T", v)
+			return nil, nil, fmt.Errorf("unknown created_at type: %T", v)
 		}
 
 		// _id → bson.ObjectID (รองรับได้ทั้ง string hex และ bson.ObjectID)
@@ -289,11 +180,11 @@ func ListAllPostsVisibleToViewer(
 		case string:
 			oid, perr := bson.ObjectIDFromHex(v)
 			if perr != nil {
-				return nil, nil, 0, fmt.Errorf("invalid _id hex in page item: %q", v)
+				return nil, nil, fmt.Errorf("invalid _id hex in page item: %q", v)
 			}
 			lastID = oid
 		default:
-			return nil, nil, 0, fmt.Errorf("unknown _id type: %T", v)
+			return nil, nil, fmt.Errorf("unknown _id type: %T", v)
 		}
 
 		s := encodePostCursor(tm, lastID)

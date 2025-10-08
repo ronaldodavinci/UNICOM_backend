@@ -8,21 +8,20 @@ type PostAs struct {
 }
 
 type Visibility struct {
-	Access   string     `json:"access"`
+	Access   string   `json:"access"`
 	Audience []string `json:"audience"`
 }
 
 // ===== Request =====
 type CreatePostDTO struct {
-    PostText    string   `json:"postText" validate:"required"`
-    PictureUrl  []string `json:"pictureUrl"`
-    VideoUrl    []string `json:"videoUrl"`
-    CategoryIDs []string `json:"categoryIds"`
+	PostText string   `json:"postText" validate:"required"`
+	Media    []string `json:"media,omitempty"`
 
-    PostAs       PostAs     `json:"postAs" validate:"required"`     // เดิมคือ rolePath
-    Visibility   Visibility `json:"visibility" validate:"required"` // เดิมคือ roleIds
-    OrgOfContent string     `json:"org_of_content"`
-    Status       string     `json:"status"`
+	CategoryIDs []string `json:"categoryIds"`
+
+	PostAs       PostAs     `json:"postAs" validate:"required"`     // เดิมคือ rolePath
+	Visibility   Visibility `json:"visibility" validate:"required"` // เดิมคือ roleIds
+	OrgOfContent string     `json:"org_of_content"`
 }
 
 /* { request example
@@ -60,13 +59,12 @@ type CreatePostDTO struct {
 
 // ===== Success Response =====
 type PostResponse struct {
-	UserID   string `json:"userId"        example:"66c6248b98c56c39f018e7d2"`
-	Name     string `json:"name"          example:"JY"`
-	Username string `json:"username"      example:"jy_smo"`
-	PostText string `json:"postText"      example:"สวัสดี KU!"`
-	Hashtag      []string      `json:"hashtag" bson:"hashtag"`
-	//PictureUrl    []string `json:"pictureUrl"    example:"['https://example.com/pic1.jpg','https://example.com/pic2.jpg']"`
-	//VideoUrl      []string `json:"videoUrl"      example:"['https://example.com/vid1.mp4','https://example.com/vid2.mp4']"`
+	UserID       string     `json:"userId"        example:"66c6248b98c56c39f018e7d2"`
+	Name         string     `json:"name"          example:"JY"`
+	Username     string     `json:"username"      example:"jy_smo"`
+	PostText     string     `json:"postText"      example:"สวัสดี KU!"`
+	Media        []string   `json:"media,omitempty" example:"['ttp://45.144.166.252:46602/uploads/cat.png']"`
+	Hashtag      []string   `json:"hashtag" bson:"hashtag"`
 	LikeCount    int        `json:"likeCount"     example:"0"`
 	CommentCount int        `json:"commentCount"  example:"0"`
 	LikedBy      []string   `json:"likedBy"       example:"['66c6248b98c56c39f018e7d2','66c6248b98c56c39f018e7d3']"`

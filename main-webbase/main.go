@@ -70,6 +70,7 @@ func main() {
 	routes.SetupRoutesPolicy(app)
 	// routes.SetupRoutesPost(app, client)
 	routes.SetupRoutesEvent(app)
+	routes.SetupRoutesPost(app, client)
 
 
 	// RUN SERVER

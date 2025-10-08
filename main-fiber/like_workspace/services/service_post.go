@@ -18,6 +18,7 @@ import (
 var ErrUserNotFound = errors.New("user not found")
 var ErrOrgNodeNotFound = errors.New("org node not found")
 var ErrPositionNotFound = errors.New("position not found")
+var ErrUserIDInvalid = errors.New("userID invalid")
 
 func CreatePostWithMeta(client *mongo.Client, UserID string, body dto.CreatePostDTO, ctx context.Context) (dto.PostResponse, error) {
 	db := client.Database("lll_workspace")
@@ -47,6 +48,9 @@ func CreatePostWithMeta(client *mongo.Client, UserID string, body dto.CreatePost
 	tagsSlice := u.ExtractHashtags(body.PostText)
 
 	UserIDs, err := bson.ObjectIDFromHex(UserID)
+	if err != nil {
+		return resp, ErrUserIDInvalid
+	}
 
 	// 1) Insert post
 	post := model.Post{
@@ -56,6 +60,7 @@ func CreatePostWithMeta(client *mongo.Client, UserID string, body dto.CreatePost
 		Hashtag:      tagsSlice,  // เก็บ string (เช่น "smo,eng,ku66")
 		Tags:         body.PostAs.Tag,
 		PostText:     body.PostText,
+		Media:        body.Media,
 		CreatedAt:    now,
 		UpdatedAt:    now,
 		LikeCount:    0,
@@ -117,6 +122,7 @@ func CreatePostWithMeta(client *mongo.Client, UserID string, body dto.CreatePost
 		Name:         userInfo.FirstName, // แก้เป็น display name ที่ต้องการได้
 		Username:     userInfo.Username,
 		PostText:     post.PostText,
+		Media:        post.Media,
 		Hashtag:      post.Hashtag,
 		LikeCount:    post.LikeCount,
 		CommentCount: post.CommentCount,
@@ -197,6 +203,7 @@ func GetPostDetail(ctx context.Context, db *mongo.Database, postID bson.ObjectID
 		Name:         fullName,
 		Username:     user.Username,
 		PostText:     post.PostText,
+		Media:        post.Media,
 		Hashtag:      post.Hashtag,
 		LikeCount:    post.LikeCount,
 		CommentCount: post.CommentCount,

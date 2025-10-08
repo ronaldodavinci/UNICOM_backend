@@ -7,7 +7,7 @@ import (
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
 
-	"github.com/Software-eng-01204341/Backend/model"
+	"main-webbase/internal/models"
 )
 
 type MembershipSummary struct {
@@ -17,8 +17,6 @@ type MembershipSummary struct {
 }
 
 type ViewerAccess struct {
-	UserID          bson.ObjectID
-	User            *model.User
 	Memberships     []MembershipSummary
 	SubtreePaths    []string        // รวม path ทั้งตัวเองและลูก
 	SubtreeNodeIDs  []bson.ObjectID // Node IDs ที่เข้าถึงได้ (ไว้ match role_visibility)
@@ -30,17 +28,8 @@ type ViewerAccess struct {
 
 // BuildViewerAccess สร้างภาพรวมการเข้าถึงของผู้ใช้ปัจจุบัน
 func BuildViewerAccess(ctx context.Context, db *mongo.Database, userID bson.ObjectID) (*ViewerAccess, error) {
-	usersCol := db.Collection("users")
 	mCol     := db.Collection("memberships")
 	nodeCol  := db.Collection("org_unit_node")
-	//posCol   := db.Collection("positions") // เผื่อในอนาคตต้อง enrich
-
-	// 1) ดึง user (optional ถ้ายังไม่จำเป็นก็ไม่ต้อง)
-	var u model.User
-	if err := usersCol.FindOne(ctx, bson.M{"_id": userID}).Decode(&u); err != nil {
-		// ไม่ critical: ปล่อย nil user ได้ แต่อย่างน้อยรู้ userID
-		u = model.User{ ID: userID }
-	}
 
 	// 2) memberships ที่ active ของ user
 	cur, err := mCol.Find(ctx, bson.M{"user_id": userID, "active": true})
@@ -49,15 +38,13 @@ func BuildViewerAccess(ctx context.Context, db *mongo.Database, userID bson.Obje
 	}
 	defer cur.Close(ctx)
 
-	var ms []model.Membership
+	var ms []models.Membership
 	if err := cur.All(ctx, &ms); err != nil {
 		return nil, err
 	}
 	if len(ms) == 0 {
 		// ไม่มี role เลย → subtree ว่าง (เห็นได้เฉพาะ public ตาม policy ของ feed เวลา query)
 		return &ViewerAccess{
-			UserID:         userID,
-			User:           &u,
 			Memberships:    nil,
 			SubtreePaths:   nil,
 			SubtreeNodeIDs: nil,
@@ -73,7 +60,7 @@ func BuildViewerAccess(ctx context.Context, db *mongo.Database, userID bson.Obje
 
 	for _, m := range ms {
 		// 3.1 หา node ของ path นี้เพื่อเก็บ node_id ใน summary
-		var node model.OrgUnitNode
+		var node models.OrgUnitNode
 		if err := nodeCol.FindOne(ctx, bson.M{"path": m.OrgPath, "status": "active"}).Decode(&node); err == nil {
 			summaries = append(summaries, MembershipSummary{
 				NodeID:  node.ID,
@@ -100,12 +87,12 @@ func BuildViewerAccess(ctx context.Context, db *mongo.Database, userID bson.Obje
 		if err != nil {
 			return nil, err
 		}
-		var subNodes []model.OrgUnitNode
+		var subNodes []models.OrgUnitNode
 		if err := subCur.All(ctx, &subNodes); err != nil {
 			return nil, err
 		}
 		for _, n := range subNodes {
-			pathSet[n.Path] = struct{}{}
+			pathSet[n.OrgPath] = struct{}{}
 			nodeIDSet[n.ID] = struct{}{}
 		}
 	}
@@ -122,8 +109,6 @@ func BuildViewerAccess(ctx context.Context, db *mongo.Database, userID bson.Obje
 	slices.Sort(paths)
 
 	return &ViewerAccess{
-		UserID:          userID,
-		User:            &u,
 		Memberships:     summaries,
 		SubtreePaths:    paths,
 		SubtreeNodeIDs:  nodeIDs,
