@@ -45,5 +45,7 @@ type Event_form_answer struct {
 	Question_ID 	bson.ObjectID 	`bson:"question_id" json:"question_id"`
 	Response_ID 	bson.ObjectID 	`bson:"response_id" json:"response_id"`
 	Answer_value	string 			`bson:"answer_value,omitempty" json:"answer_value,omitempty"`
+	OrderIndex    	int			`bson:"order_index" json:"order_index"`
 	CreatedAt   	*time.Time    	`bson:"created_at,omitempty" json:"created_at,omitempty"`
 }
+
