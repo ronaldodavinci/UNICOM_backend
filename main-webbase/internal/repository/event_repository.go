@@ -59,7 +59,7 @@ func GetSchedulesByEvent(ctx context.Context, eventIDlist []bson.ObjectID) ([]mo
 
 // Get Event Detail by EventID
 func GetEventByID(ctx context.Context, EventID bson.ObjectID) (*models.Event, error) {
-	collection := database.DB.Collection("event")
+	collection := database.DB.Collection("events")
 	var event models.Event
 
 	err := collection.FindOne(ctx, bson.M{"_id": EventID}).Decode(&event)
@@ -72,7 +72,7 @@ func GetEventByID(ctx context.Context, EventID bson.ObjectID) (*models.Event, er
 
 // Update Event
 func UpdateEvent(ctx context.Context, eventID bson.ObjectID, updates bson.M) error {
-	collection := database.DB.Collection("event")
+	collection := database.DB.Collection("events")
 
 	if updates == nil {
 		updates = bson.M{}
