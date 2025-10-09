@@ -72,7 +72,7 @@ func main() {
 	routes.SetupRoutesPosition(app)
 	routes.SetupRoutesPolicy(app)
 	// routes.SetupRoutesPost(app, client)
-	routes.SetupRoutesEvent(app)
+	routes.SetupRoutesEvent(app, client)
 	routes.SetupRoutesPost(app, client)
 	routes.CommentRoutes(app, client)
 

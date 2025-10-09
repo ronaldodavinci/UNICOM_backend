@@ -24,7 +24,7 @@ func InsertSchedules(ctx context.Context, schedules []models.EventSchedule) erro
 
 // Use in GetVisibleEvents
 func GetEvent(ctx context.Context) ([]models.Event, error) {
-	cursor, err := database.DB.Collection("event").Find(ctx, bson.M{"status": bson.M{"$ne": "hidden"}})
+	cursor, err := database.DB.Collection("events").Find(ctx, bson.M{"status": bson.M{"$ne": "hidden"}})
 	if err != nil {
 		return nil, err
 	}
