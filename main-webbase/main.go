@@ -18,8 +18,8 @@ import (
 
 	"main-webbase/config"
 	"main-webbase/database"
-	"main-webbase/internal/routes"
 	"main-webbase/internal/middleware"
+	"main-webbase/internal/routes"
 )
 
 func main() {
@@ -27,7 +27,7 @@ func main() {
 	if err := godotenv.Load(); err != nil {
 		log.Println("⚠️ Warning: .env file not found, using system environment variables")
 	}
-	
+
 	secret := os.Getenv("JWT_SECRET")
 	if secret == "" {
 		panic("JWT_SECRET is required")
@@ -40,6 +40,8 @@ func main() {
 	// Connect to the database
 	client := database.ConnectMongo(cfg.MongoURI, cfg.MongoDB)
 	defer client.Disconnect(nil)
+
+	db := client.Database("unicom")
 
 	// Fiber app
 	app := fiber.New()
@@ -60,7 +62,8 @@ func main() {
 	routes.SetupAuth(app)
 
 	app.Use(middleware.JWTUidOnly(secret))
-	
+	app.Use(middleware.InjectViewer(db))
+
 	// Routes
 	routes.SetupRoutesUser(app)
 	// routes.SetupRoutesAbility(app)
@@ -71,7 +74,7 @@ func main() {
 	// routes.SetupRoutesPost(app, client)
 	routes.SetupRoutesEvent(app)
 	routes.SetupRoutesPost(app, client)
-
+	routes.CommentRoutes(app, client)
 
 	// RUN SERVER
 	log.Fatal(app.Listen(":" + cfg.Port))

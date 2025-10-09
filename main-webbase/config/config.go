@@ -13,6 +13,11 @@ type Config struct {
 	Port     string
 }
 
+const (
+	DefaultLimitComments = 10
+	MaxLimitComments     = 20
+)
+
 func getEnv(key, fallback string) string {
 	if value, exists := os.LookupEnv(key); exists {
 		return value
@@ -30,7 +35,7 @@ func LoadConfig() Config {
 	cfg := Config{
 		MongoURI: getEnv("MONGO_URI", "mongodf://localhost:27017"),
 		MongoDB:  getEnv("MONGO_DB", "creatorDatabase"),
-		Port:	 getEnv("PORT", "3000"),
+		Port:     getEnv("PORT", "3000"),
 	}
 	return cfg
 }
