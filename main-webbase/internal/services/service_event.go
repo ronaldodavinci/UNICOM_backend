@@ -31,6 +31,7 @@ func CreateEventWithSchedules(body dto.EventRequestDTO, ctx context.Context) (mo
 		Visibility:       body.Visibility,
 		OrgOfContent:     body.OrgOfContent,
 		Status:           body.Status,
+		Have_form: 		  false,
 		CreatedAt:        &now,
 		UpdatedAt:        &now,
 	}

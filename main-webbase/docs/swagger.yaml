@@ -511,6 +511,81 @@ paths:
       summary: Create a new membership
       tags:
       - Memberships
+  /memberships/{id}:
+    patch:
+      consumes:
+      - application/json
+      description: Set membership active=false by id
+      parameters:
+      - description: Membership ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Deactivate membership
+      tags:
+      - memberships
+  /memberships/users:
+    get:
+      consumes:
+      - application/json
+      description: Returns active memberships at exact org_path, joined with basic
+        user info
+      parameters:
+      - description: Organization path
+        in: query
+        name: org_path
+        required: true
+        type: string
+      - description: 'active|all (default: active)'
+        in: query
+        name: active
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              additionalProperties: true
+              type: object
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: List memberships at an org with user details
+      tags:
+      - memberships
   /org/units:
     post:
       consumes:
@@ -578,6 +653,75 @@ paths:
       tags:
       - Org Units
   /policies:
+    delete:
+      consumes:
+      - application/json
+      description: Delete policies by org_prefix and optional position_key
+      parameters:
+      - description: Org prefix
+        in: query
+        name: org_prefix
+        required: true
+        type: string
+      - description: Position key
+        in: query
+        name: position_key
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Delete policies
+      tags:
+      - Policies
+    get:
+      consumes:
+      - application/json
+      description: Returns policies, optionally filtered by org_prefix and/or position_key
+      parameters:
+      - description: Org prefix filter
+        in: query
+        name: org_prefix
+        type: string
+      - description: Position key filter
+        in: query
+        name: position_key
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              additionalProperties: true
+              type: object
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: List policies
+      tags:
+      - Policies
     put:
       consumes:
       - application/json
@@ -622,6 +766,29 @@ paths:
       tags:
       - Policies
   /positions:
+    get:
+      consumes:
+      - application/json
+      description: Returns a list of positions
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              items:
+                type: string
+              type: array
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: List positions
+      tags:
+      - positions
     post:
       consumes:
       - application/json
@@ -789,6 +956,34 @@ paths:
           schema:
             $ref: '#/definitions/dto.ErrorResponse'
       summary: Get my profile
+      tags:
+      - Users
+  /users/profile:
+    get:
+      description: Returns profile information for a given user ID via query param
+        `id`
+      parameters:
+      - description: User ID
+        in: query
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.UserProfileDTO'
+        "400":
+          description: missing id
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: internal server error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      summary: Get user profile by ID (query)
       tags:
       - Users
   /users/profile/{id}:

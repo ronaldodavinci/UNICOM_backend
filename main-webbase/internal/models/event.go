@@ -16,6 +16,7 @@ type Event struct {
 	Visibility   	 *Visibility   	   `json:"visibility,omitempty"`
 	OrgOfContent 	 string     	   `bson:"org_of_content,omitempty" json:"org_of_content,omitempty"`
 	Status       	 string    		   `bson:"status,omitempty" json:"status,omitempty"`
+	Have_form		 bool			`bson:"have_form" json:"have_form"`
 
 	CreatedAt        *time.Time    `bson:"created_at,omitempty" json:"created_at,omitempty"`
 	UpdatedAt        *time.Time    `bson:"updated_at,omitempty" json:"updated_at,omitempty"`
