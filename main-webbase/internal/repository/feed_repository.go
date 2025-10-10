@@ -76,7 +76,11 @@ func ListAllPostsVisibleToViewer(
 	}
 
 	// 3) pipeline หลัก
-	pipe := mongo.Pipeline{}
+	pipe := mongo.Pipeline{
+    bson.D{{Key: "$match", Value: bson.D{
+        {Key: "status", Value: "active"},
+    }}},
+	}
 	if len(cursorMatch) > 0 {
 		pipe = append(pipe, bson.D{{Key: "$match", Value: cursorMatch}})
 	}

@@ -45,7 +45,6 @@ func canPostAs(v *accessctx.ViewerAccess, orgPath, positionKey string) bool {
 // @Produce      json
 // @Security     BearerAuth
 // @Param        Authorization  header    string             true  "Bearer {token}"
-// @Param        X-Request-Id   header    string             false "Idempotency key"
 // @Param        data           body      dto.CreatePostDTO  true  "Post payload"
 // @Success      201            {object}  dto.PostResponse
 // @Failure      400            {object}  dto.ErrorResponse
@@ -207,7 +206,7 @@ func DeletePostHandler(client *mongo.Client) fiber.Handler {
 // @Param        Authorization  header    string                   true  "Bearer {token}"
 // @Param        id             path      string                   true  "Post ID (hex)"
 // @Param        data           body      dto.UpdatePostFullDTO    true  "Full update payload"
-// @Success      200            {object}  model.Post
+// @Success      200            {object}  models.Post
 // @Failure      400            {object}  dto.ErrorResponse
 // @Failure      401            {object}  dto.ErrorResponse
 // @Failure      403            {object}  dto.ErrorResponse

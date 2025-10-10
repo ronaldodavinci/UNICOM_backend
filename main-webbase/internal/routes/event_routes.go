@@ -3,9 +3,10 @@ package routes
 import (
 	"github.com/gofiber/fiber/v2"
 	"main-webbase/internal/controllers"
+	"go.mongodb.org/mongo-driver/v2/mongo"
 )
 
-func SetupRoutesEvent(app *fiber.App) {
+func SetupRoutesEvent(app *fiber.App, client *mongo.Client) {
 	event := app.Group("/event")
 
 	// POST /event
@@ -22,4 +23,7 @@ func SetupRoutesEvent(app *fiber.App) {
 	// DELETE /event/{event_id}
 	// ลบ Event โดยดูจาก EventID ที่ส่งเข้ามา
 	event.Delete("/:id", controllers.DeleteEventHandler)
+
+
+	event.Post("/:eventId/qa", controllers.CreateEventQAHandler(client))
 }

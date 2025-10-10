@@ -3,7 +3,7 @@ package repository
 import (
 	"context"
 
-	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
 	"main-webbase/database"
 	"main-webbase/internal/models"
@@ -59,4 +59,16 @@ func FindByPrefix(ctx context.Context, path string) ([]models.OrgUnitNode, error
 	}
 
 	return results, nil
+}
+
+func GetOrgByID(ctx context.Context, OrgID bson.ObjectID) (*models.OrgUnitNode, error) {
+	collection := database.DB.Collection("org_units")
+	var orgnode models.OrgUnitNode
+
+	err := collection.FindOne(ctx, bson.M{"_id": OrgID}).Decode(&orgnode)
+	if err != nil {
+		return nil, err
+	}
+
+	return &orgnode, nil
 }

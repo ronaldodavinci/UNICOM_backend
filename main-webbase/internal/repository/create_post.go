@@ -144,7 +144,7 @@ func ReplaceRoleVisibility(db *mongo.Database, postID bson.ObjectID, visibility 
 }
 
 func FindUserInfo(col *mongo.Collection, userID bson.ObjectID, ctx context.Context) (user dto.UserInfoResponse, err error) {
-	err = col.FindOne(ctx, bson.M{"_id": userID, "status": "active"}).Decode(&user)
+	err = col.FindOne(ctx, bson.M{"_id": userID}).Decode(&user)
 	return user, err
 }
 

@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"time"
 	"context"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
@@ -24,7 +25,7 @@ func InsertSchedules(ctx context.Context, schedules []models.EventSchedule) erro
 
 // Use in GetVisibleEvents
 func GetEvent(ctx context.Context) ([]models.Event, error) {
-	cursor, err := database.DB.Collection("event").Find(ctx, bson.M{"status": bson.M{"$ne": "hidden"}})
+	cursor, err := database.DB.Collection("events").Find(ctx, bson.M{"status": bson.M{"$ne": "hidden"}})
 	if err != nil {
 		return nil, err
 	}
@@ -54,4 +55,34 @@ func GetSchedulesByEvent(ctx context.Context, eventIDlist []bson.ObjectID) ([]mo
 	}
 
 	return schedules, nil
+}
+
+// Get Event Detail by EventID
+func GetEventByID(ctx context.Context, EventID bson.ObjectID) (*models.Event, error) {
+	collection := database.DB.Collection("events")
+	var event models.Event
+
+	err := collection.FindOne(ctx, bson.M{"_id": EventID}).Decode(&event)
+	if err != nil {
+		return nil, err
+	}
+
+	return &event, nil
+}
+
+// Update Event
+func UpdateEvent(ctx context.Context, eventID bson.ObjectID, updates bson.M) error {
+	collection := database.DB.Collection("events")
+
+	if updates == nil {
+		updates = bson.M{}
+	}
+	updates["updated_at"] = time.Now().UTC()
+
+	update := bson.M{
+		"$set": updates,
+	}
+
+	_, err := collection.UpdateOne(ctx, bson.M{"_id": eventID}, update)
+	return err
 }

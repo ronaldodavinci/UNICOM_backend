@@ -1,74 +1,18 @@
 package services
 
 import (
-	// "context"
+	"context"
 	"strings"
 	"errors"
+	"fmt"
 
-	// "go.mongodb.org/mongo-driver/v2/bson"
-	"main-webbase/internal/repository"
+	"go.mongodb.org/mongo-driver/v2/bson"
 	"main-webbase/internal/models"
+	repo "main-webbase/internal/repository"
 )
 
-type AuthzService struct {
-	membershipRepo *repository.MembershipRepository
-	policyRepo     *repository.PolicyRepository
-}
-
-func NewAuthzService(m *repository.MembershipRepository, p *repository.PolicyRepository) *AuthzService {
-	return &AuthzService{membershipRepo: m, policyRepo: p}
-}
-
-// AbilitiesFor returns allowed actions for a user at orgPath
-// func (s *AuthzService) AbilitiesFor(ctx context.Context, userID bson.ObjectID, orgPath string, actions []string) (map[string]bool, error) {
-// 	result := make(map[string]bool)
-// 	for _, act := range actions {
-// 		allowed, err := s.Can(ctx, userID, orgPath, act)
-// 		if err != nil {
-// 			return nil, err
-// 		}
-// 		result[act] = allowed
-// 	}
-// 	return result, nil
-// }
-
-// Can checks if a user can perform a specific action in an org
-// func (s *AuthzService) Can(ctx context.Context, userID bson.ObjectID, orgPath string, action string) (bool, error) {
-// 	// 1. load memberships
-// 	mems, err := s.membershipRepo.FindByUser(ctx, userID)
-// 	if err != nil {
-// 		return false, err
-// 	}
-
-// 	// 2. collect positions
-// 	posSet := map[string]struct{}{}
-// 	for _, m := range mems {
-// 		posSet[m.PositionKey] = struct{}{}
-// 	}
-// 	var posArr []string
-// 	for k := range posSet {
-// 		posArr = append(posArr, k)
-// 	}
-
-// 	// 3. load policies
-// 	pols, err := s.policyRepo.FindByPositionsAndAction(ctx, posArr, action)
-// 	if err != nil {
-// 		return false, err
-// 	}
-
-// 	// 4. match memberships with policies
-// 	for _, m := range mems {
-// 		for _, p := range pols {
-// 			if p.PositionKey == m.PositionKey && (orgPath == "" || orgPath == m.OrgPath) {
-// 				return true, nil
-// 			}
-// 		}
-// 	}
-// 	return false, nil
-// }
 
 func CanManagePolicy(userPolicies []models.Policy, target *models.Policy) error {
-	
 	partTrimmed := strings.Trim(target.OrgPrefix, "/")
 	segs := []string{}
 
@@ -110,6 +54,53 @@ func CanManagePolicy(userPolicies []models.Policy, target *models.Policy) error 
 			}
 		}
 	}
-
 	return errors.New("no permission to manage this policy")
+}
+
+
+func CanManageEvent(ctx context.Context, userPolicies []models.Policy, EventID string) error {
+	eventID, err := bson.ObjectIDFromHex(EventID)
+	if err != nil {
+		return errors.New("invalid EventID")
+	}
+
+	event, err := repo.GetEventByID(ctx, eventID)
+	if err != nil {
+		return fmt.Errorf("event not found: %w", err)
+	}
+
+	org_node, err := repo.GetOrgByID(ctx, event.NodeID)
+	if err != nil {
+		return fmt.Errorf("org_node not found: %w", err)
+	}
+	
+	for _, policy := range userPolicies {
+		if !policy.Enabled {
+			continue
+		}
+		hasAction := false
+		for _, act := range policy.Actions {
+			if act == "event:create" {
+				hasAction = true
+				break
+			}
+		}
+		if !hasAction {
+			continue
+		}
+
+		if policy.Scope == "exact" && policy.OrgPrefix == org_node.OrgPath {
+			return nil
+		}
+
+		if policy.Scope == "subtree" {
+			for _, anc := range org_node.Ancestors {
+				if policy.OrgPrefix == anc {
+					return nil
+				}
+			}
+		}
+	}
+
+	return errors.New("no permission to manage this Event")
 }
