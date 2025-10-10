@@ -34,6 +34,11 @@ func CreateEventHandler() fiber.Handler {
 			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "NodeID is required"})
 		}
 
+		if !canPostAs(viewerFrom(c), body.PostedAs.OrgPath, body.PostedAs.PositionKey) {
+			return c.Status(fiber.StatusForbidden).
+				JSON(dto.ErrorResponse{Error: "forbidden: you cannot post as this role1"})
+		}
+
 		event, schedules, err := services.CreateEventWithSchedules(body, c.Context())
 		if err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
