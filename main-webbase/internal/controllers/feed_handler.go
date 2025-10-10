@@ -12,17 +12,7 @@ import (
 	"go.mongodb.org/mongo-driver/v2/mongo"
 )
 
-// GetPostsVisibilityCursor godoc
-// @Summary      Get feed posts with visibility & cursor pagination
-// @Description  ดึงรายการโพสต์ที่ผู้ใช้มีสิทธิ์เห็น พร้อม cursor-based pagination (ตรวจสิทธิ์จาก JWT -> viewer Locals)
-// @Tags         posts
-// @Accept       json
-// @Produce      json
-// @Param        limit   query     int     false  "จำนวน item ต่อหน้า (1–20)"  minimum(1) maximum(20) default(10)
-// @Param        cursor  query     string  false  "Cursor จากหน้าก่อนหน้า (base64)"
-// @Success      200     {object}  dto.ListByCategoryResp
-// @Security     BearerAuth
-// @Router       /posts [get]
+
 func GetPostsVisibilityCursor(client *mongo.Client) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		limit := int64(c.QueryInt("limit", 10))
