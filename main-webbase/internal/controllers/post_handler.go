@@ -164,7 +164,7 @@ func GetIndividualPostHandler(client *mongo.Client) fiber.Handler {
 // @Failure      400  {object}  dto.ErrorResponse
 // @Failure      404  {object}  dto.ErrorResponse
 // @Failure      500  {object}  dto.ErrorResponse
-// @Router       /posts/{id} [delete]
+// @Router       /posts/{post_id} [delete]
 func DeletePostHandler(client *mongo.Client) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		uid, _ := mid.UIDObjectID(c)
