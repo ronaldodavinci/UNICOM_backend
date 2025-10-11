@@ -17,7 +17,7 @@ type Event_participant struct {
 	Event_ID    bson.ObjectID `bson:"event_id" json:"event_id"`
 	User_ID     bson.ObjectID `bson:"user_id" json:"user_id"`
 	Response_ID bson.ObjectID `bson:"response_id,omitempty" json:"response_id,omitempty"` // If event don't have form, don't have response
-	Status      string        `bson:"status" json:"status"`                               // accept / stall / declined
+	Status      string        `bson:"status" json:"status"`                               // accept / stall / reject
 	Role        string        `bson:"role" json:"role"`                                   // organizer / participant
 	CreatedAt   *time.Time    `bson:"created_at,omitempty" json:"created_at,omitempty"`
 }

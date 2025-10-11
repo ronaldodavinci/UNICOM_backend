@@ -7,36 +7,31 @@ import (
 
 // Send Everything about event
 type EventRequestDTO struct {
-	NodeID           string             `json:"node_id"`
-	Topic            string             `json:"topic"`
-	Description      string             `json:"description"`
-	MaxParticipation int                `json:"max_participation"`
+	NodeID           string             `json:"node_id" example:"66ffa43e9a7c39b1d87f6401" validate:"required"`
+	Topic            string             `json:"topic" example:"AI Workshop" validate:"required"`
+	Description      string             `json:"description" example:"A workshop on AI applications"`
+	MaxParticipation int                `json:"max_participation" example:"50"`
 	PostedAs         *models.PostedAs   `json:"posted_as,omitempty"`
 	Visibility       *models.Visibility `json:"visibility,omitempty"`
-	OrgOfContent     string             `json:"org_of_content,omitempty"`
-	Status           string             `json:"status,omitempty"`
-	Have_form        bool               `json:"have_form,omitempty"`
+	OrgOfContent     string             `json:"org_of_content,omitempty" example:"/fac/eng/com"`
+	Status           string             `json:"status" example:"draft" enums:"active,draft,inactive"`
+	Have_form        bool               `json:"have_form,omitempty" example:"true"`
 
 	Schedules []struct {
-		Date        time.Time `json:"date"`
-		Time_start  time.Time `json:"time_start"`
-		Time_end    time.Time `json:"time_end"`
-		Location    string    `json:"location"`
-		Description string    `json:"description"`
+		Date        time.Time `json:"date" example:"2025-10-15T00:00:00Z"`
+		TimeStart   time.Time `json:"time_start" example:"2025-10-15T09:00:00Z"`
+		TimeEnd     time.Time `json:"time_end" example:"2025-10-15T12:00:00Z"`
+		Location    string    `json:"location" example:"Innovation Building Room 301"`
+		Description string    `json:"description" example:"Morning session"`
 	} `json:"schedules"`
 }
 
 // Report DTO
-type EventScheduleReport struct {
-	Date      time.Time `json:"date"`
-	StartTime time.Time `json:"start_time"`
-	EndTime   time.Time `json:"end_time"`
-}
-
-type EventReport struct {
-	EventID    string                `json:"event_id"`
-	EventTopic string                `json:"event_topic"`
-	Schedules  []EventScheduleReport `json:"schedules"`
+type EventCreateResult struct {
+	Event        models.Event              `json:"event"`
+	Schedules    []models.EventSchedule    `json:"schedules"`
+	FormID       string                    `json:"form_id,omitempty"`
+	OrganizerCnt int                       `json:"organizer_count"`
 }
 
 // Event Detail

@@ -9,21 +9,25 @@ import (
 func SetupRoutesEvent(app *fiber.App, client *mongo.Client) {
 	event := app.Group("/event")
 
-	// POST /event
-	// สร้าง Event ด้วย NodeID ของผู้สร้าง
-	// Input จะเป็น
-	// 1.รายละเอียดของอีเว้น
-	// 		2.List ของวันของ Event []
-	event.Post("/", controllers.CreateEventHandler())
-
-	// GET /event
-	// ดึงรายการทั้งหมดที่ผู้ใช้ *สามารถ* เห็ยได้โดยดูจาก Organize ของผู้ใช้ทั้งหมดเช็คกับ Status ของ Event
-	event.Get("/", controllers.GetAllVisibleEventHandler())
-
-	// DELETE /event/{event_id}
-	// ลบ Event โดยดูจาก EventID ที่ส่งเข้ามา
-	event.Delete("/:id", controllers.DeleteEventHandler)
-
+	event.Post("/", controllers.CreateEventHandler())                         
+	event.Get("/", controllers.GetAllVisibleEventHandler())                   
+	event.Get("/:event_id", controllers.GetEventDetailHandler())                 
+	event.Delete("/:event_id", controllers.DeleteEventHandler)  
+	event.Post("/participate/:event_id", controllers.ParticipateEventWithNoFormHandler()) 
 
 	event.Post("/:eventId/qa", controllers.CreateEventQAHandler(client))
+
+	// Form Section
+	form := app.Group("/event/:eventId/form")
+	form.Post("/initialize", controllers.InitializeFormHandler())
+	form.Post("/disable", controllers.DisableFormHandler())
+	form.Post("/questions", controllers.CreateFormQuestionHandler())
+	form.Get("/questions", controllers.GetFormQuestionHandler())
+	form.Post("/answers", controllers.CreateUserAnswerHandler())
+	form.Get("/matrix", controllers.GetAllUserAnswerandQuestionHandler())
+
+	// Participant Status
+	participant := event.Group("/participant")
+	participant.Put("/status", controllers.UpdateParticipantStatusHandler())
+	participant.Get("/mystatus/:eventId", controllers.GetMyParticipantStatusHandler())
 }

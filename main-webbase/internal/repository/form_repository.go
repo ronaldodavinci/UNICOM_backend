@@ -38,6 +38,20 @@ func AddParticipant(ctx context.Context, participant models.Event_participant) e
 	return err
 }
 
+func AddListParticipant(ctx context.Context, participants []models.Event_participant) error {
+	if len(participants) == 0 {
+		return nil
+	}
+
+	docs := make([]interface{}, len(participants))
+	for i, p := range participants {
+		docs[i] = p
+	}
+
+	_, err := database.DB.Collection("event_participant").InsertMany(ctx, docs)
+	return err
+}
+
 func FindFormByID(ctx context.Context, formID string) (*models.Event_form, error) {
 	objectID, err := bson.ObjectIDFromHex(formID)
 	if err != nil {
@@ -144,7 +158,7 @@ func AggregateUserResponse(ctx context.Context, formID bson.ObjectID) ([]dto.Agg
 		// 4. Unwind participant array
 		{{Key: "$unwind", Value: "$participant"}},
 		// 5. Exclude organizers
-		{{Key: "$match", Value: bson.M{"participant.role": bson.M{"$ne": "Organizer"}}}},
+		{{Key: "$match", Value: bson.M{"participant.role": bson.M{"$ne": "organizer"}}}},
 		// 6. Lookup user details
 		{{
 			Key: "$lookup",
@@ -184,4 +198,19 @@ func CheckParticipantExists(ctx context.Context, eventID bson.ObjectID, userID b
 	}
 
 	return count > 0, nil
+}
+
+func FindFormByEventID(ctx context.Context, eventID string) (*models.Event_form, error) {
+	objectID, err := bson.ObjectIDFromHex(eventID)
+	if err != nil {
+		return nil, fmt.Errorf("invalid form ID: %w", err)
+	}
+
+	var form models.Event_form
+	err = database.DB.Collection("event_form").FindOne(ctx, bson.M{"event_id": objectID}).Decode(&form)
+	if err != nil {
+		return nil, err
+	}
+
+	return &form, nil
 }

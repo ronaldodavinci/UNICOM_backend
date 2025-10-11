@@ -83,7 +83,227 @@ const docTemplate = `{
                     "201": {
                         "description": "Created",
                         "schema": {
-                            "$ref": "#/definitions/dto.EventReport"
+                            "$ref": "#/definitions/dto.EventCreateResult"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/event/participant/mystatus/{eventId}": {
+            "get": {
+                "description": "Returns the status of the authenticated user for a specific event.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "participants"
+                ],
+                "summary": "Get current user's participant status",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Event ID",
+                        "name": "eventId",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Current user status",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/event/participant/status": {
+            "put": {
+                "description": "Update a participant's status (accept, stall, reject) for a specific event.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "participants"
+                ],
+                "summary": "Update participant status",
+                "parameters": [
+                    {
+                        "description": "Participant status payload",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/dto.UpdateParticipantStatusDTO"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Update user status success",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Missing required fields",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Failed to update status",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/event/participate/{eventId}": {
+            "post": {
+                "description": "Join an event directly if the event does not require a form submission",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "events"
+                ],
+                "summary": "Participate in an event (no form required)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Event ID",
+                        "name": "event_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/event/{eventId}": {
+            "get": {
+                "description": "Get full event detail including schedules and form ID (if any)",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "events"
+                ],
+                "summary": "Get individule event detail",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Event ID",
+                        "name": "event_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/dto.EventDetail"
                         }
                     },
                     "400": {
@@ -107,6 +327,352 @@ const docTemplate = `{
                 }
             }
         },
+        "/event/{eventId}/form/answers": {
+            "post": {
+                "description": "Submit answers to a form. A user can only submit once per form.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "forms"
+                ],
+                "summary": "Submit user answers for a form",
+                "parameters": [
+                    {
+                        "description": "User answers payload",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/dto.FormResponseSubmitDTO"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Response submitted successfully",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request or user already submitted",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/event/{eventId}/form/disable": {
+            "post": {
+                "description": "Marks a form as disabled for a specified event ID.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "forms"
+                ],
+                "summary": "Disable a form for an event",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Event ID to disable form",
+                        "name": "eventId",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Form disabled successfully",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/event/{eventId}/form/initialize": {
+            "post": {
+                "description": "Create a new form associated with the specified event ID. Returns the created form details.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "forms"
+                ],
+                "summary": "Initialize a new form for an event",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Event ID to initialize form",
+                        "name": "eventId",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Form initialized successfully",
+                        "schema": {
+                            "$ref": "#/definitions/models.Event_form"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/event/{eventId}/form/matrix": {
+            "get": {
+                "description": "Fetch all submitted responses for a given form along with the corresponding questions.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "forms"
+                ],
+                "summary": "Get all user answers with questions",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Form ID",
+                        "name": "formId",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Form answers fetched successfully",
+                        "schema": {
+                            "$ref": "#/definitions/dto.FormMatrixResponseDTO"
+                        }
+                    },
+                    "400": {
+                        "description": "Form ID required",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/event/{eventId}/form/questions": {
+            "get": {
+                "description": "Fetch all questions associated with a specific form ID.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "forms"
+                ],
+                "summary": "Get form questions",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Form ID",
+                        "name": "formId",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Questions fetched successfully",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Form ID required",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Replaces all questions for a given form with the provided question list. Requires permission to manage the event.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "forms"
+                ],
+                "summary": "Create or replace form questions",
+                "parameters": [
+                    {
+                        "description": "Form questions payload",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/dto.FormQuestionCreateDTO"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Questions replaced successfully",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/models.Event_form_question"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request or missing FormID",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "No permission to manage this event",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Form not found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/event/{id}": {
             "delete": {
                 "description": "Mark event as hidden",
@@ -118,7 +684,7 @@ const docTemplate = `{
                     {
                         "type": "string",
                         "description": "Event ID",
-                        "name": "id",
+                        "name": "event_id",
                         "in": "path",
                         "required": true
                     }
@@ -860,45 +1426,6 @@ const docTemplate = `{
                         }
                     }
                 }
-            },
-            "delete": {
-                "description": "เปลี่ยนสถานะโพสต์จาก active เป็น inactive (soft delete)",
-                "tags": [
-                    "posts"
-                ],
-                "summary": "Soft delete post (status: active -\u003e inactive)",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Post ID (hex)",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "204": {
-                        "description": "No Content"
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/dto.ErrorResponse"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/dto.ErrorResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/dto.ErrorResponse"
-                        }
-                    }
-                }
             }
         },
         "/posts/{post_id}": {
@@ -929,6 +1456,45 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/dto.PostResponse"
                         }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "เปลี่ยนสถานะโพสต์จาก active เป็น inactive (soft delete)",
+                "tags": [
+                    "posts"
+                ],
+                "summary": "Soft delete post (status: active -\u003e inactive)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Post ID (hex)",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
                     },
                     "400": {
                         "description": "Bad Request",
@@ -1239,6 +1805,24 @@ const docTemplate = `{
         }
     },
     "definitions": {
+        "dto.AnswerSubmitItemDTO": {
+            "type": "object",
+            "required": [
+                "question_id"
+            ],
+            "properties": {
+                "answer_value": {
+                    "type": "string"
+                },
+                "order_index": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "question_id": {
+                    "type": "string"
+                }
+            }
+        },
         "dto.CreatePostDTO": {
             "type": "object",
             "required": [
@@ -1292,36 +1876,48 @@ const docTemplate = `{
                 }
             }
         },
-        "dto.EventReport": {
+        "dto.EventCreateResult": {
             "type": "object",
             "properties": {
-                "event_id": {
+                "event": {
+                    "$ref": "#/definitions/models.Event"
+                },
+                "form_id": {
                     "type": "string"
                 },
-                "event_topic": {
-                    "type": "string"
+                "organizer_count": {
+                    "type": "integer"
                 },
                 "schedules": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/dto.EventScheduleReport"
+                        "$ref": "#/definitions/models.EventSchedule"
                     }
                 }
             }
         },
-        "dto.EventRequestDTO": {
+        "dto.EventDetail": {
             "type": "object",
             "properties": {
+                "current_participation": {
+                    "type": "integer"
+                },
                 "description": {
                     "type": "string"
+                },
+                "event_id": {
+                    "type": "string"
+                },
+                "form_id": {
+                    "type": "string"
+                },
+                "have_form": {
+                    "type": "boolean"
                 },
                 "max_participation": {
                     "type": "integer"
                 },
-                "node_id": {
-                    "type": "string"
-                },
-                "org_of_content": {
+                "orgpath": {
                     "type": "string"
                 },
                 "posted_as": {
@@ -1330,24 +1926,7 @@ const docTemplate = `{
                 "schedules": {
                     "type": "array",
                     "items": {
-                        "type": "object",
-                        "properties": {
-                            "date": {
-                                "type": "string"
-                            },
-                            "description": {
-                                "type": "string"
-                            },
-                            "location": {
-                                "type": "string"
-                            },
-                            "time_end": {
-                                "type": "string"
-                            },
-                            "time_start": {
-                                "type": "string"
-                            }
-                        }
+                        "$ref": "#/definitions/models.EventSchedule"
                     }
                 },
                 "status": {
@@ -1361,17 +1940,127 @@ const docTemplate = `{
                 }
             }
         },
-        "dto.EventScheduleReport": {
+        "dto.EventRequestDTO": {
+            "type": "object",
+            "required": [
+                "node_id",
+                "topic"
+            ],
+            "properties": {
+                "description": {
+                    "type": "string",
+                    "example": "A workshop on AI applications"
+                },
+                "have_form": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "max_participation": {
+                    "type": "integer",
+                    "example": 50
+                },
+                "node_id": {
+                    "type": "string",
+                    "example": "66ffa43e9a7c39b1d87f6401"
+                },
+                "org_of_content": {
+                    "type": "string",
+                    "example": "/fac/eng/com"
+                },
+                "posted_as": {
+                    "$ref": "#/definitions/models.PostedAs"
+                },
+                "schedules": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "date": {
+                                "type": "string",
+                                "example": "2025-10-15T00:00:00Z"
+                            },
+                            "description": {
+                                "type": "string",
+                                "example": "Morning session"
+                            },
+                            "location": {
+                                "type": "string",
+                                "example": "Innovation Building Room 301"
+                            },
+                            "time_end": {
+                                "type": "string",
+                                "example": "2025-10-15T12:00:00Z"
+                            },
+                            "time_start": {
+                                "type": "string",
+                                "example": "2025-10-15T09:00:00Z"
+                            }
+                        }
+                    }
+                },
+                "status": {
+                    "type": "string",
+                    "enum": [
+                        "active",
+                        "draft",
+                        "inactive"
+                    ],
+                    "example": "draft"
+                },
+                "topic": {
+                    "type": "string",
+                    "example": "AI Workshop"
+                },
+                "visibility": {
+                    "$ref": "#/definitions/models.Visibility"
+                }
+            }
+        },
+        "dto.FormMatrixResponseDTO": {
             "type": "object",
             "properties": {
-                "date": {
+                "form_id": {
                     "type": "string"
                 },
-                "end_time": {
-                    "type": "string"
+                "questions": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/dto.QuestionDTO"
+                    }
                 },
-                "start_time": {
-                    "type": "string"
+                "responses": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/dto.UserAnswersDTO"
+                    }
+                }
+            }
+        },
+        "dto.FormQuestionCreateDTO": {
+            "type": "object",
+            "required": [
+                "questions"
+            ],
+            "properties": {
+                "questions": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/dto.QuestionItemDTO"
+                    }
+                }
+            }
+        },
+        "dto.FormResponseSubmitDTO": {
+            "type": "object",
+            "required": [
+                "answers"
+            ],
+            "properties": {
+                "answers": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/dto.AnswerSubmitItemDTO"
+                    }
                 }
             }
         },
@@ -1615,6 +2304,64 @@ const docTemplate = `{
                 }
             }
         },
+        "dto.QuestionDTO": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "text": {
+                    "type": "string"
+                }
+            }
+        },
+        "dto.QuestionItemDTO": {
+            "type": "object",
+            "required": [
+                "question_text"
+            ],
+            "properties": {
+                "order_index": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "question_text": {
+                    "type": "string",
+                    "example": "What is your name?"
+                },
+                "required": {
+                    "type": "boolean",
+                    "example": true
+                }
+            }
+        },
+        "dto.UpdateParticipantStatusDTO": {
+            "type": "object",
+            "required": [
+                "event_id",
+                "status",
+                "user_id"
+            ],
+            "properties": {
+                "event_id": {
+                    "type": "string",
+                    "example": "66ffb4e71b64d7a993d53401"
+                },
+                "status": {
+                    "type": "string",
+                    "enum": [
+                        "accept",
+                        "stall",
+                        "reject"
+                    ],
+                    "example": "accept"
+                },
+                "user_id": {
+                    "type": "string",
+                    "example": "66ffb4e71b64d7a993d53400"
+                }
+            }
+        },
         "dto.UpdatePostFullDTO": {
             "type": "object",
             "required": [
@@ -1655,6 +2402,29 @@ const docTemplate = `{
                 },
                 "visibility": {
                     "$ref": "#/definitions/dto.Visibility"
+                }
+            }
+        },
+        "dto.UserAnswersDTO": {
+            "type": "object",
+            "properties": {
+                "answers": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "first_name": {
+                    "type": "string"
+                },
+                "last_name": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "user_id": {
+                    "type": "string"
                 }
             }
         },
@@ -1726,6 +2496,115 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "exclusive_per_org": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "models.Event": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "have_form": {
+                    "type": "boolean"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "max_participation": {
+                    "type": "integer"
+                },
+                "node_id": {
+                    "type": "string"
+                },
+                "org_of_content": {
+                    "type": "string"
+                },
+                "posted_as": {
+                    "$ref": "#/definitions/models.PostedAs"
+                },
+                "status": {
+                    "description": "active, draft, inactive",
+                    "type": "string"
+                },
+                "topic": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "visibility": {
+                    "$ref": "#/definitions/models.Visibility"
+                }
+            }
+        },
+        "models.EventSchedule": {
+            "type": "object",
+            "properties": {
+                "date": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "event_id": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "location": {
+                    "type": "string"
+                },
+                "time_end": {
+                    "type": "string"
+                },
+                "time_start": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.Event_form": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "event_id": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.Event_form_question": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "form_id": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "order_index": {
+                    "type": "integer"
+                },
+                "question_text": {
+                    "type": "string"
+                },
+                "required": {
+                    "description": "Optional / Required",
                     "type": "boolean"
                 }
             }

@@ -60,13 +60,8 @@ func DisableFormService(eventID string, ctx context.Context) error {
 	return nil
 }
 
-func CreateFormQuestion(body dto.FormQuestionCreateDTO, ctx context.Context) ([]models.Event_form_question, error) {
+func CreateFormQuestion(formID bson.ObjectID, body dto.FormQuestionCreateDTO, ctx context.Context) ([]models.Event_form_question, error) {
 	now := time.Now().UTC()
-
-	formID, err := bson.ObjectIDFromHex(body.FormID)
-	if err != nil {
-		return nil, fmt.Errorf("invalid formID: %w", err)
-	}
 
 	// Delete all previous form question
 	if err := repo.DeleteQuestionsByFormID(ctx, formID); err != nil {
@@ -93,13 +88,13 @@ func CreateFormQuestion(body dto.FormQuestionCreateDTO, ctx context.Context) ([]
 	return newQuestions, nil
 }
 
-func GetFormQuestion(ctx context.Context, formID string) ([]models.Event_form_question, error) {
-	FormID, err := bson.ObjectIDFromHex(formID)
+func GetFormQuestion(ctx context.Context, eventID string) ([]models.Event_form_question, error) {
+	form, err := repo.FindFormByEventID(ctx, eventID)
 	if err != nil {
-		return nil, fmt.Errorf("invalid formID: %w", err)
+		return nil, fmt.Errorf("failed to get form: %w", err)
 	}
 
-	questions, err := repo.FindQuestionsByFormID(ctx, FormID)
+	questions, err := repo.FindQuestionsByFormID(ctx, form.ID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get questions: %w", err)
 	}
@@ -107,12 +102,7 @@ func GetFormQuestion(ctx context.Context, formID string) ([]models.Event_form_qu
 	return questions, nil
 }
 
-func SubmitFormResponse(body dto.FormResponseSubmitDTO, ctx context.Context, userID string) ([]models.Event_form_answer, error) {
-	formID, err := bson.ObjectIDFromHex(body.FormID)
-	if err != nil {
-		return nil, fmt.Errorf("invalid formID: %w", err)
-	}
-
+func SubmitFormResponse(formID bson.ObjectID, body dto.FormResponseSubmitDTO, ctx context.Context, userID string) ([]models.Event_form_answer, error) {
 	UserID, err := bson.ObjectIDFromHex(userID)
 	if err != nil {
 		return nil, fmt.Errorf("invalid userID: %w", err)
@@ -156,7 +146,7 @@ func SubmitFormResponse(body dto.FormResponseSubmitDTO, ctx context.Context, use
 		return nil, fmt.Errorf("failed to insert answers: %w", err)
 	}
 
-	form, err := repo.FindFormByID(ctx, body.FormID)
+	form, err := repo.FindFormByID(ctx, formID.Hex())
 	if err != nil {
 		return nil, fmt.Errorf("failed to find form: %w", err)
 	}
@@ -166,8 +156,8 @@ func SubmitFormResponse(body dto.FormResponseSubmitDTO, ctx context.Context, use
 		Event_ID:    form.Event_ID,
 		User_ID:     UserID,
 		Response_ID: response.ID,
-		Status:      "Stall",
-		Role:        "Participant",
+		Status:      "stall",
+		Role:        "participant",
 		CreatedAt:   &now,
 	}
 
@@ -178,15 +168,16 @@ func SubmitFormResponse(body dto.FormResponseSubmitDTO, ctx context.Context, use
 	return answers, nil
 }
 
-func GetAllResponse(ctx context.Context, formID string) (dto.FormMatrixResponseDTO, error) {
+func GetAllResponse(ctx context.Context, eventID string) (dto.FormMatrixResponseDTO, error) {
 	var result dto.FormMatrixResponseDTO
 
-	FormID, err := bson.ObjectIDFromHex(formID)
+	form, err := repo.FindFormByEventID(ctx, eventID)
 	if err != nil {
-		return result, fmt.Errorf("invalid formID: %w", err)
+		return result, fmt.Errorf("failed to get form: %w", err)
 	}
+	result.FormID = form.ID.Hex()
 
-	questions, err := repo.FindQuestionsByFormID(ctx, FormID)
+	questions, err := repo.FindQuestionsByFormID(ctx, form.ID)
 	if err != nil {
 		return result, fmt.Errorf("failed to get questions: %w", err)
 	}
@@ -202,7 +193,7 @@ func GetAllResponse(ctx context.Context, formID string) (dto.FormMatrixResponseD
 	}
 	result.Questions = questionDTOs
 
-	aggResponseAnswer, err := repo.AggregateUserResponse(ctx, FormID)
+	aggResponseAnswer, err := repo.AggregateUserResponse(ctx, form.ID)
 	if err != nil {
 		return result, fmt.Errorf("failed to get Answer List: %w", err)
 	}
@@ -231,12 +222,24 @@ func GetAllResponse(ctx context.Context, formID string) (dto.FormMatrixResponseD
 func UpdateParticipantStatus(ctx context.Context, body dto.UpdateParticipantStatusDTO) error {
 	col := database.DB.Collection("event_participant")
 
-	_, err := col.UpdateOne(ctx,
-		bson.M{"user_id": body.UserID,
-			"event_id": body.EventID},
-		bson.M{"$set": bson.M{
-			"status": body.Status,
-		}},
+	userObjID, err := bson.ObjectIDFromHex(body.UserID)
+	if err != nil {
+		return fmt.Errorf("invalid user ID: %w", err)
+	}
+
+	eventObjID, err := bson.ObjectIDFromHex(body.EventID)
+	if err != nil {
+		return fmt.Errorf("invalid event ID: %w", err)
+	}
+
+	_, err = col.UpdateOne(ctx,
+		bson.M{
+			"user_id":  userObjID,
+			"event_id": eventObjID,
+		},
+		bson.M{
+			"$set": bson.M{"status": body.Status},
+		},
 	)
 
 	return err

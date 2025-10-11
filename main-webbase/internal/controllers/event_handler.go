@@ -20,8 +20,9 @@ import (
 // @Accept json
 // @Produce json
 // @Param event body dto.EventRequestDTO true "Event payload"
-// @Success 201 {object} dto.EventReport
+// @Success 201 {object} dto.EventCreateResult
 // @Failure 400 {object} map[string]string
+// @Failure 403 {object} dto.ErrorResponse
 // @Failure 500 {object} map[string]string
 // @Router /event [post]
 func CreateEventHandler() fiber.Handler {
@@ -40,25 +41,13 @@ func CreateEventHandler() fiber.Handler {
 				JSON(dto.ErrorResponse{Error: "forbidden: you cannot post as this role1"})
 		}
 
-		event, schedules, err := services.CreateEventWithSchedules(body, c.Context())
+		result, err := services.CreateEventWithSchedules(body, c.Context())
 		if err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 		}
 
-		reportSchedules := make([]dto.EventScheduleReport, len(schedules))
-		for i, s := range schedules {
-			reportSchedules[i] = dto.EventScheduleReport{
-				Date:      s.Date,
-				StartTime: s.Time_start,
-				EndTime:   s.Time_end,
-			}
-		}
-
-		return c.Status(fiber.StatusCreated).JSON(dto.EventReport{
-			EventID:    event.ID.Hex(),
-			EventTopic: event.Topic,
-			Schedules:  reportSchedules,
-		})
+		// Directly return the result struct as JSON
+		return c.Status(fiber.StatusCreated).JSON(result)
 	}
 }
 
@@ -94,9 +83,19 @@ func GetAllVisibleEventHandler() fiber.Handler {
 	}
 }
 
+// GetEventDetailHandler godoc
+// @Summary Get individule event detail
+// @Description Get full event detail including schedules and form ID (if any)
+// @Tags events
+// @Produce json
+// @Param event_id path string true "Event ID"
+// @Success 200 {object} dto.EventDetail
+// @Failure 400 {object} map[string]string
+// @Failure 500 {object} map[string]string
+// @Router /event/{eventId} [get]
 func GetEventDetailHandler() fiber.Handler {
 	return func(c *fiber.Ctx) error {
-		eventID := c.Params("value")
+		eventID := c.Params("event_id")
 
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
@@ -110,9 +109,20 @@ func GetEventDetailHandler() fiber.Handler {
 	}
 }
 
+// ParticipateEventWithNoFormHandler godoc
+// @Summary Participate in an event (no form required)
+// @Description Join an event directly if the event does not require a form submission
+// @Tags events
+// @Param event_id path string true "Event ID"
+// @Produce json
+// @Success 200 {object} map[string]string
+// @Failure 400 {object} map[string]string
+// @Failure 401 {object} map[string]string
+// @Failure 500 {object} map[string]string
+// @Router /event/participate/{eventId} [post]
 func ParticipateEventWithNoFormHandler() fiber.Handler {
 	return func(c *fiber.Ctx) error {
-		eventID := c.Params("value")
+		eventID := c.Params("event_id")
 
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
@@ -138,7 +148,7 @@ func ParticipateEventWithNoFormHandler() fiber.Handler {
 // @Summary Soft delete event
 // @Description Mark event as hidden
 // @Tags events
-// @Param id path string true "Event ID"
+// @Param event_id path string true "Event ID"
 // @Success 200 {object} map[string]string
 // @Failure 400 {object} map[string]string
 // @Failure 500 {object} map[string]string
@@ -146,7 +156,7 @@ func ParticipateEventWithNoFormHandler() fiber.Handler {
 func DeleteEventHandler(c *fiber.Ctx) error {
 	collection_event := database.DB.Collection("event")
 
-	idHex := c.Params("id")
+	idHex := c.Params("event_id")
 	event_id, err := bson.ObjectIDFromHex(idHex)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid ID"})
@@ -156,7 +166,7 @@ func DeleteEventHandler(c *fiber.Ctx) error {
 	defer cancel()
 
 	_, err = collection_event.UpdateOne(ctx, bson.M{"_id": event_id},
-		bson.M{"$set": bson.M{"status": "hidden", "updated_at": time.Now()}})
+		bson.M{"$set": bson.M{"status": "inactive", "updated_at": time.Now()}})
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to delete event"})
 	}

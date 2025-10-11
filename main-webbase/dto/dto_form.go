@@ -7,26 +7,24 @@ import (
 
 // Send all form structure question
 type FormQuestionCreateDTO struct {
-	FormID    string            `json:"form_id" validate:"required"`
 	Questions []QuestionItemDTO `json:"questions" validate:"required,dive"`
 }
 
 type QuestionItemDTO struct {
-	QuestionText string `json:"question_text" validate:"required"`
-	Required     bool   `json:"required"`
-	OrderIndex   int    `json:"order_index"`
+	QuestionText string `json:"question_text" validate:"required" example:"What is your name?"`
+	Required     bool   `json:"required" example:"true"`
+	OrderIndex   int    `json:"order_index" example:"1"`
 }
 
 // User submit response
 type FormResponseSubmitDTO struct {
-	FormID  string                `json:"form_id" validate:"required"`
 	Answers []AnswerSubmitItemDTO `json:"answers" validate:"required,dive"`
 }
 
 type AnswerSubmitItemDTO struct {
 	QuestionID  string `json:"question_id" validate:"required"`
 	AnswerValue string `json:"answer_value"`
-	OrderIndex  int    `json:"order_index"`
+	OrderIndex  int    `json:"order_index" example:"1"`
 }
 
 // To Get All User Answer with Question
@@ -58,7 +56,7 @@ type AggregateResponse struct {
 
 // Update Participant Status
 type UpdateParticipantStatusDTO struct {
-	UserID  string `json:"user_id"`
-	EventID string `json:"event_id"`
-	Status  string `json:"status"`
+	UserID  string `json:"user_id" validate:"required" example:"66ffb4e71b64d7a993d53400"`
+	EventID string `json:"event_id" validate:"required" example:"66ffb4e71b64d7a993d53401"`
+	Status string `json:"status" validate:"required" example:"accept" enums:"accept,stall,reject"`
 }

@@ -117,7 +117,7 @@ func FindEventForm(ctx context.Context, EventID bson.ObjectID) (*models.Event_fo
 }
 
 func GetTotalParticipant(ctx context.Context, eventID bson.ObjectID) (int, error) {
-	count, err := database.DB.Collection("event_participant").CountDocuments(ctx, bson.M{"event_id": eventID, "status": "Accept"})
+	count, err := database.DB.Collection("event_participant").CountDocuments(ctx, bson.M{"event_id": eventID, "status": "accept", "role": "participant"})
 	if err != nil {
 		return 0, err
 	}

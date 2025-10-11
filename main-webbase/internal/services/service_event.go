@@ -13,12 +13,12 @@ import (
 )
 
 // Use in CreateEventHandler
-func CreateEventWithSchedules(body dto.EventRequestDTO, ctx context.Context) (models.Event, []models.EventSchedule, error) {
+func CreateEventWithSchedules(body dto.EventRequestDTO, ctx context.Context) (dto.EventCreateResult, error) {
 	now := time.Now().UTC()
 
 	nodeID, err := bson.ObjectIDFromHex(body.NodeID)
 	if err != nil {
-		return models.Event{}, nil, fmt.Errorf("invalid NodeID: %w", err)
+		return dto.EventCreateResult{}, fmt.Errorf("invalid NodeID: %w", err)
 	}
 
 	event := models.Event{
@@ -38,7 +38,7 @@ func CreateEventWithSchedules(body dto.EventRequestDTO, ctx context.Context) (mo
 
 	// Insert event
 	if err := repo.InsertEvent(ctx, event); err != nil {
-		return models.Event{}, nil, err
+		return dto.EventCreateResult{}, fmt.Errorf("failed to insert event: %w", err)
 	}
 
 	// Prepare schedules
@@ -48,32 +48,62 @@ func CreateEventWithSchedules(body dto.EventRequestDTO, ctx context.Context) (mo
 			ID:          bson.NewObjectID(),
 			EventID:     event.ID,
 			Date:        s.Date,
-			Time_start:  s.Time_start,
-			Time_end:    s.Time_end,
+			Time_start:  s.TimeStart,
+			Time_end:    s.TimeEnd,
 			Location:    &s.Location,
 			Description: &s.Description,
 		})
 	}
 
-	// Insert schedules
-	if err := repo.InsertSchedules(ctx, schedules); err != nil {
-		return event, nil, err
+	if len(schedules) > 0 {
+		if err := repo.InsertSchedules(ctx, schedules); err != nil {
+			return dto.EventCreateResult{}, fmt.Errorf("failed to insert schedules: %w", err)
+		}
 	}
 
+	var formID string
 	if body.Have_form {
-		newForm := models.Event_form{
+		form := models.Event_form{
 			ID:        bson.NewObjectID(),
 			Event_ID:  event.ID,
 			CreatedAt: &now,
 			UpdatedAt: &now,
 		}
 
-		if err := repo.InitializeForm(ctx, newForm); err != nil {
-			return event, schedules, err
+		if err := repo.InitializeForm(ctx, form); err != nil {
+			return dto.EventCreateResult{}, fmt.Errorf("failed to initialize form: %w", err)
+		}
+		formID = form.ID.Hex()
+	}
+
+	members, err := repo.FindMembershipsByOrgPath(ctx, body.OrgOfContent)
+	if err != nil {
+		return dto.EventCreateResult{}, fmt.Errorf("failed to find memberships: %w", err)
+	}
+
+	var participants []models.Event_participant
+	for _, member := range members {
+		participants = append(participants, models.Event_participant{
+			ID:          bson.NewObjectID(),
+			Event_ID:    event.ID,
+			User_ID:     member.UserID,
+			Status:      "accept",
+			Role:        "organizer", 
+			CreatedAt:   &now,
+		})
+	}
+	if len(participants) > 0 {
+		if err := repo.AddListParticipant(ctx, participants); err != nil {
+			return dto.EventCreateResult{}, fmt.Errorf("failed to add initial participants: %w", err)
 		}
 	}
 
-	return event, schedules, nil
+	return dto.EventCreateResult{
+		Event:        event,
+		Schedules:    schedules,
+		FormID:       formID,
+		OrganizerCnt: len(participants),
+	}, nil
 }
 
 // Use in GetAllVisibleEventHandler
@@ -119,19 +149,17 @@ func GetVisibleEvents(viewerID bson.ObjectID, ctx context.Context, orgSets []str
 }
 
 func CheckVisibleEvent(event *models.Event, userOrgs []string) bool {
-	if event.Status == "Inactive" {
+	if event.Status == "inactive" {
 		return false
 	}
-	if event.Status == "Draft" {
+	if event.Status == "draft" {
 		subtreeSet := map[string]struct{}{}
 		for _, s := range userOrgs {
 			subtreeSet[s] = struct{}{}
 		}
 
-		for _, a := range event.Visibility.Audience {
-			if _, ok := subtreeSet[a.OrgPath]; ok {
-				return true
-			}
+		if _, ok := subtreeSet[event.OrgOfContent]; ok {
+			return true
 		}
 		return false
 	}
@@ -171,44 +199,31 @@ func GetEventDetail(eventID string, ctx context.Context) (dto.EventDetail, error
 
 	event, err := repo.GetEventByID(ctx, EventID)
 	if err != nil {
-		return dto.EventDetail{}, err
+		return dto.EventDetail{}, fmt.Errorf("failed to get event: %w", err)
 	}
 
 	schedules, err := repo.GetEventScheduleByID(ctx, EventID)
 	if err != nil {
-		return dto.EventDetail{}, err
+		return dto.EventDetail{}, fmt.Errorf("failed to get schedules: %w", err)
 	}
 
 	current_participant, err := repo.GetTotalParticipant(ctx, EventID)
 	if err != nil {
-		return dto.EventDetail{}, err
+		return dto.EventDetail{}, fmt.Errorf("failed to get participants: %w", err)
 	}
 
+	var formID string
 	if event.Have_form {
 		form, err := repo.FindEventForm(ctx, EventID)
 		if err != nil {
-			return dto.EventDetail{}, err
+			return dto.EventDetail{}, fmt.Errorf("failed to find event form: %w", err)
 		}
-
-		eventDetail := dto.EventDetail{
-			EventID:              event.ID.Hex(),
-			FormID:               form.ID.Hex(),
-			OrgPath:              event.OrgOfContent,
-			Topic:                event.Topic,
-			Description:          event.Description,
-			MaxParticipation:     event.MaxParticipation,
-			CurrentParticipation: current_participant,
-			PostedAs:             event.PostedAs,
-			Visibility:           event.Visibility,
-			Status:               event.Status,
-			Have_form:            event.Have_form,
-			Schedules:            schedules,
-		}
-		return eventDetail, nil
+		formID = form.ID.Hex()
 	}
 
 	eventDetail := dto.EventDetail{
 		EventID:              event.ID.Hex(),
+		FormID:               formID,
 		OrgPath:              event.OrgOfContent,
 		Topic:                event.Topic,
 		Description:          event.Description,

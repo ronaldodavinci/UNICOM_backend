@@ -123,3 +123,16 @@ func (r *MembershipRepository) Delete(ctx context.Context, id any) error {
 	_, err := r.col.DeleteOne(ctx, bson.M{"_id": id})
 	return err
 }
+
+func FindMembershipsByOrgPath(ctx context.Context, orgPath string) ([]models.Membership, error) {
+	var memberships []models.Membership
+	cursor, err := database.DB.Collection("memberships").Find(ctx, bson.M{"org_path": orgPath})
+	if err != nil {
+		return nil, err
+	}
+	if err := cursor.All(ctx, &memberships); err != nil {
+		return nil, err
+	}
+
+	return memberships, nil
+}
