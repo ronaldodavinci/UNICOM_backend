@@ -13,8 +13,9 @@ type EventRequestDTO struct {
 	MaxParticipation int                `json:"max_participation"`
 	PostedAs         *models.PostedAs   `json:"posted_as,omitempty"`
 	Visibility       *models.Visibility `json:"visibility,omitempty"`
-	OrgOfContent     string             `bson:"org_of_content,omitempty" json:"org_of_content,omitempty"`
-	Status           string             `bson:"status,omitempty" json:"status,omitempty"`
+	OrgOfContent     string             `json:"org_of_content,omitempty"`
+	Status           string             `json:"status,omitempty"`
+	Have_form        bool               `json:"have_form,omitempty"`
 
 	Schedules []struct {
 		Date        time.Time `json:"date"`
@@ -36,4 +37,21 @@ type EventReport struct {
 	EventID    string                `json:"event_id"`
 	EventTopic string                `json:"event_topic"`
 	Schedules  []EventScheduleReport `json:"schedules"`
+}
+
+// Event Detail
+type EventDetail struct {
+	EventID              string             `json:"event_id"`
+	FormID               string             `json:"form_id,omitempty"`
+	OrgPath              string             `json:"orgpath"`
+	Topic                string             `json:"topic"`
+	Description          string             `json:"description"`
+	MaxParticipation     int                `json:"max_participation"`
+	CurrentParticipation int                `json:"current_participation"`
+	PostedAs             *models.PostedAs   `json:"posted_as,omitempty"`
+	Visibility           *models.Visibility `json:"visibility,omitempty"`
+	Status               string             `json:"status,omitempty"`
+	Have_form            bool               `json:"have_form,omitempty"`
+
+	Schedules []models.EventSchedule `json:"schedules"`
 }

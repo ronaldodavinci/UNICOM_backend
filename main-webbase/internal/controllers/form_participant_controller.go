@@ -9,26 +9,18 @@ import (
 	"github.com/gofiber/fiber/v2"
 	// "go.mongodb.org/mongo-driver/v2/bson"
 
-	// "main-webbase/database"
 	"main-webbase/dto"
 	// "main-webbase/internal/models"
-	"main-webbase/internal/services"
 	"main-webbase/internal/middleware"
 	repo "main-webbase/internal/repository"
+	"main-webbase/internal/services"
 )
 
 func InitializeFormHandler() fiber.Handler {
 	return func(c *fiber.Ctx) error {
-		var body dto.FormCreateDTO
-		if err := c.BodyParser(&body); err != nil {
-			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
-		}
+		eventID := c.Params("value")
 
-		if body.EventID == "" {
-			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "NodeID is required"})
-		}
-
-		form, err := services.InitializeFormService(body, c.Context())
+		form, err := services.InitializeFormService(eventID, c.Context())
 		if err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 		}
@@ -40,11 +32,20 @@ func InitializeFormHandler() fiber.Handler {
 	}
 }
 
-// func DisableFormHandler() fiber.Handler {
-// 	return func(c *fiber.Ctx) error {
+func DisableFormHandler() fiber.Handler {
+	return func(c *fiber.Ctx) error {
+		eventID := c.Params("value")
 
-// 	}
-// }
+		err := services.DisableFormService(eventID, c.Context())
+		if err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		}
+
+		return c.JSON(fiber.Map{
+			"message": "Form Disable successfully",
+		})
+	}
+}
 
 func CreateFormQuestionHandler() fiber.Handler {
 	return func(c *fiber.Ctx) error {
@@ -55,6 +56,24 @@ func CreateFormQuestionHandler() fiber.Handler {
 
 		if body.FormID == "" {
 			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "FormID is required"})
+		}
+
+		uid, err := middleware.UIDFromLocals(c)
+		if err != nil {
+			return fiber.NewError(fiber.StatusUnauthorized, "unauthorized")
+		}
+		userPolicy, err := services.MyUserPolicy(c.Context(), uid)
+		if err != nil {
+			return fiber.NewError(fiber.StatusNotFound, "target policy not found")
+		}
+
+		form, err := repo.FindFormByID(c.Context(), body.FormID)
+		if err != nil {
+			return fiber.NewError(fiber.StatusNotFound, "form not found")
+		}
+
+		if err := services.CanManageEvent(c.Context(), userPolicy, form.Event_ID.Hex()); err != nil {
+			return fiber.NewError(fiber.StatusForbidden, "no permission to manage this event")
 		}
 
 		Questions_list, err := services.CreateFormQuestion(body, c.Context())
@@ -85,7 +104,7 @@ func GetFormQuestionHandler() fiber.Handler {
 		}
 
 		return c.JSON(fiber.Map{
-			"message": "questions fetched successfully",
+			"message":   "questions fetched successfully",
 			"Questions": questions,
 		})
 	}
@@ -147,45 +166,61 @@ func GetAllUserAnswerandQuestionHandler() fiber.Handler {
 
 		return c.JSON(fiber.Map{
 			"message": "form answers fetched successfully",
-			"data": formmatrix,
+			"data":    formmatrix,
 		})
 	}
 }
 
-// func UpdateParticipantStatusHandler() fiber.Handler {
-// 	return func(c *fiber.Ctx) error {
-// 		var body dto.UpdateParticipantStatusDTO
-// 		if err := c.BodyParser(&body); err != nil {
-//             return fiber.NewError(fiber.StatusBadRequest, "invalid body")
-//         }
+func UpdateParticipantStatusHandler() fiber.Handler {
+	return func(c *fiber.Ctx) error {
+		var body dto.UpdateParticipantStatusDTO
+		if err := c.BodyParser(&body); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, "invalid body")
+		}
 
-// 		// uid, err := middleware.UIDFromLocals(c)
-//         // if err != nil {
-//         //     return fiber.NewError(fiber.StatusUnauthorized, "unauthorized")
-//         // }
-// 		// userPolicy, err := services.MyUserPolicy(c.Context(), uid)
-//         // if err != nil {
-//         //     return fiber.NewError(fiber.StatusNotFound, "target policy not found")
-//         // }
+		if body.UserID == "" || body.EventID == "" || body.Status == "" {
+			return fiber.NewError(fiber.StatusBadRequest, "user_id, event_id, and status are required")
+		}
 
-// 		// if err := services.CanManageEvent(c.Context(), userPolicy, body.EventID); err != nil {
-// 		// 	return fiber.NewError(fiber.StatusForbidden, "no permission to manage this event")
-// 		// }
+		// uid, err := middleware.UIDFromLocals(c)
+		// if err != nil {
+		//     return fiber.NewError(fiber.StatusUnauthorized, "unauthorized")
+		// }
+		// userPolicy, err := services.MyUserPolicy(c.Context(), uid)
+		// if err != nil {
+		//     return fiber.NewError(fiber.StatusNotFound, "target policy not found")
+		// }
 
-// 		if err := services.UpdateParticipantStatus(c.Context(), body); err != nil {
-// 			return fiber.NewError(fiber.StatusInternalServerError, "failed to update user status")
-// 		}
-// 		return c.Status(fiber.StatusCreated).JSON(fiber.Map{
-// 			"message": "Update User Status Success",
-// 			"data": body.Status,
-// 		})
-// 	}
-// }
+		// if err := services.CanManageEvent(c.Context(), userPolicy, body.EventID); err != nil {
+		// 	return fiber.NewError(fiber.StatusForbidden, "no permission to manage this event")
+		// }
 
+		if err := services.UpdateParticipantStatus(c.Context(), body); err != nil {
+			return fiber.NewError(fiber.StatusInternalServerError, "failed to update user status")
+		}
+		return c.Status(fiber.StatusCreated).JSON(fiber.Map{
+			"message": "Update User Status Success",
+			"data":    body.Status,
+		})
+	}
+}
 
+func GetMyParticipantStatusHandler() fiber.Handler {
+	return func(c *fiber.Ctx) error {
+		eventID := c.Params("value")
 
-// func GetMyParticipantStatusHandler() fiber.Handler {
-// 	return func(c *fiber.Ctx) error {
+		userID, err := middleware.UIDFromLocals(c)
+		if err != nil {
+			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": err.Error()})
+		}
 
-// 	}
-// }
+		userStatus, err := services.GetParticipantStatus(c.Context(), userID, eventID)
+		if err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		}
+
+		return c.Status(fiber.StatusOK).JSON(fiber.Map{
+			"status": userStatus,
+		})
+	}
+}

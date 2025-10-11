@@ -31,7 +31,7 @@ func CreateEventWithSchedules(body dto.EventRequestDTO, ctx context.Context) (mo
 		Visibility:       body.Visibility,
 		OrgOfContent:     body.OrgOfContent,
 		Status:           body.Status,
-		Have_form:        false,
+		Have_form:        body.Have_form,
 		CreatedAt:        &now,
 		UpdatedAt:        &now,
 	}
@@ -59,6 +59,20 @@ func CreateEventWithSchedules(body dto.EventRequestDTO, ctx context.Context) (mo
 	if err := repo.InsertSchedules(ctx, schedules); err != nil {
 		return event, nil, err
 	}
+
+	if body.Have_form {
+		newForm := models.Event_form{
+			ID:        bson.NewObjectID(),
+			Event_ID:  event.ID,
+			CreatedAt: &now,
+			UpdatedAt: &now,
+		}
+
+		if err := repo.InitializeForm(ctx, newForm); err != nil {
+			return event, schedules, err
+		}
+	}
+
 	return event, schedules, nil
 }
 
@@ -105,7 +119,20 @@ func GetVisibleEvents(viewerID bson.ObjectID, ctx context.Context, orgSets []str
 }
 
 func CheckVisibleEvent(event *models.Event, userOrgs []string) bool {
-	if event.Status == "hidden" {
+	if event.Status == "Inactive" {
+		return false
+	}
+	if event.Status == "Draft" {
+		subtreeSet := map[string]struct{}{}
+		for _, s := range userOrgs {
+			subtreeSet[s] = struct{}{}
+		}
+
+		for _, a := range event.Visibility.Audience {
+			if _, ok := subtreeSet[a.OrgPath]; ok {
+				return true
+			}
+		}
 		return false
 	}
 
@@ -134,4 +161,110 @@ func CheckVisibleEvent(event *models.Event, userOrgs []string) bool {
 		return false
 	}
 	return false
+}
+
+func GetEventDetail(eventID string, ctx context.Context) (dto.EventDetail, error) {
+	EventID, err := bson.ObjectIDFromHex(eventID)
+	if err != nil {
+		return dto.EventDetail{}, fmt.Errorf("invalid EventID: %w", err)
+	}
+
+	event, err := repo.GetEventByID(ctx, EventID)
+	if err != nil {
+		return dto.EventDetail{}, err
+	}
+
+	schedules, err := repo.GetEventScheduleByID(ctx, EventID)
+	if err != nil {
+		return dto.EventDetail{}, err
+	}
+
+	current_participant, err := repo.GetTotalParticipant(ctx, EventID)
+	if err != nil {
+		return dto.EventDetail{}, err
+	}
+
+	if event.Have_form {
+		form, err := repo.FindEventForm(ctx, EventID)
+		if err != nil {
+			return dto.EventDetail{}, err
+		}
+
+		eventDetail := dto.EventDetail{
+			EventID:              event.ID.Hex(),
+			FormID:               form.ID.Hex(),
+			OrgPath:              event.OrgOfContent,
+			Topic:                event.Topic,
+			Description:          event.Description,
+			MaxParticipation:     event.MaxParticipation,
+			CurrentParticipation: current_participant,
+			PostedAs:             event.PostedAs,
+			Visibility:           event.Visibility,
+			Status:               event.Status,
+			Have_form:            event.Have_form,
+			Schedules:            schedules,
+		}
+		return eventDetail, nil
+	}
+
+	eventDetail := dto.EventDetail{
+		EventID:              event.ID.Hex(),
+		OrgPath:              event.OrgOfContent,
+		Topic:                event.Topic,
+		Description:          event.Description,
+		MaxParticipation:     event.MaxParticipation,
+		CurrentParticipation: current_participant,
+		PostedAs:             event.PostedAs,
+		Visibility:           event.Visibility,
+		Status:               event.Status,
+		Have_form:            event.Have_form,
+		Schedules:            schedules,
+	}
+
+	return eventDetail, nil
+}
+
+func ParticipateEvent(eventID string, uid string, ctx context.Context) error {
+	now := time.Now().UTC()
+
+	eventObjID, err := bson.ObjectIDFromHex(eventID)
+	if err != nil {
+		return fmt.Errorf("invalid EventID: %w", err)
+	}
+
+	userObjID, err := bson.ObjectIDFromHex(uid)
+	if err != nil {
+		return fmt.Errorf("invalid UserID: %w", err)
+	}
+
+	event, err := repo.GetEventByID(ctx, eventObjID)
+	if err != nil {
+		return fmt.Errorf("failed to find event: %w", err)
+	}
+	if event.Have_form {
+		return fmt.Errorf("this event requires form submission to join")
+	}
+
+	exists, err := repo.CheckParticipantExists(ctx, eventObjID, userObjID)
+	if err != nil {
+		return fmt.Errorf("failed to check participant: %w", err)
+	}
+	if exists {
+		return fmt.Errorf("user already joined this event")
+	}
+
+	participant := models.Event_participant{
+		ID:        bson.NewObjectID(),
+		Event_ID:  eventObjID,
+		User_ID:   userObjID,
+		Status:    "accept",
+		Role:      "participant",
+		CreatedAt: &now,
+	}
+
+	if err := repo.AddParticipant(ctx, participant); err != nil {
+		return fmt.Errorf("failed to add participant: %w", err)
+	}
+
+	return nil
 }

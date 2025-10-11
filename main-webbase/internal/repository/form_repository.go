@@ -9,8 +9,8 @@ import (
 	"main-webbase/internal/models"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
-	"go.mongodb.org/mongo-driver/v2/mongo/options"
 	"go.mongodb.org/mongo-driver/v2/mongo"
+	"go.mongodb.org/mongo-driver/v2/mongo/options"
 )
 
 func InitializeForm(ctx context.Context, form models.Event_form) error {
@@ -38,12 +38,18 @@ func AddParticipant(ctx context.Context, participant models.Event_participant) e
 	return err
 }
 
-func FindFormByID(ctx context.Context, formID bson.ObjectID) (*models.Event_form, error) {
+func FindFormByID(ctx context.Context, formID string) (*models.Event_form, error) {
+	objectID, err := bson.ObjectIDFromHex(formID)
+	if err != nil {
+		return nil, fmt.Errorf("invalid form ID: %w", err)
+	}
+
 	var form models.Event_form
-	err := database.DB.Collection("event_form").FindOne(ctx, bson.M{"_id": formID}).Decode(&form)
+	err = database.DB.Collection("event_form").FindOne(ctx, bson.M{"_id": objectID}).Decode(&form)
 	if err != nil {
 		return nil, err
 	}
+
 	return &form, nil
 }
 
@@ -99,7 +105,7 @@ func HasUserSubmittedResponse(ctx context.Context, formID, userID string) (bool,
 
 func AggregateUserResponse(ctx context.Context, formID bson.ObjectID) ([]dto.AggregateResponse, error) {
 	collection := database.DB.Collection("event_form_response")
-	
+
 	// MongoDB aggregation pipeline
 	pipeline := mongo.Pipeline{
 		// 1. Match responses for this form
@@ -119,7 +125,7 @@ func AggregateUserResponse(ctx context.Context, formID bson.ObjectID) ([]dto.Agg
 			Value: bson.M{
 				"answers": bson.M{
 					"$sortArray": bson.M{
-						"input": "$answers",
+						"input":  "$answers",
 						"sortBy": bson.M{"order_index": 1},
 					},
 				},
@@ -169,4 +175,13 @@ func AggregateUserResponse(ctx context.Context, formID bson.ObjectID) ([]dto.Agg
 	}
 
 	return results, nil
+}
+
+func CheckParticipantExists(ctx context.Context, eventID bson.ObjectID, userID bson.ObjectID) (bool, error) {
+	count, err := database.DB.Collection("event_participant").CountDocuments(ctx, bson.M{"event_id": eventID, "user_id": userID})
+	if err != nil {
+		return false, err
+	}
+
+	return count > 0, nil
 }

@@ -1,12 +1,13 @@
 package repository
 
 import (
-	"time"
 	"context"
+	"time"
 
-	"go.mongodb.org/mongo-driver/v2/bson"
 	"main-webbase/database"
 	"main-webbase/internal/models"
+
+	"go.mongodb.org/mongo-driver/v2/bson"
 )
 
 // Use in CreateEventWithSchedules
@@ -25,7 +26,7 @@ func InsertSchedules(ctx context.Context, schedules []models.EventSchedule) erro
 
 // Use in GetVisibleEvents
 func GetEvent(ctx context.Context) ([]models.Event, error) {
-	cursor, err := database.DB.Collection("events").Find(ctx, bson.M{"status": bson.M{"$ne": "hidden"}})
+	cursor, err := database.DB.Collection("events").Find(ctx, bson.M{"status": bson.M{"$ne": "inactive"}})
 	if err != nil {
 		return nil, err
 	}
@@ -85,4 +86,41 @@ func UpdateEvent(ctx context.Context, eventID bson.ObjectID, updates bson.M) err
 
 	_, err := collection.UpdateOne(ctx, bson.M{"_id": eventID}, update)
 	return err
+}
+
+func GetEventScheduleByID(ctx context.Context, EventID bson.ObjectID) ([]models.EventSchedule, error) {
+	collection := database.DB.Collection("event_schedules")
+
+	cursor, err := collection.Find(ctx, bson.M{"event_id": EventID})
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+
+	var schedules []models.EventSchedule
+	if err := cursor.All(ctx, &schedules); err != nil {
+		return nil, err
+	}
+	return schedules, nil
+}
+
+func FindEventForm(ctx context.Context, EventID bson.ObjectID) (*models.Event_form, error) {
+	collection := database.DB.Collection("event_form")
+	var event_form models.Event_form
+
+	err := collection.FindOne(ctx, bson.M{"event_id": EventID}).Decode(&event_form)
+	if err != nil {
+		return nil, err
+	}
+
+	return &event_form, nil
+}
+
+func GetTotalParticipant(ctx context.Context, eventID bson.ObjectID) (int, error) {
+	count, err := database.DB.Collection("event_participant").CountDocuments(ctx, bson.M{"event_id": eventID, "status": "Accept"})
+	if err != nil {
+		return 0, err
+	}
+
+	return int(count), nil
 }

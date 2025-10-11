@@ -7,37 +7,57 @@ import (
 
 	"go.mongodb.org/mongo-driver/v2/bson"
 
+	"main-webbase/database"
 	"main-webbase/dto"
 	"main-webbase/internal/models"
 	repo "main-webbase/internal/repository"
 )
 
-func InitializeFormService(body dto.FormCreateDTO, ctx context.Context) (models.Event_form, error) {
+func InitializeFormService(eventID string, ctx context.Context) (models.Event_form, error) {
 	now := time.Now().UTC()
 
-	eventID, err := bson.ObjectIDFromHex(body.EventID)
+	EventID, err := bson.ObjectIDFromHex(eventID)
 	if err != nil {
 		return models.Event_form{}, fmt.Errorf("invalid EventID: %w", err)
 	}
 
+	var exist models.Event_form
+	err = database.DB.Collection("event_form").FindOne(ctx, bson.M{"event_id": EventID}).Decode(&exist)
+	if err == nil {
+		if err := repo.UpdateEvent(ctx, EventID, bson.M{"have_form": true}); err != nil {
+			return exist, err
+		}
+	}
+
 	form := models.Event_form{
-		ID:			bson.NewObjectID(),
-		Event_ID:	eventID,
-		OrgPath: 	body.OrgPath,
-		Status:		"Draft",
-		CreatedAt:	&now,
-		UpdatedAt: 	&now,
+		ID:        bson.NewObjectID(),
+		Event_ID:  EventID,
+		CreatedAt: &now,
+		UpdatedAt: &now,
 	}
 
 	if err := repo.InitializeForm(ctx, form); err != nil {
 		return models.Event_form{}, err
 	}
 
-	if err := repo.UpdateEvent(ctx, eventID, bson.M{"have_form": true}); err != nil {
+	if err := repo.UpdateEvent(ctx, EventID, bson.M{"have_form": true}); err != nil {
 		return models.Event_form{}, err
 	}
 
 	return form, nil
+}
+
+func DisableFormService(eventID string, ctx context.Context) error {
+	EventID, err := bson.ObjectIDFromHex(eventID)
+	if err != nil {
+		return fmt.Errorf("invalid EventID: %w", err)
+	}
+
+	if err := repo.UpdateEvent(ctx, EventID, bson.M{"have_form": false}); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func CreateFormQuestion(body dto.FormQuestionCreateDTO, ctx context.Context) ([]models.Event_form_question, error) {
@@ -57,12 +77,12 @@ func CreateFormQuestion(body dto.FormQuestionCreateDTO, ctx context.Context) ([]
 	var newQuestions []models.Event_form_question
 	for _, q := range body.Questions {
 		newQuestions = append(newQuestions, models.Event_form_question{
-			ID:				bson.NewObjectID(),
-			Form_ID:		formID,
-			Question_text:	q.QuestionText,
-			Required:		q.Required,
-			OrderIndex:		q.OrderIndex,
-			CreatedAt:		&now,
+			ID:            bson.NewObjectID(),
+			Form_ID:       formID,
+			Question_text: q.QuestionText,
+			Required:      q.Required,
+			OrderIndex:    q.OrderIndex,
+			CreatedAt:     &now,
 		})
 	}
 
@@ -100,10 +120,10 @@ func SubmitFormResponse(body dto.FormResponseSubmitDTO, ctx context.Context, use
 
 	now := time.Now().UTC()
 	response := models.Event_response{
-		ID:			bson.NewObjectID(),
-		Form_ID: 	formID,
-		User_ID: 	UserID,
-		SubmitAt: 	&now,
+		ID:       bson.NewObjectID(),
+		Form_ID:  formID,
+		User_ID:  UserID,
+		SubmitAt: &now,
 	}
 
 	if err := repo.SubmitResponse(ctx, response); err != nil {
@@ -136,18 +156,18 @@ func SubmitFormResponse(body dto.FormResponseSubmitDTO, ctx context.Context, use
 		return nil, fmt.Errorf("failed to insert answers: %w", err)
 	}
 
-	form, err := repo.FindFormByID(ctx, formID)
+	form, err := repo.FindFormByID(ctx, body.FormID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to find form: %w", err)
 	}
 
 	participant := models.Event_participant{
 		ID:          bson.NewObjectID(),
-		Event_ID:    form.Event_ID, 
+		Event_ID:    form.Event_ID,
 		User_ID:     UserID,
 		Response_ID: response.ID,
-		Status:      "Stall",       
-		Role:        "Participant", 
+		Status:      "Stall",
+		Role:        "Participant",
 		CreatedAt:   &now,
 	}
 
@@ -158,9 +178,9 @@ func SubmitFormResponse(body dto.FormResponseSubmitDTO, ctx context.Context, use
 	return answers, nil
 }
 
-func GetAllResponse(ctx context.Context, formID string) (dto.FormMatrixResponseDTO, error){
+func GetAllResponse(ctx context.Context, formID string) (dto.FormMatrixResponseDTO, error) {
 	var result dto.FormMatrixResponseDTO
-	
+
 	FormID, err := bson.ObjectIDFromHex(formID)
 	if err != nil {
 		return result, fmt.Errorf("invalid formID: %w", err)
@@ -175,8 +195,8 @@ func GetAllResponse(ctx context.Context, formID string) (dto.FormMatrixResponseD
 	questionIndexMap := make(map[string]int)
 	for i, q := range questions {
 		questionDTOs[i] = dto.QuestionDTO{
-			ID:		q.ID.Hex(),
-			Text:	q.Question_text,
+			ID:   q.ID.Hex(),
+			Text: q.Question_text,
 		}
 		questionIndexMap[q.ID.Hex()] = i
 	}
@@ -189,11 +209,11 @@ func GetAllResponse(ctx context.Context, formID string) (dto.FormMatrixResponseD
 
 	for _, r := range aggResponseAnswer {
 		user := dto.UserAnswersDTO{
-			UserID:		r.User.ID.Hex(),
-			FirstName:	r.User.FirstName,
-			LastName:	r.User.LastName,
-			Status:		r.Participant.Status,
-			Answers:	make([]string, len(questions)),
+			UserID:    r.User.ID.Hex(),
+			FirstName: r.User.FirstName,
+			LastName:  r.User.LastName,
+			Status:    r.Participant.Status,
+			Answers:   make([]string, len(questions)),
 		}
 
 		for _, ans := range r.Answers {
@@ -206,4 +226,44 @@ func GetAllResponse(ctx context.Context, formID string) (dto.FormMatrixResponseD
 	}
 
 	return result, nil
+}
+
+func UpdateParticipantStatus(ctx context.Context, body dto.UpdateParticipantStatusDTO) error {
+	col := database.DB.Collection("event_participant")
+
+	_, err := col.UpdateOne(ctx,
+		bson.M{"user_id": body.UserID,
+			"event_id": body.EventID},
+		bson.M{"$set": bson.M{
+			"status": body.Status,
+		}},
+	)
+
+	return err
+}
+
+func GetParticipantStatus(ctx context.Context, userID string, eventID string) (*models.Event_participant, error) {
+	col := database.DB.Collection("event_participant")
+
+	EventID, err := bson.ObjectIDFromHex(eventID)
+	if err != nil {
+		return nil, err
+	}
+
+	UserID, err := bson.ObjectIDFromHex(userID)
+	if err != nil {
+		return nil, err
+	}
+	filter := bson.M{"user_id": UserID, "event_id": EventID}
+
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	var userStatus models.Event_participant
+	err = col.FindOne(ctx, filter).Decode(&userStatus)
+	if err != nil {
+		return nil, err
+	}
+
+	return &userStatus, nil
 }

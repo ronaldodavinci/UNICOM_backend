@@ -12,22 +12,22 @@ type Event struct {
 	Description      string        `bson:"description" json:"description"`
 	MaxParticipation int           `bson:"max_participation" json:"max_participation"`
 
-	PostedAs     	 *PostedAs   	   `json:"posted_as,omitempty"`
-	Visibility   	 *Visibility   	   `json:"visibility,omitempty"`
-	OrgOfContent 	 string     	   `bson:"org_of_content,omitempty" json:"org_of_content,omitempty"`
-	Status       	 string    		   `bson:"status,omitempty" json:"status,omitempty"`
-	Have_form		 bool			`bson:"have_form" json:"have_form"`
+	PostedAs     *PostedAs   `json:"posted_as,omitempty"`
+	Visibility   *Visibility `json:"visibility,omitempty"`
+	OrgOfContent string      `bson:"org_of_content,omitempty" json:"org_of_content,omitempty"`
+	Status       string      `bson:"status,omitempty" json:"status,omitempty"` // Published, Draft, Inactive
+	Have_form    bool        `bson:"have_form" json:"have_form"`
 
-	CreatedAt        *time.Time    `bson:"created_at,omitempty" json:"created_at,omitempty"`
-	UpdatedAt        *time.Time    `bson:"updated_at,omitempty" json:"updated_at,omitempty"`
+	CreatedAt *time.Time `bson:"created_at,omitempty" json:"created_at,omitempty"`
+	UpdatedAt *time.Time `bson:"updated_at,omitempty" json:"updated_at,omitempty"`
 }
 
 type EventSchedule struct {
 	ID          bson.ObjectID `bson:"_id,omitempty" json:"id"`
-	EventID    	bson.ObjectID `bson:"event_id" json:"event_id"`
+	EventID     bson.ObjectID `bson:"event_id" json:"event_id"`
 	Date        time.Time     `bson:"date" json:"date"`
 	Time_start  time.Time     `bson:"time_start" json:"time_start"`
 	Time_end    time.Time     `bson:"time_end" json:"time_end"`
-	Location    *string        `bson:"location,omitempty" json:"location,omitempty"`
-	Description *string        `bson:"description,omitempty" json:"description,omitempty"`
+	Location    *string       `bson:"location,omitempty" json:"location,omitempty"`
+	Description *string       `bson:"description,omitempty" json:"description,omitempty"`
 }

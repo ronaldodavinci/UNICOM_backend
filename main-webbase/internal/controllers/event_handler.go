@@ -9,6 +9,7 @@ import (
 
 	"main-webbase/database"
 	"main-webbase/dto"
+	"main-webbase/internal/middleware"
 	"main-webbase/internal/services"
 )
 
@@ -90,6 +91,46 @@ func GetAllVisibleEventHandler() fiber.Handler {
 		}
 
 		return c.JSON(events)
+	}
+}
+
+func GetEventDetailHandler() fiber.Handler {
+	return func(c *fiber.Ctx) error {
+		eventID := c.Params("value")
+
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+
+		event, err := services.GetEventDetail(eventID, ctx)
+		if err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		}
+
+		return c.JSON(event)
+	}
+}
+
+func ParticipateEventWithNoFormHandler() fiber.Handler {
+	return func(c *fiber.Ctx) error {
+		eventID := c.Params("value")
+
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+
+		uid, err := middleware.UIDFromLocals(c)
+		if err != nil {
+			return fiber.NewError(fiber.StatusUnauthorized, "unauthorized")
+		}
+
+		if err = services.ParticipateEvent(eventID, uid, ctx); err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		}
+
+		return c.Status(fiber.StatusOK).JSON(fiber.Map{
+			"message":  "Participation successful",
+			"event_id": eventID,
+			"user_id":  uid,
+		})
 	}
 }
 
