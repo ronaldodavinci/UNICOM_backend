@@ -20,6 +20,7 @@ import (
 	"main-webbase/database"
 	"main-webbase/internal/middleware"
 	"main-webbase/internal/routes"
+	"main-webbase/bootstrap"
 )
 
 func main() {
@@ -42,6 +43,11 @@ func main() {
 	defer client.Disconnect(nil)
 
 	db := client.Database("unicom")
+
+	// Ensure that user can like only once per target
+	if err := bootstrap.EnsureLikeIndexes(db); err != nil {
+		log.Fatalf("ensure indexes failed: %v", err)
+	}
 
 	// Fiber app
 	app := fiber.New()
@@ -75,6 +81,7 @@ func main() {
 	routes.SetupRoutesEvent(app, client)
 	routes.SetupRoutesPost(app, client)
 	routes.CommentRoutes(app, client)
+	routes.LikeRoutes(app, client)
 
 	// RUN SERVER
 	log.Fatal(app.Listen(":" + cfg.Port))
