@@ -7,27 +7,31 @@ import (
 )
 
 func SetupRoutesEvent(app *fiber.App, client *mongo.Client) {
-	event := app.Group("/event")
+    event := app.Group("/event")
 
-	event.Post("/", controllers.CreateEventHandler())                         
-	event.Get("/", controllers.GetAllVisibleEventHandler())                   
-	event.Get("/:event_id", controllers.GetEventDetailHandler())                 
-	event.Delete("/:event_id", controllers.DeleteEventHandler)  
-	event.Post("/participate/:event_id", controllers.ParticipateEventWithNoFormHandler()) 
+    event.Post("/", controllers.CreateEventHandler())                         
+    event.Get("/", controllers.GetAllVisibleEventHandler())                   
+    event.Get("/:event_id", controllers.GetEventDetailHandler())                 
+    event.Delete("/:event_id", controllers.DeleteEventHandler)  
+    event.Post("/participate/:event_id", controllers.ParticipateEventWithNoFormHandler()) 
 
-	event.Post("/:eventId/qa", controllers.CreateEventQAHandler(client))
+    event.Post("/:eventId/qa", controllers.CreateEventQAHandler(client))
+    event.Get("/:eventId/qa", controllers.ListEventQAHandler(client))
 
-	// Form Section
-	form := app.Group("/event/:eventId/form")
-	form.Post("/initialize", controllers.InitializeFormHandler())
-	form.Post("/disable", controllers.DisableFormHandler())
-	form.Post("/questions", controllers.CreateFormQuestionHandler())
-	form.Get("/questions", controllers.GetFormQuestionHandler())
-	form.Post("/answers", controllers.CreateUserAnswerHandler())
-	form.Get("/matrix", controllers.GetAllUserAnswerandQuestionHandler())
+    // Form Section
+    form := app.Group("/event/:eventId/form")
+    form.Post("/initialize", controllers.InitializeFormHandler())
+    form.Post("/disable", controllers.DisableFormHandler())
+    form.Post("/questions", controllers.CreateFormQuestionHandler())
+    form.Get("/questions", controllers.GetFormQuestionHandler())
+    form.Post("/answers", controllers.CreateUserAnswerHandler())
+    form.Get("/matrix", controllers.GetAllUserAnswerandQuestionHandler())
 
-	// Participant Status
-	participant := event.Group("/participant")
-	participant.Put("/status", controllers.UpdateParticipantStatusHandler())
-	participant.Get("/mystatus/:eventId", controllers.GetMyParticipantStatusHandler())
+    // Participant Status
+    participant := event.Group("/participant")
+    participant.Put("/status", controllers.UpdateParticipantStatusHandler())
+    participant.Get("/mystatus/:eventId", controllers.GetMyParticipantStatusHandler())
+
+    // Q&A answer (global path to match mobile client)
+    app.Patch("/qa/:qaId/answer", controllers.AnswerEventQAHandler(client))
 }
