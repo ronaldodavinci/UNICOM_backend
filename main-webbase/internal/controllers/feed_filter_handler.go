@@ -1,0 +1,140 @@
+// internal/controllers/feed_controller.go
+package controllers
+
+import (
+	"strconv"
+	"strings"
+
+	"github.com/gofiber/fiber/v2"
+	"go.mongodb.org/mongo-driver/v2/bson"
+	"go.mongodb.org/mongo-driver/v2/mongo"
+
+	"main-webbase/internal/accessctx"
+	"main-webbase/internal/models"
+	"main-webbase/internal/repository"
+)
+
+// ใช้แบบ: posts.Get("/feed", controllers.FeedHandler(d.Client))
+func FeedHandler(client *mongo.Client) fiber.Handler {
+	repo := repository.NewMongoFeedRepo(client)
+
+	return func(c *fiber.Ctx) error {
+		limit, _ := strconv.ParseInt(c.Query("limit", "20"), 10, 64)
+		if limit <= 0 {
+			limit = 20
+		}
+		if limit > 20 {
+			limit = 20
+		}
+
+		var until bson.ObjectID
+		if cur := c.Query("cursor"); cur != "" {
+			if oid, err := bson.ObjectIDFromHex(cur); err == nil {
+				until = oid
+			}
+		}
+
+		// โหมดเรียง: "popular" หรือ "time" (ค่าเริ่มต้น)
+		sortBy := strings.ToLower(strings.TrimSpace(c.Query("sort", "time")))
+
+		// ✅ ใช้ viewer จาก middleware (JWT + InjectViewer)
+		vAny := c.Locals("viewer")
+		if vAny == nil {
+			return fiber.ErrUnauthorized
+		}
+		viewer, ok := vAny.(*accessctx.ViewerAccess)
+		if !ok || viewer == nil {
+			return fiber.NewError(fiber.StatusInternalServerError, "viewer context broken")
+		}
+
+		// ✅ พยายามดึง user_id จาก Locals (ถ้า middleware อื่นๆ ใส่มาให้)
+		viewerID, _ := userIDFromLocals(c)
+
+		opts := models.QueryOptions{
+			Roles:          splitCSV(c.Query("role")),
+			Categories:     splitCSV(c.Query("category")),
+			AuthorIDs:      parseAuthorIDs(splitCSV(c.Query("author"))),
+			TextSearch:     c.Query("q"),
+			Limit:          limit,
+			UntilID:        until,
+			ViewerID:       viewerID,              // อาจเป็น zero value ถ้าไม่มีใน Locals
+			AllowedNodeIDs: viewer.SubtreeNodeIDs, // ใช้จาก ViewerAccess รุ่นใหม่
+		}
+
+		var (
+			items []models.Post
+			next  *bson.ObjectID
+			err   error
+		)
+
+		// ✅ เรียก popular หรือ time ตามพารามิเตอร์
+		if sortBy == "popular" {
+			items, next, err = repo.ListPopular(c.Context(), opts)
+		} else {
+			items, next, err = repo.List(c.Context(), opts)
+		}
+		if err != nil {
+			return fiber.NewError(fiber.StatusInternalServerError, err.Error())
+		}
+
+		resp := fiber.Map{"items": items}
+		if next != nil {
+			resp["next_cursor"] = next.Hex()
+		}
+		return c.JSON(resp)
+	}
+}
+
+// ===== helpers =====
+
+func splitCSV(s string) []string {
+	if s == "" {
+		return nil
+	}
+	parts := strings.Split(s, ",")
+	out := make([]string, 0, len(parts))
+	for _, p := range parts {
+		p = strings.TrimSpace(p)
+		if p != "" {
+			out = append(out, p)
+		}
+	}
+	return out
+}
+
+func parseAuthorIDs(ids []string) []bson.ObjectID {
+	if len(ids) == 0 {
+		return nil
+	}
+	out := make([]bson.ObjectID, 0, len(ids))
+	for _, h := range ids {
+		if oid, err := bson.ObjectIDFromHex(strings.TrimSpace(h)); err == nil {
+			out = append(out, oid)
+		}
+	}
+	return out
+}
+
+// พยายามอ่าน user_id จาก Locals ได้ทั้งแบบ bson.ObjectID และ string hex
+func userIDFromLocals(c *fiber.Ctx) (bson.ObjectID, bool) {
+	// 1) ถ้า Locals เก็บไว้เป็น bson.ObjectID โดยตรง
+	if v := c.Locals("user_id"); v != nil {
+		switch t := v.(type) {
+		case bson.ObjectID:
+			return t, true
+		case string:
+			if oid, err := bson.ObjectIDFromHex(strings.TrimSpace(t)); err == nil {
+				return oid, true
+			}
+		}
+	}
+	// 2) เผื่อ middleware อื่นใช้ key อื่น เช่น "uid"
+	if v := c.Locals("uid"); v != nil {
+		if s, ok := v.(string); ok {
+			if oid, err := bson.ObjectIDFromHex(strings.TrimSpace(s)); err == nil {
+				return oid, true
+			}
+		}
+	}
+	return bson.ObjectID{}, false
+}

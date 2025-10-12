@@ -58,7 +58,6 @@ func ListAllPostsVisibleToViewer(
 	db := client.Database("unicom")
 	postsColl := db.Collection("posts")
 
-
 	// cursor match (created_at, _id)
 	var cursorMatch bson.D
 	if cursorStr != "" {
@@ -99,7 +98,6 @@ func ListAllPostsVisibleToViewer(
 		}}},
 	)
 
-
 	pipe = append(pipe, bson.D{{Key: "$match", Value: bson.D{
 		{Key: "$or", Value: bson.A{
 			bson.D{{Key: "$expr", Value: bson.D{{Key: "$eq",
@@ -125,7 +123,7 @@ func ListAllPostsVisibleToViewer(
 					"private", "public",
 				}},
 			}},
-			{Key: "matched_nole_ids", Value: bson.D{
+			{Key: "matched_node_ids", Value: bson.D{
 				{Key: "$setIntersection", Value: bson.A{"$prv.node_id", allowedRoleIDs}},
 			}},
 		}}},

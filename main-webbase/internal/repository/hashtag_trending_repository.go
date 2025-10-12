@@ -269,7 +269,7 @@ func (r *mongoHashtagTrendingRepo) EnsureIndexes(ctx context.Context) error {
 }
 
 // ================================
-// แบบที่ 3: รายละเอียดโพสต์ (with cursor + facet total)
+// แบบที่ 3: รายละเอียดโพสต์ (with cursor + face total)
 // ================================
 func (r *mongoHashtagTrendingRepo) ListPublicPostsByHashtag(
 	ctx context.Context,
