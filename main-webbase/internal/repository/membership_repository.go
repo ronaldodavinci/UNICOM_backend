@@ -136,3 +136,33 @@ func FindMembershipsByOrgPath(ctx context.Context, orgPath string) ([]models.Mem
 
 	return memberships, nil
 }
+
+func FindMembershipByManageEvent(ctx context.Context, orgPath string) ([]models.Membership, error) {
+	col := database.DB.Collection("memberships")
+	
+	pipeline := mongo.Pipeline{
+		{{Key: "$match", Value: bson.M{"org_path": orgPath, "active": true}}},
+		{{Key: "$lookup", Value: bson.M{
+			"from": 		"policies",
+			"localField": 	"position_key",
+			"foreignField": "position_key",
+			"as": 			"policy_docs",
+		}}},
+		{{Key: "$match", Value: bson.M{
+			"policy_docs.actions": "organize:create",
+			"policy_docs.enabled": true,
+		}}},
+	}
+	cursor, err := col.Aggregate(ctx, pipeline)
+	if err != nil {
+		return nil, fmt.Errorf("error aggregating memberships by manage event: %w", err)
+	}
+	defer cursor.Close(ctx)
+
+	var memberships []models.Membership
+	if err := cursor.All(ctx, &memberships); err != nil {
+		return nil, err
+	}
+
+	return memberships, nil
+}

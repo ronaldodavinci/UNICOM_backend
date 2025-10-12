@@ -77,7 +77,7 @@ func CreateEventWithSchedules(body dto.EventRequestDTO, ctx context.Context) (dt
 		formID = form.ID.Hex()
 	}
 
-	members, err := repo.FindMembershipsByOrgPath(ctx, body.OrgOfContent)
+	members, err := repo.FindMembershipByManageEvent(ctx, body.OrgOfContent)
 	if err != nil {
 		return dto.EventCreateResult{}, fmt.Errorf("failed to find memberships: %w", err)
 	}
