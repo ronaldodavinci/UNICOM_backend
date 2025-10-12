@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 	"time"
+	"main-webbase/internal/models"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
@@ -23,7 +24,7 @@ type HashtagTrendingRepository interface {
 	// แบบที่ 2.1
 	CountPublicPostsByHashtag(ctx context.Context, rawTag, day string) (*SingleTagCount, error)
 	// แบบที่ 3
-	ListPublicPostsByHashtag(ctx context.Context, rawTag, day string, limit int, cursorHex string) ([]bson.M, *bson.ObjectID, error)
+	ListPublicPostsByHashtag(ctx context.Context, rawTag, day string, limit int, cursorHex string) ([]models.Post, *bson.ObjectID, error)
 
 	EnsureIndexes(ctx context.Context) error
 }
@@ -269,15 +270,16 @@ func (r *mongoHashtagTrendingRepo) EnsureIndexes(ctx context.Context) error {
 }
 
 // ================================
-// แบบที่ 3: รายละเอียดโพสต์ (with cursor + face total)
+// แบบที่ 3: รายละเอียดโพสต์ (เหมือนฟีด)
 // ================================
 func (r *mongoHashtagTrendingRepo) ListPublicPostsByHashtag(
 	ctx context.Context,
 	rawTag, day string,
 	limit int,
 	cursorHex string,
-) ([]bson.M, *bson.ObjectID, error) {
+) ([]models.Post, *bson.ObjectID, error) {
 
+	// --- validate & prepare ---
 	norm := r.normalizeInputTag(rawTag)
 	if norm == "" {
 		return nil, nil, fmt.Errorf("tag is required")
@@ -293,6 +295,7 @@ func (r *mongoHashtagTrendingRepo) ListPublicPostsByHashtag(
 		}
 	}
 
+	// --- filter hashtag rows (collection: hashtags) ---
 	match := bson.M{}
 	if day != "" {
 		match["date"] = day
@@ -302,9 +305,10 @@ func (r *mongoHashtagTrendingRepo) ListPublicPostsByHashtag(
 		bson.D{{Key: "$match", Value: match}},
 		bson.D{{Key: "$addFields", Value: bson.M{"tagNorm": normTagExpr("$tag")}}},
 		bson.D{{Key: "$match", Value: bson.M{"tagNorm": norm}}},
-		bson.D{{Key: "$group", Value: bson.M{"_id": "$postId"}}},
+		bson.D{{Key: "$group", Value: bson.M{"_id": "$postId"}}}, // unique post ids
 	}
 
+	// --- join to posts, page by cursor (_id) ---
 	itemsPipe := mongo.Pipeline{
 		bson.D{{Key: "$lookup", Value: bson.M{
 			"from":         "posts",
@@ -313,64 +317,122 @@ func (r *mongoHashtagTrendingRepo) ListPublicPostsByHashtag(
 			"as":           "p",
 		}}},
 		bson.D{{Key: "$unwind", Value: "$p"}},
-		bson.D{{Key: "$match", Value: buildPublicMatch(true)}},
 	}
 	if cursorID != nil {
 		itemsPipe = append(itemsPipe, bson.D{{Key: "$match", Value: bson.M{"p._id": bson.M{"$lt": *cursorID}}}})
 	}
+
+	// --- จากนี้ทำเหมือนฟีด: replaceRoot -> posts แล้วทำ lookups/projection เดิม ---
 	itemsPipe = append(itemsPipe,
-		bson.D{{Key: "$sort", Value: bson.M{"p.created_at": -1, "p._id": -1}}},
-		bson.D{{Key: "$limit", Value: limit + 1}},
+		// ใช้เอกสาร p (post) เป็นราก
+		bson.D{{Key: "$replaceRoot", Value: bson.M{"newRoot": "$p"}}},
+		// สถานะ
+		bson.D{{Key: "$match", Value: bson.M{"status": "active"}}},
+		// ===== Users =====
 		bson.D{{Key: "$lookup", Value: bson.M{
-			"from": "users",
-			"let":  bson.M{"uidStr": "$p.uid", "userId": "$p.user_id"},
-			"pipeline": mongo.Pipeline{
-				bson.D{{Key: "$match", Value: bson.M{
-					"$expr": bson.M{"$or": bson.A{
-						bson.M{"$eq": bson.A{"$_id", "$$userId"}},
-						bson.M{"$eq": bson.A{"$_id", bson.M{"$toObjectId": "$$uidStr"}}},
-					}},
-				}}},
-				bson.D{{Key: "$project", Value: bson.M{"_id": 1, "name": 1, "username": 1}}},
-			},
-			"as": "u",
+			"from":         "users",
+			"localField":   "user_id",
+			"foreignField": "_id",
+			"as":           "u",
 		}}},
-		bson.D{{Key: "$unwind", Value: bson.M{"org_path": "$u", "preserveNullAndEmptyArrays": true}}},
-		bson.D{{Key: "$addFields", Value: bson.M{"tag": norm}}},
-		bson.D{{Key: "$project", Value: bson.M{
-			"_id":       "$p._id",
-			"uid":       bson.M{"$ifNull": bson.A{"$p.uid", bson.M{"$toString": "$p.user_id"}}},
-			"username":  bson.M{"$ifNull": bson.A{"$p.username", bson.M{"$ifNull": bson.A{"$u.username", ""}}}},
-			"name":      bson.M{"$ifNull": bson.A{"$p.name", bson.M{"$ifNull": bson.A{"$u.name", ""}}}},
-			"message":   bson.M{"$ifNull": bson.A{"$p.message", bson.M{"$ifNull": bson.A{"$p.post_text", ""}}}},
-			"timestamp": "$p.created_at",
-			"likes":     bson.M{"$ifNull": bson.A{"$p.likes", 0}},
-			"likedBy":   bson.M{"$ifNull": bson.A{"$p.likedBy", bson.A{}}},
-			"posted_as": bson.M{"$ifNull": bson.A{"$p.posted_as", bson.M{}}},
-			"tag":       1,
-			"visibility": bson.M{"$ifNull": bson.A{
-				"$p.visibility",
-				bson.M{"access": "public", "org_of_content": ""},
+		bson.D{{Key: "$unwind", Value: bson.M{"path": "$u", "preserveNullAndEmptyArrays": true}}},
+		// ===== Visibility records =====
+		bson.D{{Key: "$lookup", Value: bson.M{
+			"from":         "post_role_visibility",
+			"localField":   "_id",
+			"foreignField": "post_id",
+			"as":           "visRoles",
+		}}},
+		// ===== posted_as lookups =====
+		bson.D{{Key: "$lookup", Value: bson.M{
+			"from":         "org_units",
+			"localField":   "node_id",
+			"foreignField": "_id",
+			"as":           "orgNode",
+		}}},
+		bson.D{{Key: "$unwind", Value: bson.M{"path": "$orgNode", "preserveNullAndEmptyArrays": true}}},
+		bson.D{{Key: "$lookup", Value: bson.M{
+			"from":         "positions",
+			"localField":   "position_id",
+			"foreignField": "_id",
+			"as":           "pos",
+		}}},
+		bson.D{{Key: "$unwind", Value: bson.M{"path": "$pos", "preserveNullAndEmptyArrays": true}}},
+
+		// ===== Categories =====
+		bson.D{{Key: "$lookup", Value: bson.M{
+			"from": "post_categories",
+			"let":  bson.M{"pid": "$_id"},
+			"pipeline": mongo.Pipeline{
+				bson.D{{Key: "$match", Value: bson.M{"$expr": bson.M{"$eq": bson.A{"$post_id", "$$pid"}}}}},
+				bson.D{{Key: "$sort", Value: bson.M{"order_index": 1}}},
+			},
+			"as": "pcAll",
+		}}},
+		bson.D{{Key: "$lookup", Value: bson.M{
+			"from":         "categories",
+			"localField":   "pcAll.category_id",
+			"foreignField": "_id",
+			"as":           "catAll",
+		}}},
+		bson.D{{Key: "$lookup", Value: bson.M{
+			"from":         "comments",
+			"localField":   "_id",
+			"foreignField": "post_id",
+			"as":           "comments",
+		}}},
+
+		// ===== Visibility helpers (เหมือนฟีด) =====
+		bson.D{{Key: "$addFields", Value: bson.M{
+			"hasVisibility": bson.M{"$gt": bson.A{
+				bson.M{"$size": bson.M{"$ifNull": bson.A{"$visRoles", bson.A{}}}},
+				0,
 			}},
 		}}},
+		bson.D{{Key: "$addFields", Value: bson.M{
+			"visibilityAccess": bson.M{"$cond": bson.A{"$hasVisibility", "private", "public"}},
+		}}},
+
+		// --- Projection ให้ตรง models.Post ---
+		bson.D{{Key: "$project", Value: bson.M{
+			"_id":        1,
+			"user_id":    1,
+			"name": bson.M{"$concat": bson.A{
+				bson.M{"$ifNull": bson.A{"$u.firstname", ""}},
+				" ",
+				bson.M{"$ifNull": bson.A{"$u.lastname", ""}},
+			}},
+			"node_id":      1,
+			"position_id":  1,
+			"hashtag":      1,
+			"tag":          1,
+			"category": bson.M{
+				"$map": bson.M{
+					"input": bson.M{"$ifNull": bson.A{"$catAll", bson.A{}}}, "as": "c",
+					"in":   bson.M{"$ifNull": bson.A{"$$c.category_name", ""}},
+				},
+			},
+			"post_text":     1,
+			"media":         1,
+			"like_count":    1,
+			"comment_count": 1,
+			"created_at":    1,
+			"updated_at":    1,
+			"status":        bson.M{"$ifNull": bson.A{"$status", "active"}},
+			"visibility": bson.M{
+				"$cond": bson.A{"$hasVisibility", "private", "public"},
+			},
+		}}},
+
+		// --- sort & limit แบบฟีด ---
+		bson.D{{Key: "$sort", Value: bson.M{"created_at": -1, "_id": -1}}},
+		bson.D{{Key: "$limit", Value: limit + 1}},
 	)
 
-	totalPipe := mongo.Pipeline{
-		bson.D{{Key: "$lookup", Value: bson.M{
-			"from":         "posts",
-			"localField":   "_id",
-			"foreignField": "_id",
-			"as":           "p",
-		}}},
-		bson.D{{Key: "$unwind", Value: "$p"}},
-		bson.D{{Key: "$match", Value: buildPublicMatch(true)}},
-		bson.D{{Key: "$count", Value: "postCount"}},
-	}
-
+	// รวม pipeline (hashtags → posts like feed)
 	pipeline := append(base,
 		bson.D{{Key: "$facet", Value: bson.M{
 			"items": itemsPipe,
-			"total": totalPipe,
 		}}},
 	)
 
@@ -381,27 +443,22 @@ func (r *mongoHashtagTrendingRepo) ListPublicPostsByHashtag(
 	defer cur.Close(ctx)
 
 	var faceted []struct {
-		Items []bson.M `bson:"items"`
-		Total []struct {
-			PostCount int `bson:"postCount"`
-		} `bson:"total"`
+		Items []models.Post `bson:"items"`
 	}
 	if err := cur.All(ctx, &faceted); err != nil {
 		return nil, nil, err
 	}
 	if len(faceted) == 0 {
-		return []bson.M{}, nil, nil
+		return []models.Post{}, nil, nil
 	}
 
 	items := faceted[0].Items
 
 	var next *bson.ObjectID
 	if len(items) == limit+1 {
-		last := items[len(items)-1]
+		last := items[len(items)-1].ID
 		items = items[:len(items)-1]
-		if oid, ok := last["_id"].(bson.ObjectID); ok {
-			next = &oid
-		}
+		next = &last
 	}
 
 	return items, next, nil

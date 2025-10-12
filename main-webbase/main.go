@@ -77,9 +77,9 @@ func main() {
 	routes.SetupRoutesMembership(app)
 	routes.SetupRoutesPosition(app)
 	routes.SetupRoutesPolicy(app)
-	// routes.SetupRoutesPost(app, client)
 	routes.SetupRoutesEvent(app, client)
 	routes.SetupRoutesPost(app, client)
+	routes.SetupRoutesTrending(app, client)
 	routes.CommentRoutes(app, client)
 	routes.LikeRoutes(app, client)
 
