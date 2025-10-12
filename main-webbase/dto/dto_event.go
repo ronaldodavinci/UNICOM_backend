@@ -9,6 +9,7 @@ import (
 type EventRequestDTO struct {
 	NodeID           string             `json:"node_id" example:"66ffa43e9a7c39b1d87f6401" validate:"required"`
 	Topic            string             `json:"topic" example:"AI Workshop" validate:"required"`
+	PictureURL       string             `json:"picture_url,omitempty" example:"http://45.144.166.252:46602/uploads/cat.png"`
 	Description      string             `json:"description" example:"A workshop on AI applications"`
 	MaxParticipation int                `json:"max_participation" example:"50"`
 	PostedAs         *models.PostedAs   `json:"posted_as,omitempty"`
@@ -28,10 +29,10 @@ type EventRequestDTO struct {
 
 // Report DTO
 type EventCreateResult struct {
-	Event        models.Event              `json:"event"`
-	Schedules    []models.EventSchedule    `json:"schedules"`
-	FormID       string                    `json:"form_id,omitempty"`
-	OrganizerCnt int                       `json:"organizer_count"`
+	Event        models.Event           `json:"event"`
+	Schedules    []models.EventSchedule `json:"schedules"`
+	FormID       string                 `json:"form_id,omitempty"`
+	OrganizerCnt int                    `json:"organizer_count"`
 }
 
 // Event Detail
@@ -41,6 +42,7 @@ type EventDetail struct {
 	OrgPath              string             `json:"orgpath"`
 	Topic                string             `json:"topic"`
 	Description          string             `json:"description"`
+	PictureURL           *string            `json:"picture_url,omitempty"`
 	MaxParticipation     int                `json:"max_participation"`
 	CurrentParticipation int                `json:"current_participation"`
 	PostedAs             *models.PostedAs   `json:"posted_as,omitempty"`

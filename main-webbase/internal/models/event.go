@@ -1,8 +1,9 @@
 package models
 
 import (
-	"go.mongodb.org/mongo-driver/v2/bson"
 	"time"
+
+	"go.mongodb.org/mongo-driver/v2/bson"
 )
 
 type Event struct {
@@ -10,6 +11,7 @@ type Event struct {
 	NodeID           bson.ObjectID `bson:"node_id" json:"node_id"`
 	Topic            string        `bson:"topic" json:"topic"`
 	Description      string        `bson:"description" json:"description"`
+	PictureURL       *string       `bson:"pictureuURL,omitempty" json:"pictureURL,omitempty"`
 	MaxParticipation int           `bson:"max_participation" json:"max_participation"`
 
 	PostedAs     *PostedAs   `json:"posted_as,omitempty"`

@@ -26,6 +26,7 @@ func CreateEventWithSchedules(body dto.EventRequestDTO, ctx context.Context) (dt
 		NodeID:           nodeID,
 		Topic:            body.Topic,
 		Description:      body.Description,
+		PictureURL:       &body.PictureURL,
 		MaxParticipation: body.MaxParticipation,
 		PostedAs:         body.PostedAs,
 		Visibility:       body.Visibility,
@@ -84,12 +85,12 @@ func CreateEventWithSchedules(body dto.EventRequestDTO, ctx context.Context) (dt
 	var participants []models.Event_participant
 	for _, member := range members {
 		participants = append(participants, models.Event_participant{
-			ID:          bson.NewObjectID(),
-			Event_ID:    event.ID,
-			User_ID:     member.UserID,
-			Status:      "accept",
-			Role:        "organizer", 
-			CreatedAt:   &now,
+			ID:        bson.NewObjectID(),
+			Event_ID:  event.ID,
+			User_ID:   member.UserID,
+			Status:    "accept",
+			Role:      "organizer",
+			CreatedAt: &now,
 		})
 	}
 	if len(participants) > 0 {
@@ -227,6 +228,7 @@ func GetEventDetail(eventID string, ctx context.Context) (dto.EventDetail, error
 		OrgPath:              event.OrgOfContent,
 		Topic:                event.Topic,
 		Description:          event.Description,
+		PictureURL:           event.PictureURL,
 		MaxParticipation:     event.MaxParticipation,
 		CurrentParticipation: current_participant,
 		PostedAs:             event.PostedAs,
