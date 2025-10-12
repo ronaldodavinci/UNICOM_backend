@@ -35,6 +35,7 @@ type HashtagTrendingRepository interface {
 type SingleTagCount struct {
 	Tag       string `json:"tag" bson:"tag"`
 	PostCount int    `json:"postCount" bson:"postCount"`
+	Context   string `json:"context,omitempty" bson:"context,omitempty"`
 }
 
 // ================================
@@ -142,7 +143,7 @@ func (r *mongoHashtagTrendingRepo) TopPublicHashtagsToday(ctx context.Context, k
 		{{Key: "$group", Value: bson.M{"_id": "$_id.tag", "posts": bson.M{"$sum": 1}}}},
 		{{Key: "$sort", Value: bson.M{"posts": -1, "_id": 1}}},
 		{{Key: "$limit", Value: k}},
-		{{Key: "$project", Value: bson.M{"_id": 0, "tag": "$_id", "postCount": "$posts"}}},
+		{{Key: "$project", Value: bson.M{"_id": 0, "tag": "$_id", "postCount": "$posts", "context": "Trending"}}},
 	}
 
 	cur, err := r.hashtags.Aggregate(ctx, pipeline)
@@ -188,7 +189,7 @@ func (r *mongoHashtagTrendingRepo) TopPublicHashtagsAllTime(ctx context.Context,
 		{{Key: "$group", Value: bson.M{"_id": "$_id.tag", "posts": bson.M{"$sum": 1}}}},
 		{{Key: "$sort", Value: bson.M{"posts": -1, "_id": 1}}},
 		{{Key: "$limit", Value: k}},
-		{{Key: "$project", Value: bson.M{"_id": 0, "tag": "$_id", "postCount": "$posts"}}},
+		{{Key: "$project", Value: bson.M{"_id": 0, "tag": "$_id", "postCount": "$posts", "context": "Trending"}}},
 	}
 
 	cur, err := r.hashtags.Aggregate(ctx, pipeline)
