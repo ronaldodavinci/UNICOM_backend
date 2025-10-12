@@ -12,6 +12,15 @@ definitions:
     required:
     - question_id
     type: object
+  dto.CreateCommentReq:
+    properties:
+      text:
+        maxLength: 2000
+        minLength: 1
+        type: string
+    required:
+    - text
+    type: object
   dto.CreatePostDTO:
     properties:
       categoryIds:
@@ -172,6 +181,17 @@ definitions:
         type: array
     required:
     - answers
+    type: object
+  dto.ListCommentsResp:
+    properties:
+      comments:
+        items:
+          $ref: '#/definitions/models.Comment'
+        type: array
+      has_more:
+        type: boolean
+      next_cursor:
+        type: string
     type: object
   dto.MembershipProfileDTO:
     properties:
@@ -459,6 +479,23 @@ definitions:
         description: '"exact" | "subtree"'
         type: string
     type: object
+  models.Comment:
+    properties:
+      createdAt:
+        type: string
+      id:
+        type: string
+      likeCount:
+        type: integer
+      postId:
+        type: string
+      text:
+        type: string
+      updatedAt:
+        type: string
+      userId:
+        type: string
+    type: object
   models.Constraints:
     properties:
       exclusive_per_org:
@@ -633,6 +670,10 @@ definitions:
     properties:
       CommentCount:
         type: integer
+      category:
+        items:
+          type: string
+        type: array
       createdAt:
         type: string
       hashtag:
@@ -647,6 +688,9 @@ definitions:
         items:
           type: string
         type: array
+      name:
+        description: "Username  \t string        `bson:\"username\" json:\"username\"`"
+        type: string
       positionId:
         type: string
       postText:
@@ -661,6 +705,8 @@ definitions:
       updatedAt:
         type: string
       userId:
+        type: string
+      visibility:
         type: string
     type: object
   models.PostedAs:
@@ -732,6 +778,87 @@ info:
   title: Fiber MongoDB API
   version: "1.0"
 paths:
+  /comments/{commentId}:
+    delete:
+      description: Only the owner or an admin (root) can delete a comment
+      parameters:
+      - description: Comment ID (hex ObjectID)
+        in: path
+        name: commentId
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: no content
+          schema:
+            type: string
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Delete a comment
+      tags:
+      - comments
+    put:
+      consumes:
+      - application/json
+      description: Only the owner or an admin (root) can update a comment
+      parameters:
+      - description: Comment ID (hex ObjectID)
+        in: path
+        name: commentId
+        required: true
+        type: string
+      - description: Fields to update (Text)
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/dto.CreateCommentReq'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.Comment'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Update a comment
+      tags:
+      - comments
   /event:
     get:
       description: Return all events that the current user can see
@@ -1624,57 +1751,6 @@ paths:
       summary: Create a post
       tags:
       - posts
-  /posts/{id}:
-    put:
-      consumes:
-      - application/json
-      description: Update post text, medias, categories, visibility, and posted-as.
-        Owner can edit content; admin/root can also change status.
-      parameters:
-      - description: Bearer {token}
-        in: header
-        name: Authorization
-        required: true
-        type: string
-      - description: Post ID (hex)
-        in: path
-        name: id
-        required: true
-        type: string
-      - description: Full update payload
-        in: body
-        name: data
-        required: true
-        schema:
-          $ref: '#/definitions/dto.UpdatePostFullDTO'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/models.Post'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/dto.ErrorResponse'
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/dto.ErrorResponse'
-        "403":
-          description: Forbidden
-          schema:
-            $ref: '#/definitions/dto.ErrorResponse'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/dto.ErrorResponse'
-      security:
-      - BearerAuth: []
-      summary: Update a post (full replace of editable fields)
-      tags:
-      - posts
   /posts/{post_id}:
     delete:
       description: เปลี่ยนสถานะโพสต์จาก active เป็น inactive (soft delete)
@@ -1735,6 +1811,134 @@ paths:
       summary: Get a post detail
       tags:
       - posts
+    put:
+      consumes:
+      - application/json
+      description: Update post text, medias, categories, visibility, and posted-as.
+        Owner can edit content; admin/root can also change status.
+      parameters:
+      - description: Bearer {token}
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Post ID (hex)
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Full update payload
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/dto.UpdatePostFullDTO'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.Post'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Update a post (full replace of editable fields)
+      tags:
+      - posts
+  /posts/{postId}/comments:
+    get:
+      description: Fetch comments of a post with cursor pagination
+      parameters:
+      - description: Post ID (hex ObjectID)
+        in: path
+        name: postId
+        required: true
+        type: string
+      - default: 20
+        description: Max items per page
+        in: query
+        maximum: 100
+        minimum: 1
+        name: limit
+        type: integer
+      - description: Opaque next-page cursor
+        in: query
+        name: cursor
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.ListCommentsResp'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      summary: List comments of a post
+      tags:
+      - comments
+    post:
+      consumes:
+      - application/json
+      description: Create a new comment under the given post
+      parameters:
+      - description: Post ID (hex ObjectID)
+        in: path
+        name: postId
+        required: true
+        type: string
+      - description: Comment payload (Text)
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/dto.CreateCommentReq'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/models.Comment'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Create a comment
+      tags:
+      - comments
   /register:
     post:
       consumes:

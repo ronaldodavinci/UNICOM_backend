@@ -74,7 +74,7 @@ func (r *CommentRepository) ListByPostNewestFirst(
 
 	// 2) apply cursor ถ้ามี
 	if cursorStr != "" {
-		t, oid, derr := cursor.DecodeCommentCursor(cursorStr)
+		t, oid, derr := cursor.DecodeCursor(cursorStr)
 		if derr != nil {
 			// ส่ง error ที่สื่อความหมายให้ handler map เป็น 400 ได้
 			err = fmt.Errorf("invalid cursor: %w", derr)
@@ -106,7 +106,7 @@ func (r *CommentRepository) ListByPostNewestFirst(
 	if int64(len(all)) > limit {
 		items = all[:limit]
 		last := items[len(items)-1]
-		s := cursor.EncodeCommentCursor(last.CreatedAt, last.ID)
+		s := cursor.EncodeCursor(last.CreatedAt, last.ID)
 		next = &s
 	} else {
 		items = all
@@ -115,8 +115,8 @@ func (r *CommentRepository) ListByPostNewestFirst(
 	return
 }
 
-// Update: แก้ไขข้อความคอมเมนต์ (เจ้าของหรือ root)
-func (r *CommentRepository) Update(ctx context.Context, commentID, userID bson.ObjectID, newText string, isRoot bool) (*models.Comment, error) {
+// Update: แก้ไขข้อความคอมเมนต์ (เจ้าของ)
+func (r *CommentRepository) Update(ctx context.Context, commentID, userID bson.ObjectID, newText string) (*models.Comment, error) {
 	var c models.Comment
 	if err := r.ColComments.FindOne(ctx, bson.M{"_id": commentID}).Decode(&c); err != nil {
 		if err == mongo.ErrNoDocuments {
@@ -125,7 +125,7 @@ func (r *CommentRepository) Update(ctx context.Context, commentID, userID bson.O
 		return nil, err
 	}
 
-	if c.UserID != userID && !isRoot {
+	if c.UserID != userID {
 		return nil, nil
 	}
 

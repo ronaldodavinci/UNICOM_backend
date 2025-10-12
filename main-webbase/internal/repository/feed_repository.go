@@ -18,7 +18,7 @@ type postCursor struct {
 	ID string    `json:"id"` // hex of bson.ObjectID
 }
 
-func decodePostCursor(s string) (time.Time, bson.ObjectID, error) {
+func decodeCursor(s string) (time.Time, bson.ObjectID, error) {
 	if s == "" {
 		return time.Time{}, bson.ObjectID{}, fmt.Errorf("empty cursor")
 	}
@@ -61,7 +61,7 @@ func ListAllPostsVisibleToViewer(
 	// cursor match (created_at, _id)
 	var cursorMatch bson.D
 	if cursorStr != "" {
-		t, oid, e := decodePostCursor(cursorStr) // ⬅️ no primitive
+		t, oid, e := decodeCursor(cursorStr) // ⬅️ no primitive
 		if e != nil {
 			return nil, nil, e
 		}

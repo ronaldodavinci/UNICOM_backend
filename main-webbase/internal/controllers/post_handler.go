@@ -211,7 +211,7 @@ func DeletePostHandler(client *mongo.Client) fiber.Handler {
 // @Failure      401            {object}  dto.ErrorResponse
 // @Failure      403            {object}  dto.ErrorResponse
 // @Failure      500            {object}  dto.ErrorResponse
-// @Router       /posts/{id} [put]
+// @Router       /posts/{post_id} [put]
 func UpdatePostHandler(client *mongo.Client) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		uid, _ := mid.UIDObjectID(c)
