@@ -22,7 +22,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Only the owner or an admin (root) can update a comment",
+                "description": "Only the owner can update a comment",
                 "consumes": [
                     "application/json"
                 ],
@@ -1409,14 +1409,9 @@ const docTemplate = `{
         },
         "/posts": {
             "post": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Create a new post with categories, visibility and media URLs",
+                "description": "Create a new post; supports multipart form upload",
                 "consumes": [
-                    "application/json"
+                    "multipart/form-data"
                 ],
                 "produces": [
                     "application/json"
@@ -1424,23 +1419,52 @@ const docTemplate = `{
                 "tags": [
                     "posts"
                 ],
-                "summary": "Create a post",
+                "summary": "Create a post with optional media upload",
                 "parameters": [
                     {
+                        "type": "file",
+                        "description": "Upload media file",
+                        "name": "file",
+                        "in": "formData"
+                    },
+                    {
                         "type": "string",
-                        "description": "Bearer {token}",
-                        "name": "Authorization",
-                        "in": "header",
+                        "description": "Post text",
+                        "name": "postText",
+                        "in": "formData",
                         "required": true
                     },
                     {
-                        "description": "Post payload",
-                        "name": "data",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/dto.CreatePostDTO"
-                        }
+                        "type": "string",
+                        "description": "Organization of content",
+                        "name": "org_of_content",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Organization path",
+                        "name": "postAs.org_path",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Position key",
+                        "name": "postAs.position_key",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Visibility (default: public)",
+                        "name": "visibility.access",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Category IDs (repeatable)",
+                        "name": "categoryIds",
+                        "in": "formData"
                     }
                 ],
                 "responses": {
@@ -1456,20 +1480,8 @@ const docTemplate = `{
                             "$ref": "#/definitions/dto.ErrorResponse"
                         }
                     },
-                    "401": {
-                        "description": "Unauthorized",
-                        "schema": {
-                            "$ref": "#/definitions/dto.ErrorResponse"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/dto.ErrorResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
+                    "403": {
+                        "description": "Forbidden",
                         "schema": {
                             "$ref": "#/definitions/dto.ErrorResponse"
                         }
@@ -2078,50 +2090,6 @@ const docTemplate = `{
                 }
             }
         },
-        "dto.CreatePostDTO": {
-            "type": "object",
-            "required": [
-                "postAs",
-                "postText",
-                "visibility"
-            ],
-            "properties": {
-                "categoryIds": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                },
-                "media": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                },
-                "org_of_content": {
-                    "type": "string"
-                },
-                "postAs": {
-                    "description": "เดิมคือ rolePath",
-                    "allOf": [
-                        {
-                            "$ref": "#/definitions/dto.PostAs"
-                        }
-                    ]
-                },
-                "postText": {
-                    "type": "string"
-                },
-                "visibility": {
-                    "description": "เดิมคือ roleIds",
-                    "allOf": [
-                        {
-                            "$ref": "#/definitions/dto.Visibility"
-                        }
-                    ]
-                }
-            }
-        },
         "dto.ErrorResponse": {
             "type": "object",
             "properties": {
@@ -2175,6 +2143,9 @@ const docTemplate = `{
                 "orgpath": {
                     "type": "string"
                 },
+                "picture_url": {
+                    "type": "string"
+                },
                 "posted_as": {
                     "$ref": "#/definitions/models.PostedAs"
                 },
@@ -2221,6 +2192,10 @@ const docTemplate = `{
                 "org_of_content": {
                     "type": "string",
                     "example": "/fac/eng/com"
+                },
+                "picture_url": {
+                    "type": "string",
+                    "example": "http://45.144.166.252:46602/uploads/cat.png"
                 },
                 "posted_as": {
                     "$ref": "#/definitions/models.PostedAs"
@@ -2820,6 +2795,9 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "org_of_content": {
+                    "type": "string"
+                },
+                "pictureURL": {
                     "type": "string"
                 },
                 "posted_as": {

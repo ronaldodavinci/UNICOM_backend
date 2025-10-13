@@ -21,33 +21,6 @@ definitions:
     required:
     - text
     type: object
-  dto.CreatePostDTO:
-    properties:
-      categoryIds:
-        items:
-          type: string
-        type: array
-      media:
-        items:
-          type: string
-        type: array
-      org_of_content:
-        type: string
-      postAs:
-        allOf:
-        - $ref: '#/definitions/dto.PostAs'
-        description: เดิมคือ rolePath
-      postText:
-        type: string
-      visibility:
-        allOf:
-        - $ref: '#/definitions/dto.Visibility'
-        description: เดิมคือ roleIds
-    required:
-    - postAs
-    - postText
-    - visibility
-    type: object
   dto.ErrorResponse:
     properties:
       error:
@@ -83,6 +56,8 @@ definitions:
         type: integer
       orgpath:
         type: string
+      picture_url:
+        type: string
       posted_as:
         $ref: '#/definitions/models.PostedAs'
       schedules:
@@ -112,6 +87,9 @@ definitions:
         type: string
       org_of_content:
         example: /fac/eng/com
+        type: string
+      picture_url:
+        example: http://45.144.166.252:46602/uploads/cat.png
         type: string
       posted_as:
         $ref: '#/definitions/models.PostedAs'
@@ -517,6 +495,8 @@ definitions:
         type: string
       org_of_content:
         type: string
+      pictureURL:
+        type: string
       posted_as:
         $ref: '#/definitions/models.PostedAs'
       status:
@@ -818,7 +798,7 @@ paths:
     put:
       consumes:
       - application/json
-      description: Only the owner or an admin (root) can update a comment
+      description: Only the owner can update a comment
       parameters:
       - description: Comment ID (hex ObjectID)
         in: path
@@ -1709,20 +1689,40 @@ paths:
   /posts:
     post:
       consumes:
-      - application/json
-      description: Create a new post with categories, visibility and media URLs
+      - multipart/form-data
+      description: Create a new post; supports multipart form upload
       parameters:
-      - description: Bearer {token}
-        in: header
-        name: Authorization
+      - description: Upload media file
+        in: formData
+        name: file
+        type: file
+      - description: Post text
+        in: formData
+        name: postText
         required: true
         type: string
-      - description: Post payload
-        in: body
-        name: data
+      - description: Organization of content
+        in: formData
+        name: org_of_content
+        type: string
+      - description: Organization path
+        in: formData
+        name: postAs.org_path
         required: true
-        schema:
-          $ref: '#/definitions/dto.CreatePostDTO'
+        type: string
+      - description: Position key
+        in: formData
+        name: postAs.position_key
+        required: true
+        type: string
+      - description: 'Visibility (default: public)'
+        in: formData
+        name: visibility.access
+        type: string
+      - description: Category IDs (repeatable)
+        in: formData
+        name: categoryIds
+        type: string
       produces:
       - application/json
       responses:
@@ -1734,21 +1734,11 @@ paths:
           description: Bad Request
           schema:
             $ref: '#/definitions/dto.ErrorResponse'
-        "401":
-          description: Unauthorized
+        "403":
+          description: Forbidden
           schema:
             $ref: '#/definitions/dto.ErrorResponse'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/dto.ErrorResponse'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/dto.ErrorResponse'
-      security:
-      - BearerAuth: []
-      summary: Create a post
+      summary: Create a post with optional media upload
       tags:
       - posts
   /posts/{post_id}:

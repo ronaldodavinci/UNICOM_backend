@@ -3,6 +3,8 @@ package controllers
 import (
 	"context"
 	"errors"
+	"path/filepath"
+
 	"fmt"
 	"main-webbase/dto"
 	"main-webbase/internal/accessctx"
@@ -38,69 +40,88 @@ func canPostAs(v *accessctx.ViewerAccess, orgPath, positionKey string) bool {
 // POST /posts
 
 // CreatePostHandler godoc
-// @Summary      Create a post
-// @Description  Create a new post with categories, visibility and media URLs
-// @Tags         posts
-// @Accept       json
-// @Produce      json
-// @Security     BearerAuth
-// @Param        Authorization  header    string             true  "Bearer {token}"
-// @Param        data           body      dto.CreatePostDTO  true  "Post payload"
-// @Success      201            {object}  dto.PostResponse
-// @Failure      400            {object}  dto.ErrorResponse
-// @Failure      401            {object}  dto.ErrorResponse
-// @Failure      404            {object}  dto.ErrorResponse
-// @Failure      500            {object}  dto.ErrorResponse
-// @Router       /posts [post]
+// @Summary Create a post with optional media upload
+// @Description Create a new post; supports multipart form upload
+// @Tags posts
+// @Accept multipart/form-data
+// @Produce json
+// @Param file formData file false "Upload media file"
+// @Param postText formData string true "Post text"
+// @Param org_of_content formData string false "Organization of content"
+// @Param postAs.org_path formData string true "Organization path"
+// @Param postAs.position_key formData string true "Position key"
+// @Param visibility.access formData string false "Visibility (default: public)"
+// @Param categoryIds formData string false "Category IDs (repeatable)"
+// @Success 201 {object} dto.PostResponse
+// @Failure 400 {object} dto.ErrorResponse
+// @Failure 403 {object} dto.ErrorResponse
+// @Router /posts [post]
 func CreatePostHandler(client *mongo.Client) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		userID, _ := mid.UIDFromLocals(c)
-		// fmt.Println("UIDFromLocals: uid=%s\n", uid)
 
 		var body dto.CreatePostDTO
+		// Parse regular fields
 		if err := c.BodyParser(&body); err != nil {
 			return c.Status(fiber.StatusBadRequest).
 				JSON(dto.ErrorResponse{Error: "invalid body"})
 		}
+
+		// --- manually read nested form fields for multipart/form-data ---
+		postAsOrgPath := c.FormValue("postAs.org_path")
+		postAsPosition := c.FormValue("postAs.position_key")
+		if postAsOrgPath == "" || postAsPosition == "" {
+			return c.Status(fiber.StatusBadRequest).
+				JSON(dto.ErrorResponse{Error: "postAs.org_path and postAs.position_key are required"})
+		}
+		body.PostAs.OrgPath = postAsOrgPath
+		body.PostAs.PositionKey = postAsPosition
+		// ---------------------------------------------------------------
+
+		// --- handle optional file upload ---
+		file, err := c.FormFile("file")
+		if err == nil && file != nil {
+			timestamp := time.Now().UnixNano() / 1e6 // milliseconds
+			ext := filepath.Ext(file.Filename)
+			filename := fmt.Sprintf("%s_%d%s", userID, timestamp, ext)
+			savePath := filepath.Join("./uploads", filename)
+
+			if err := c.SaveFile(file, savePath); err != nil {
+				fmt.Println("SaveFile error:", err)
+				return c.Status(fiber.StatusInternalServerError).
+					JSON(dto.ErrorResponse{Error: "failed to save file"})
+			}
+
+			body.Media = append(body.Media, savePath)
+		}
+		// ---------------------------------------------------------------
 
 		// --- basic validation ---
 		if body.PostText == "" {
 			return c.Status(fiber.StatusBadRequest).
 				JSON(dto.ErrorResponse{Error: "postText is required"})
 		}
-		if body.PostAs.OrgPath == "" || body.PostAs.PositionKey == "" {
-			return c.Status(fiber.StatusBadRequest).
-				JSON(dto.ErrorResponse{Error: "postAs.org_path and postAs.position_key are required"})
-		}
 
 		if !canPostAs(viewerFrom(c), body.PostAs.OrgPath, body.PostAs.PositionKey) {
-			// fmt.Printf("[DEBUG viewer] %+v\n", m.OrgPath)
-			// v := viewerFrom(c)
-			// b, _ := json.MarshalIndent(v, "", "  ")
-			// fmt.Println("[DEBUG] Viewer =", string(b))
 			return c.Status(fiber.StatusForbidden).
-				JSON(dto.ErrorResponse{Error: "forbidden: you cannot post as this role1"})
+				JSON(dto.ErrorResponse{Error: "forbidden: you cannot post as this role"})
 		}
 
-		// default visibility
 		if body.Visibility.Access == "" {
 			body.Visibility.Access = "public"
 		}
 
-		// Use a proper context.Context for Mongo (ไม่ใช้ c.Context() เพราะไม่ใช่ Go context)
 		ctx := context.Background()
-
 		post, err := services.CreatePostWithMeta(client, userID, body, ctx)
 		if err != nil {
 			switch {
 			case errors.Is(err, services.ErrUserNotFound):
-				return c.Status(fiber.StatusNotFound).JSON(dto.ErrorResponse{Error: "user not found1"})
+				return c.Status(fiber.StatusNotFound).JSON(dto.ErrorResponse{Error: "user not found"})
 			case errors.Is(err, services.ErrOrgNodeNotFound):
-				return c.Status(fiber.StatusBadRequest).JSON(dto.ErrorResponse{Error: "org_path not found1"})
+				return c.Status(fiber.StatusBadRequest).JSON(dto.ErrorResponse{Error: "org_path not found"})
 			case errors.Is(err, services.ErrPositionNotFound):
 				return c.Status(fiber.StatusBadRequest).JSON(dto.ErrorResponse{Error: "position_key not found"})
 			default:
-				// อาจเช็ค duplicate key, validation อื่น ๆ เพิ่มได้หาก service ตีกลับ error เฉพาะ
 				return c.Status(fiber.StatusInternalServerError).JSON(dto.ErrorResponse{Error: err.Error()})
 			}
 		}
