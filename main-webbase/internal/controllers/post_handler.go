@@ -37,6 +37,8 @@ func canPostAs(v *accessctx.ViewerAccess, orgPath, positionKey string) bool {
 	return false
 }
 
+const serverIP = "45.144.166.252:46602"
+
 // POST /posts
 
 // CreatePostHandler godoc
@@ -61,13 +63,12 @@ func CreatePostHandler(client *mongo.Client) fiber.Handler {
 		userID, _ := mid.UIDFromLocals(c)
 
 		var body dto.CreatePostDTO
-		// Parse regular fields
 		if err := c.BodyParser(&body); err != nil {
 			return c.Status(fiber.StatusBadRequest).
 				JSON(dto.ErrorResponse{Error: "invalid body"})
 		}
 
-		// --- manually read nested form fields for multipart/form-data ---
+		// --- manually read nested postAs fields ---
 		postAsOrgPath := c.FormValue("postAs.org_path")
 		postAsPosition := c.FormValue("postAs.position_key")
 		if postAsOrgPath == "" || postAsPosition == "" {
@@ -81,22 +82,22 @@ func CreatePostHandler(client *mongo.Client) fiber.Handler {
 		// --- handle optional file upload ---
 		file, err := c.FormFile("file")
 		if err == nil && file != nil {
-			timestamp := time.Now().UnixNano() / 1e6 // milliseconds
+			timestamp := time.Now().UnixNano() / 1e6
 			ext := filepath.Ext(file.Filename)
 			filename := fmt.Sprintf("%s_%d%s", userID, timestamp, ext)
-			savePath := filepath.Join("./uploads", filename)
+			savePath := filepath.Join("/var/www/html/uploads", filename)
 
 			if err := c.SaveFile(file, savePath); err != nil {
-				fmt.Println("SaveFile error:", err)
 				return c.Status(fiber.StatusInternalServerError).
 					JSON(dto.ErrorResponse{Error: "failed to save file"})
 			}
 
-			body.Media = append(body.Media, savePath)
+			// Add public URL yourto MongoDB
+			publicURL := fmt.Sprintf("http://%s/uploads/%s", serverIP, filename)
+			body.Media = append(body.Media, publicURL)
 		}
 		// ---------------------------------------------------------------
 
-		// --- basic validation ---
 		if body.PostText == "" {
 			return c.Status(fiber.StatusBadRequest).
 				JSON(dto.ErrorResponse{Error: "postText is required"})

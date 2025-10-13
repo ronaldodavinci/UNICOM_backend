@@ -16,11 +16,13 @@ import (
 	"github.com/gofiber/swagger"
 	"github.com/joho/godotenv"
 
+	"main-webbase/bootstrap"
 	"main-webbase/config"
 	"main-webbase/database"
 	"main-webbase/internal/middleware"
 	"main-webbase/internal/routes"
-	"main-webbase/bootstrap"
+
+	"github.com/gofiber/fiber/v2/middleware/cors"
 )
 
 func main() {
@@ -44,16 +46,18 @@ func main() {
 
 	db := client.Database("unicom")
 
-    // Ensure critical unique indexes
-    if err := bootstrap.EnsureLikeIndexes(db); err != nil {
-        log.Fatalf("ensure like indexes failed: %v", err)
-    }
-    if err := bootstrap.EnsureEventParticipantIndexes(db); err != nil {
-        log.Printf("⚠️ warning: ensure event_participant indexes failed: %v", err)
-    }
+	// Ensure that user can like only once per target
+	if err := bootstrap.EnsureLikeIndexes(db); err != nil {
+		log.Fatalf("ensure indexes failed: %v", err)
+	}
 
 	// Fiber app
 	app := fiber.New()
+	app.Use(cors.New(cors.Config{
+		AllowOrigins: "*", // or specify your frontend URL
+		AllowMethods: "GET,POST,PUT,DELETE,OPTIONS",
+		AllowHeaders: "Origin, Content-Type, Accept, Authorization",
+	}))
 
 	// app.Use(func(c *fiber.Ctx) error {
 	// 	c.Locals("user_id", "68bd6ff6f80438824239b8a9")
