@@ -1,16 +1,17 @@
 package services
 
 import (
-	"context"
-	"fmt"
-	"time"
+    "context"
+    "fmt"
+    "time"
 
-	"go.mongodb.org/mongo-driver/v2/bson"
+    "go.mongodb.org/mongo-driver/v2/bson"
+    "go.mongodb.org/mongo-driver/v2/mongo/options"
 
-	"main-webbase/database"
-	"main-webbase/dto"
-	"main-webbase/internal/models"
-	repo "main-webbase/internal/repository"
+    "main-webbase/database"
+    "main-webbase/dto"
+    "main-webbase/internal/models"
+    repo "main-webbase/internal/repository"
 )
 
 func InitializeFormService(eventID string, ctx context.Context) (models.Event_form, error) {
@@ -151,19 +152,28 @@ func SubmitFormResponse(formID bson.ObjectID, body dto.FormResponseSubmitDTO, ct
 		return nil, fmt.Errorf("failed to find form: %w", err)
 	}
 
-	participant := models.Event_participant{
-		ID:          bson.NewObjectID(),
-		Event_ID:    form.Event_ID,
-		User_ID:     UserID,
-		Response_ID: response.ID,
-		Status:      "stall",
-		Role:        "participant",
-		CreatedAt:   &now,
-	}
-
-	if err := repo.AddParticipant(ctx, participant); err != nil {
-		return nil, fmt.Errorf("failed to add participant: %w", err)
-	}
+    // Upsert participant entry to avoid duplicates for the same user/event
+    // If already exists (e.g., user joined before form was required), just attach response_id and keep existing status.
+    res := database.DB.Collection("event_participant").FindOneAndUpdate(
+        ctx,
+        bson.M{
+            "event_id": form.Event_ID,
+            "user_id":  UserID,
+            "role":     "participant",
+        },
+        bson.M{
+            "$set": bson.M{"response_id": response.ID},
+            "$setOnInsert": bson.M{
+                "_id":        bson.NewObjectID(),
+                "status":     "stall",
+                "created_at": now,
+            },
+        },
+        options.FindOneAndUpdate().SetUpsert(true).SetReturnDocument(options.After),
+    )
+    if err := res.Err(); err != nil {
+        return nil, fmt.Errorf("failed to upsert participant: %w", err)
+    }
 
 	return answers, nil
 }

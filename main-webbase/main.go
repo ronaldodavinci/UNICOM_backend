@@ -44,10 +44,13 @@ func main() {
 
 	db := client.Database("unicom")
 
-	// Ensure that user can like only once per target
-	if err := bootstrap.EnsureLikeIndexes(db); err != nil {
-		log.Fatalf("ensure indexes failed: %v", err)
-	}
+    // Ensure critical unique indexes
+    if err := bootstrap.EnsureLikeIndexes(db); err != nil {
+        log.Fatalf("ensure like indexes failed: %v", err)
+    }
+    if err := bootstrap.EnsureEventParticipantIndexes(db); err != nil {
+        log.Printf("⚠️ warning: ensure event_participant indexes failed: %v", err)
+    }
 
 	// Fiber app
 	app := fiber.New()

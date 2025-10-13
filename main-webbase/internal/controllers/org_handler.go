@@ -5,8 +5,12 @@ import (
     "time"
 
     "github.com/gofiber/fiber/v2"
+    "go.mongodb.org/mongo-driver/v2/bson"
+    "go.mongodb.org/mongo-driver/v2/mongo/options"
     "main-webbase/dto"
     "main-webbase/internal/services"
+    "main-webbase/database"
+    "strconv"
 )
 
 // CreateOrgUnitHandler godoc
@@ -70,4 +74,58 @@ func GetOrgTree() fiber.Handler {
 
 		return c.JSON(tree)
 	}
+}
+
+// ListOrgUnits godoc
+// @Summary      List organization units
+// @Description  Returns a flat list of org units, optionally filtered by start prefix and search text
+// @Tags         Org Units
+// @Accept       json
+// @Produce      json
+// @Param        start   query string false "Org prefix"
+// @Param        search  query string false "Search by name or path (case-insensitive)"
+// @Param        limit   query int    false "Limit results (default 50)"
+// @Success      200    {array}   dto.OrgUnitTree
+// @Router       /org/units [get]
+func ListOrgUnits() fiber.Handler {
+    return func(c *fiber.Ctx) error {
+        start := c.Query("start")
+        search := c.Query("search")
+        limit := int64(50)
+        if v := c.Query("limit"); v != "" {
+            // ignore parse error -> keep default
+            if n, err := strconv.Atoi(v); err == nil && n > 0 && n <= 500 { limit = int64(n) }
+        }
+
+        filter := bson.M{"status": bson.M{"$ne": "inactive"}}
+        if start != "" {
+            filter["$or"] = []bson.M{
+                {"ancestors": start},
+                {"org_path": start},
+            }
+        }
+        if search != "" {
+            rx := bson.M{"$regex": search, "$options": "i"}
+            and := []bson.M{filter}
+            and = append(and, bson.M{"$or": []bson.M{{"name": rx}, {"shortname": rx}, {"org_path": rx}}})
+            filter = bson.M{"$and": and}
+        }
+
+        cur, err := database.DB.Collection("org_units").Find(c.Context(), filter, options.Find().SetLimit(limit))
+        if err != nil { return fiber.NewError(fiber.StatusInternalServerError, err.Error()) }
+        defer cur.Close(c.Context())
+
+        type Row struct {
+            OrgPath   string `bson:"org_path" json:"org_path"`
+            Name      string `bson:"name" json:"name"`
+            ShortName string `bson:"shortname" json:"shortname"`
+            Type      string `bson:"type" json:"type"`
+        }
+        out := make([]Row, 0, 50)
+        for cur.Next(c.Context()) {
+            var r Row
+            if err := cur.Decode(&r); err == nil { out = append(out, r) }
+        }
+        return c.JSON(out)
+    }
 }

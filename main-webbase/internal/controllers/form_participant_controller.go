@@ -1,15 +1,20 @@
 package controllers
 
 import (
-	"time"
-	"context"
+    "time"
+    "context"
 
-	"github.com/gofiber/fiber/v2"
+    "github.com/gofiber/fiber/v2"
+    "go.mongodb.org/mongo-driver/v2/bson"
+    "strings"
+    "sort"
 
-	"main-webbase/dto"
-	"main-webbase/internal/middleware"
-	repo "main-webbase/internal/repository"
-	"main-webbase/internal/services"
+    "main-webbase/database"
+    "main-webbase/dto"
+    "main-webbase/internal/middleware"
+    "main-webbase/internal/models"
+    repo "main-webbase/internal/repository"
+    "main-webbase/internal/services"
 )
 
 // InitializeFormHandler godoc
@@ -24,8 +29,8 @@ import (
 // @Failure 500 {object} map[string]string "Internal server error"
 // @Router /event/{eventId}/form/initialize [post]
 func InitializeFormHandler() fiber.Handler {
-	return func(c *fiber.Ctx) error {
-		eventID := c.Params("value")
+    return func(c *fiber.Ctx) error {
+        eventID := c.Params("eventId")
 
 		form, err := services.InitializeFormService(eventID, c.Context())
 		if err != nil {
@@ -51,8 +56,8 @@ func InitializeFormHandler() fiber.Handler {
 // @Failure 500 {object} map[string]string "Internal server error"
 // @Router /event/{eventId}/form/disable [post]
 func DisableFormHandler() fiber.Handler {
-	return func(c *fiber.Ctx) error {
-		eventID := c.Params("value")
+    return func(c *fiber.Ctx) error {
+        eventID := c.Params("eventId")
 
 		err := services.DisableFormService(eventID, c.Context())
 		if err != nil {
@@ -256,37 +261,223 @@ func GetAllUserAnswerandQuestionHandler() fiber.Handler {
 // @Failure 500 {object} map[string]string "Failed to update status"
 // @Router /event/participant/status [put]
 func UpdateParticipantStatusHandler() fiber.Handler {
-	return func(c *fiber.Ctx) error {
-		var body dto.UpdateParticipantStatusDTO
-		if err := c.BodyParser(&body); err != nil {
-			return fiber.NewError(fiber.StatusBadRequest, "invalid body")
-		}
+    return func(c *fiber.Ctx) error {
+        var body dto.UpdateParticipantStatusDTO
+        if err := c.BodyParser(&body); err != nil {
+            return fiber.NewError(fiber.StatusBadRequest, "invalid body")
+        }
 
-		if body.UserID == "" || body.EventID == "" || body.Status == "" {
-			return fiber.NewError(fiber.StatusBadRequest, "user_id, event_id, and status are required")
-		}
+        if body.UserID == "" || body.EventID == "" || body.Status == "" {
+            return fiber.NewError(fiber.StatusBadRequest, "user_id, event_id, and status are required")
+        }
 
-		// uid, err := middleware.UIDFromLocals(c)
-		// if err != nil {
-		//     return fiber.NewError(fiber.StatusUnauthorized, "unauthorized")
-		// }
-		// userPolicy, err := services.MyUserPolicy(c.Context(), uid)
-		// if err != nil {
-		//     return fiber.NewError(fiber.StatusNotFound, "target policy not found")
-		// }
+        // Require organizer permission for this event
+        uid, err := middleware.UIDFromLocals(c)
+        if err != nil {
+            return fiber.NewError(fiber.StatusUnauthorized, "unauthorized")
+        }
+        userObjID, err := bson.ObjectIDFromHex(uid)
+        if err != nil {
+            return fiber.NewError(fiber.StatusUnauthorized, "unauthorized")
+        }
+        eventObjID, err := bson.ObjectIDFromHex(body.EventID)
+        if err != nil {
+            return fiber.NewError(fiber.StatusBadRequest, "invalid event_id")
+        }
+        // Must be organizer of this event
+        if err := database.DB.Collection("event_participant").FindOne(c.Context(), bson.M{
+            "event_id": eventObjID,
+            "user_id":  userObjID,
+            "role":     "organizer",
+        }).Err(); err != nil {
+            return fiber.NewError(fiber.StatusForbidden, "no permission to manage this event")
+        }
 
-		// if err := services.CanManageEvent(c.Context(), userPolicy, body.EventID); err != nil {
-		// 	return fiber.NewError(fiber.StatusForbidden, "no permission to manage this event")
-		// }
+        if err := services.UpdateParticipantStatus(c.Context(), body); err != nil {
+            return fiber.NewError(fiber.StatusInternalServerError, "failed to update user status")
+        }
+        return c.Status(fiber.StatusCreated).JSON(fiber.Map{
+            "message": "Update User Status Success",
+            "data":    body.Status,
+        })
+    }
+}
 
-		if err := services.UpdateParticipantStatus(c.Context(), body); err != nil {
-			return fiber.NewError(fiber.StatusInternalServerError, "failed to update user status")
-		}
-		return c.Status(fiber.StatusCreated).JSON(fiber.Map{
-			"message": "Update User Status Success",
-			"data":    body.Status,
-		})
-	}
+// ListManagedEventsHandler
+// GET /event/managed
+// Returns events where the current user is an organizer, with counts of pending/accepted participants.
+func ListManagedEventsHandler() fiber.Handler {
+    return func(c *fiber.Ctx) error {
+        uid, err := middleware.UIDFromLocals(c)
+        if err != nil {
+            return fiber.NewError(fiber.StatusUnauthorized, "unauthorized")
+        }
+        userID, err := bson.ObjectIDFromHex(uid)
+        if err != nil {
+            return fiber.NewError(fiber.StatusUnauthorized, "unauthorized")
+        }
+
+        colEP := database.DB.Collection("event_participant")
+        cur, err := colEP.Find(c.Context(), bson.M{"user_id": userID, "role": "organizer"})
+        if err != nil {
+            return fiber.NewError(fiber.StatusInternalServerError, err.Error())
+        }
+        defer cur.Close(c.Context())
+
+        type OrgRow struct { EventID bson.ObjectID `bson:"event_id"` }
+        seen := make(map[bson.ObjectID]struct{})
+        eventIDs := make([]bson.ObjectID, 0, 8)
+        for cur.Next(c.Context()) {
+            var r struct{ EventID bson.ObjectID `bson:"event_id"` }
+            if err := cur.Decode(&r); err == nil {
+                if _, ok := seen[r.EventID]; !ok {
+                    seen[r.EventID] = struct{}{}
+                    eventIDs = append(eventIDs, r.EventID)
+                }
+            }
+        }
+        if len(eventIDs) == 0 {
+            return c.JSON([]fiber.Map{})
+        }
+
+        // For each event, fetch event info + counts
+        out := make([]fiber.Map, 0, len(eventIDs))
+        for _, eid := range eventIDs {
+            ev, _ := repo.GetEventByID(c.Context(), eid)
+            topic := ""
+            maxPart := 0
+            if ev != nil {
+                topic = ev.Topic
+                maxPart = ev.MaxParticipation
+            }
+
+            // Count participants by status
+            stallCnt, _ := database.DB.Collection("event_participant").CountDocuments(c.Context(), bson.M{"event_id": eid, "role": "participant", "status": "stall"})
+            acceptCnt, _ := database.DB.Collection("event_participant").CountDocuments(c.Context(), bson.M{"event_id": eid, "role": "participant", "status": "accept"})
+
+            out = append(out, fiber.Map{
+                "eventId":           eid.Hex(),
+                "topic":             topic,
+                "max_participation": maxPart,
+                "pendingCount":      stallCnt,
+                "acceptedCount":     acceptCnt,
+            })
+        }
+        return c.JSON(out)
+    }
+}
+
+// ListEventParticipantsHandler
+// GET /event/:eventId/participants?status=&role=
+// Returns participants for an event, with basic user info.
+func ListEventParticipantsHandler() fiber.Handler {
+    return func(c *fiber.Ctx) error {
+        eventIDHex := c.Params("eventId")
+        eid, err := bson.ObjectIDFromHex(eventIDHex)
+        if err != nil { return fiber.NewError(fiber.StatusBadRequest, "invalid eventId") }
+
+        // Permission: must be organizer
+        uid, err := middleware.UIDFromLocals(c)
+        if err != nil { return fiber.NewError(fiber.StatusUnauthorized, "unauthorized") }
+        uidObj, err := bson.ObjectIDFromHex(uid)
+        if err != nil { return fiber.NewError(fiber.StatusUnauthorized, "unauthorized") }
+        if err := database.DB.Collection("event_participant").FindOne(c.Context(), bson.M{
+            "event_id": eid,
+            "user_id":  uidObj,
+            "role":     "organizer",
+        }).Err(); err != nil {
+            return fiber.NewError(fiber.StatusForbidden, "no permission to manage this event")
+        }
+
+        role := c.Query("role")
+        if role == "" { role = "participant" }
+        status := c.Query("status") // optional: accept|stall|reject
+
+        filter := bson.M{"event_id": eid}
+        if role != "" { filter["role"] = role }
+        if status != "" { filter["status"] = status }
+
+        cur, err := database.DB.Collection("event_participant").Find(c.Context(), filter)
+        if err != nil { return fiber.NewError(fiber.StatusInternalServerError, err.Error()) }
+        defer cur.Close(c.Context())
+
+        // Build response with user info
+        out := make([]fiber.Map, 0, 20)
+        colUsers := database.DB.Collection("users")
+        for cur.Next(c.Context()) {
+            var p models.Event_participant
+            if err := cur.Decode(&p); err != nil { continue }
+            var user struct{ ID bson.ObjectID `bson:"_id"`; First string `bson:"firstname"`; Last string `bson:"lastname"` }
+            _ = colUsers.FindOne(c.Context(), bson.M{"_id": p.User_ID}).Decode(&user)
+            out = append(out, fiber.Map{
+                "user_id":  p.User_ID.Hex(),
+                "first_name": user.First,
+                "last_name":  user.Last,
+                "role":     p.Role,
+                "status":   p.Status,
+                "response_id": func() string { if p.Response_ID.IsZero() { return "" } else { return p.Response_ID.Hex() } }(),
+            })
+        }
+        return c.JSON(out)
+    }
+}
+
+// ManageableOrgsHandler
+// GET /event/manageable-orgs?search=
+// Returns org nodes for which the current user has create permission (organize:create or event:create).
+func ManageableOrgsHandler() fiber.Handler {
+    return func(c *fiber.Ctx) error {
+        uid, err := middleware.UIDFromLocals(c)
+        if err != nil { return fiber.NewError(fiber.StatusUnauthorized, "unauthorized") }
+
+        policies, err := services.MyUserPolicy(c.Context(), uid)
+        if err != nil { return fiber.NewError(fiber.StatusInternalServerError, err.Error()) }
+
+        // Collect org prefixes with create permission
+        prefixes := make(map[string]struct{})
+        for _, p := range policies {
+            if !p.Enabled { continue }
+            hasCreate := false
+            for _, a := range p.Actions {
+                if a == "organize:create" || a == "event:create" {
+                    hasCreate = true
+                    break
+                }
+            }
+            if hasCreate && p.OrgPrefix != "" {
+                prefixes[p.OrgPrefix] = struct{}{}
+            }
+        }
+
+        // Build output with names
+        q := strings.ToLower(strings.TrimSpace(c.Query("search")))
+        out := make([]fiber.Map, 0, len(prefixes))
+        for path := range prefixes {
+            node, _ := repo.FindByOrgPath(c.Context(), path)
+            if node == nil { continue }
+            if q != "" {
+                if !strings.Contains(strings.ToLower(node.Name), q) &&
+                   !strings.Contains(strings.ToLower(node.ShortName), q) &&
+                   !strings.Contains(strings.ToLower(node.OrgPath), q) {
+                    continue
+                }
+            }
+            out = append(out, fiber.Map{
+                "org_path":   node.OrgPath,
+                "name":       node.Name,
+                "short_name": node.ShortName,
+                "type":       node.Type,
+                "node_id":    node.ID.Hex(),
+            })
+        }
+        sort.Slice(out, func(i, j int) bool {
+            si, sj := out[i]["short_name"], out[j]["short_name"]
+            nis := strings.ToLower(strings.TrimSpace(func(v any) string { if v==nil {return ""}; return v.(string) }(si)))
+            njs := strings.ToLower(strings.TrimSpace(func(v any) string { if v==nil {return ""}; return v.(string) }(sj)))
+            return nis < njs
+        })
+        return c.JSON(out)
+    }
 }
 
 // GetMyParticipantStatusHandler godoc
