@@ -2,9 +2,10 @@ package controllers
 
 import (
 	"context"
-	"main-webbase/internal/models"
 	"main-webbase/database"
+	"main-webbase/internal/models"
 	"os"
+	"strings"
 	"time"
 
 	"golang.org/x/crypto/bcrypt"
@@ -32,6 +33,10 @@ func Register(c *fiber.Ctx) error {
 	var registerRequest models.RegisterRequest
 	if err := c.BodyParser(&registerRequest); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request body"})
+	}
+
+	if !strings.HasSuffix(registerRequest.Email, "@ku.ac.th") {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Email must be a @ku.ac.th address"})
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -94,6 +99,10 @@ func Login(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request body"})
 	}
 
+	if !strings.HasSuffix(loginRequest.Email, "@ku.ac.th") {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Email must be a @ku.ac.th address"})
+	}
+
 	// Find the user in the database by their username
 	collection := database.DB.Collection("users")
 
@@ -117,7 +126,7 @@ func Login(c *fiber.Ctx) error {
 
 	// Create JWT Claims
 	claims := jwt.MapClaims{
-		"uid": user.ID.Hex(), 
+		"uid": user.ID.Hex(),
 		"sub": user.ID.Hex(), // ทำไว้ 2 ชั้น เป็นมาตรฐานเอาไว้ใช้ใน Middleware ด้วย
 		"exp": time.Now().Add(time.Hour * 72).Unix(),
 	}
@@ -130,7 +139,7 @@ func Login(c *fiber.Ctx) error {
 	if secret == "" {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Missing JWT_SECRET"})
 	}
-	
+
 	t, err := token.SignedString([]byte(secret))
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Could not sign token"})
