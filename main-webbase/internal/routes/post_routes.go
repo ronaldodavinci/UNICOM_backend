@@ -8,9 +8,13 @@ import (
 )
 
 func SetupRoutesPost(app *fiber.App, client *mongo.Client) {
+
+	app.Get("/categories", controllers.GetCategories(client))
+	
 	posts := app.Group("/posts")
 	posts.Get("/", controllers.GetPostsVisibilityCursor(client))
 	posts.Get("/feed", controllers.FeedHandler(client))
+
 	posts.Post("/", controllers.CreatePostHandler(client))
 	posts.Get("/:post_id", controllers.GetIndividualPostHandler(client))
 	posts.Put("/:post_id", controllers.UpdatePostHandler(client))
