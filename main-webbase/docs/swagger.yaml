@@ -71,64 +71,6 @@ definitions:
       visibility:
         $ref: '#/definitions/models.Visibility'
     type: object
-  dto.EventRequestDTO:
-    properties:
-      description:
-        example: A workshop on AI applications
-        type: string
-      have_form:
-        example: true
-        type: boolean
-      max_participation:
-        example: 50
-        type: integer
-      node_id:
-        example: 66ffa43e9a7c39b1d87f6401
-        type: string
-      org_of_content:
-        example: /fac/eng/com
-        type: string
-      picture_url:
-        example: http://45.144.166.252:46602/uploads/cat.png
-        type: string
-      posted_as:
-        $ref: '#/definitions/models.PostedAs'
-      schedules:
-        items:
-          properties:
-            date:
-              example: "2025-10-15T00:00:00Z"
-              type: string
-            description:
-              example: Morning session
-              type: string
-            location:
-              example: Innovation Building Room 301
-              type: string
-            time_end:
-              example: "2025-10-15T12:00:00Z"
-              type: string
-            time_start:
-              example: "2025-10-15T09:00:00Z"
-              type: string
-          type: object
-        type: array
-      status:
-        enum:
-        - active
-        - draft
-        - inactive
-        example: draft
-        type: string
-      topic:
-        example: AI Workshop
-        type: string
-      visibility:
-        $ref: '#/definitions/models.Visibility'
-    required:
-    - node_id
-    - topic
-    type: object
   dto.FormMatrixResponseDTO:
     properties:
       form_id:
@@ -869,15 +811,28 @@ paths:
       - events
     post:
       consumes:
-      - application/json
-      description: Create an event with schedules
+      - multipart/form-data
+      description: Create an event with optional image upload
       parameters:
-      - description: Event payload
-        in: body
-        name: event
+      - description: Upload event image
+        in: formData
+        name: file
+        type: file
+      - description: Node ID
+        in: formData
+        name: NodeID
         required: true
-        schema:
-          $ref: '#/definitions/dto.EventRequestDTO'
+        type: string
+      - description: Organization path
+        in: formData
+        name: postedAs.org_path
+        required: true
+        type: string
+      - description: Position key
+        in: formData
+        name: postedAs.position_key
+        required: true
+        type: string
       produces:
       - application/json
       responses:
@@ -1453,6 +1408,36 @@ paths:
       tags:
       - memberships
   /org/units:
+    get:
+      consumes:
+      - application/json
+      description: Returns a flat list of org units, optionally filtered by start
+        prefix and search text
+      parameters:
+      - description: Org prefix
+        in: query
+        name: start
+        type: string
+      - description: Search by name or path (case-insensitive)
+        in: query
+        name: search
+        type: string
+      - description: Limit results (default 50)
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/dto.OrgUnitTree'
+            type: array
+      summary: List organization units
+      tags:
+      - Org Units
     post:
       consumes:
       - application/json

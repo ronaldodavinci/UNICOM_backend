@@ -183,9 +183,9 @@ const docTemplate = `{
                 }
             },
             "post": {
-                "description": "Create an event with schedules",
+                "description": "Create an event with optional image upload",
                 "consumes": [
-                    "application/json"
+                    "multipart/form-data"
                 ],
                 "produces": [
                     "application/json"
@@ -196,13 +196,31 @@ const docTemplate = `{
                 "summary": "Create new event",
                 "parameters": [
                     {
-                        "description": "Event payload",
-                        "name": "event",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/dto.EventRequestDTO"
-                        }
+                        "type": "file",
+                        "description": "Upload event image",
+                        "name": "file",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Node ID",
+                        "name": "NodeID",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Organization path",
+                        "name": "postedAs.org_path",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Position key",
+                        "name": "postedAs.position_key",
+                        "in": "formData",
+                        "required": true
                     }
                 ],
                 "responses": {
@@ -1060,6 +1078,50 @@ const docTemplate = `{
             }
         },
         "/org/units": {
+            "get": {
+                "description": "Returns a flat list of org units, optionally filtered by start prefix and search text",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Org Units"
+                ],
+                "summary": "List organization units",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Org prefix",
+                        "name": "start",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Search by name or path (case-insensitive)",
+                        "name": "search",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Limit results (default 50)",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/dto.OrgUnitTree"
+                            }
+                        }
+                    }
+                }
+            },
             "post": {
                 "description": "Creates a new organization unit node in the hierarchy",
                 "consumes": [
@@ -2160,86 +2222,6 @@ const docTemplate = `{
                 },
                 "topic": {
                     "type": "string"
-                },
-                "visibility": {
-                    "$ref": "#/definitions/models.Visibility"
-                }
-            }
-        },
-        "dto.EventRequestDTO": {
-            "type": "object",
-            "required": [
-                "node_id",
-                "topic"
-            ],
-            "properties": {
-                "description": {
-                    "type": "string",
-                    "example": "A workshop on AI applications"
-                },
-                "have_form": {
-                    "type": "boolean",
-                    "example": true
-                },
-                "max_participation": {
-                    "type": "integer",
-                    "example": 50
-                },
-                "node_id": {
-                    "type": "string",
-                    "example": "66ffa43e9a7c39b1d87f6401"
-                },
-                "org_of_content": {
-                    "type": "string",
-                    "example": "/fac/eng/com"
-                },
-                "picture_url": {
-                    "type": "string",
-                    "example": "http://45.144.166.252:46602/uploads/cat.png"
-                },
-                "posted_as": {
-                    "$ref": "#/definitions/models.PostedAs"
-                },
-                "schedules": {
-                    "type": "array",
-                    "items": {
-                        "type": "object",
-                        "properties": {
-                            "date": {
-                                "type": "string",
-                                "example": "2025-10-15T00:00:00Z"
-                            },
-                            "description": {
-                                "type": "string",
-                                "example": "Morning session"
-                            },
-                            "location": {
-                                "type": "string",
-                                "example": "Innovation Building Room 301"
-                            },
-                            "time_end": {
-                                "type": "string",
-                                "example": "2025-10-15T12:00:00Z"
-                            },
-                            "time_start": {
-                                "type": "string",
-                                "example": "2025-10-15T09:00:00Z"
-                            }
-                        }
-                    }
-                },
-                "status": {
-                    "type": "string",
-                    "enum": [
-                        "active",
-                        "draft",
-                        "inactive"
-                    ],
-                    "example": "draft"
-                },
-                "topic": {
-                    "type": "string",
-                    "example": "AI Workshop"
                 },
                 "visibility": {
                     "$ref": "#/definitions/models.Visibility"
