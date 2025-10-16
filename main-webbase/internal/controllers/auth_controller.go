@@ -4,6 +4,7 @@ import (
 	"context"
 	"main-webbase/database"
 	"main-webbase/internal/models"
+	repo "main-webbase/internal/repository"
 	"os"
 	"strings"
 	"time"
@@ -73,6 +74,17 @@ func Register(c *fiber.Ctx) error {
 	_, err = collection.InsertOne(ctx, user)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to create user"})
+	}
+
+	membership := models.MembershipRequestDTO{
+		UserID:      user.ID.Hex(),
+		OrgPath:     registerRequest.OrgPath,
+		PositionKey: "Student",
+		Active:      true,
+	}
+
+	if err := repo.InsertMembership(c.Context(), membership); err != nil {
+		return fiber.NewError(fiber.StatusInternalServerError, err.Error())
 	}
 
 	return c.Status(fiber.StatusCreated).JSON(fiber.Map{

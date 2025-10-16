@@ -14,5 +14,6 @@ type RegisterRequest struct {
 	StudentID  string `bson:"student_id,omitempty" json:"student_id,omitempty"`
 	AdvisorID  string `bson:"advisor_id,omitempty" json:"advisor_id,omitempty"`
 	Email      string `bson:"email" json:"email"`
-	Password   string `bson:"password,omitempty" json:"password,omitempty"`
+	Password   string `bson:"password" json:"password"`
+	OrgPath    string `bson:"organize_path" json:"organize_path"`
 }
