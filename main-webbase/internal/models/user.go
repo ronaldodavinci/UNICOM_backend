@@ -1,8 +1,9 @@
 package models
 
 import (
-	"go.mongodb.org/mongo-driver/v2/bson"
 	"time"
+
+	"go.mongodb.org/mongo-driver/v2/bson"
 )
 
 type User struct {
@@ -21,6 +22,8 @@ type User struct {
 	PasswordHash string    `bson:"password_hash,omitempty" json:"-"`
 	CreatedAt    time.Time `bson:"createdAt,omitempty" json:"createdAt,omitempty"`
 	UpdatedAt    time.Time `bson:"updatedAt,omitempty" json:"updatedAt,omitempty"`
+	OTP          string    `bson:"otp"`
+	OTPExpiresAt time.Time `bson:"otp_expires_at"`
 }
 
 // User

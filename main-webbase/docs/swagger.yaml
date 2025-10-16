@@ -1918,7 +1918,7 @@ paths:
     post:
       consumes:
       - application/json
-      description: Create a new user account with hashed password
+      description: Create a new user account with hashed password and send OTP
       parameters:
       - description: Register Request
         in: body
@@ -1930,7 +1930,7 @@ paths:
       - application/json
       responses:
         "201":
-          description: User registered successfully
+          description: User registered successfully, OTP sent
           schema:
             additionalProperties: true
             type: object

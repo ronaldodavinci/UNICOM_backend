@@ -2,8 +2,12 @@ package controllers
 
 import (
 	"context"
+	"crypto/rand"
+	"fmt"
+	"log"
 	"main-webbase/database"
 	"main-webbase/internal/models"
+	"net/smtp"
 	"os"
 	"strings"
 	"time"
@@ -16,14 +20,43 @@ import (
 	"go.mongodb.org/mongo-driver/v2/mongo"
 )
 
+// GenerateOTP generates a numeric OTP of given length
+func GenerateOTP(length int) (string, error) {
+	const digits = "0123456789"
+	otp := make([]byte, length)
+	_, err := rand.Read(otp)
+	if err != nil {
+		return "", err
+	}
+	for i := 0; i < length; i++ {
+		otp[i] = digits[otp[i]%10]
+	}
+	return string(otp), nil
+}
+
+// SendOTPEmail sends an OTP email to the user
+func SendOTPEmail(toEmail, otp string) error {
+	smtpHost := "smtp.zoho.com"
+	smtpPort := "587"
+	fromEmail := "otp@kucom.art" // replace with your domain email
+	password := "tcq%ecM1"       // use environment variable in production
+
+	subject := "Your Registration OTP"
+	body := fmt.Sprintf("Hello,\n\nYour OTP code is: %s\nThis code will expire in 5 minutes.\n\n", otp)
+	message := fmt.Sprintf("From: %s\nTo: %s\nSubject: %s\n\n%s", fromEmail, toEmail, subject, body)
+
+	auth := smtp.PlainAuth("", fromEmail, password, smtpHost)
+	return smtp.SendMail(smtpHost+":"+smtpPort, auth, fromEmail, []string{toEmail}, []byte(message))
+}
+
 // Register godoc
 // @Summary Register a new user
-// @Description Create a new user account with hashed password
+// @Description Create a new user account with hashed password and send OTP
 // @Tags auth
 // @Accept json
 // @Produce json
 // @Param registerRequest body models.RegisterRequest true "Register Request"
-// @Success 201 {object} map[string]interface{} "User registered successfully"
+// @Success 201 {object} map[string]interface{} "User registered successfully, OTP sent"
 // @Failure 400 {object} map[string]interface{} "Invalid request body or email already exists"
 // @Failure 500 {object} map[string]interface{} "Failed to create user"
 // @Router /register [post]
@@ -35,8 +68,8 @@ func Register(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request body"})
 	}
 
-	if !strings.HasSuffix(registerRequest.Email, "@ku.ac.th") {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Email must be a @ku.ac.th address"})
+	if !strings.HasSuffix(registerRequest.Email, "@ku.th") {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Email must be a @ku.th address"})
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -55,7 +88,19 @@ func Register(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to hash password"})
 	}
 
-	// Add to db
+	// Generate OTP
+	otp, err := GenerateOTP(6)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to generate OTP"})
+	}
+
+	// Send OTP email
+	if err := SendOTPEmail(registerRequest.Email, otp); err != nil {
+		log.Println("Failed to send OTP email:", err)
+		// Optional: continue registration even if email fails
+	}
+
+	// Add to DB
 	user := models.User{
 		ID:           bson.NewObjectID(),
 		FirstName:    registerRequest.FirstName,
@@ -67,17 +112,20 @@ func Register(c *fiber.Ctx) error {
 		AdvisorID:    registerRequest.AdvisorID,
 		Email:        registerRequest.Email,
 		PasswordHash: string(hashedPassword),
+		OTP:          otp,                             // store OTP in DB
+		OTPExpiresAt: time.Now().Add(5 * time.Minute), // expires in 5 minutes
 		CreatedAt:    time.Now(),
 		UpdatedAt:    time.Now(),
 	}
+
 	_, err = collection.InsertOne(ctx, user)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to create user"})
 	}
 
 	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
-		"message": "User registered successfully",
-		"user":    user,
+		"message": "User registered successfully. OTP sent to email.",
+		"user_id": user.ID.Hex(),
 	})
 }
 
@@ -99,8 +147,8 @@ func Login(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request body"})
 	}
 
-	if !strings.HasSuffix(loginRequest.Email, "@ku.ac.th") {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Email must be a @ku.ac.th address"})
+	if !strings.HasSuffix(loginRequest.Email, "@ku.th") {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Email must be a @ku.th address"})
 	}
 
 	// Find the user in the database by their username

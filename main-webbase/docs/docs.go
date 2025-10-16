@@ -1835,7 +1835,7 @@ const docTemplate = `{
         },
         "/register": {
             "post": {
-                "description": "Create a new user account with hashed password",
+                "description": "Create a new user account with hashed password and send OTP",
                 "consumes": [
                     "application/json"
                 ],
@@ -1859,7 +1859,7 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "201": {
-                        "description": "User registered successfully",
+                        "description": "User registered successfully, OTP sent",
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
