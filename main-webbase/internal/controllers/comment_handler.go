@@ -17,10 +17,6 @@ type CommentHandler struct {
 	Repo *repository.CommentRepository
 }
 
-type ErrorResponse struct {
-	Error string `json:Error example:"invalid body"`
-}
-
 func viewerFrom(c *fiber.Ctx) *accessctx.ViewerAccess {
 	v, _ := c.Locals("viewer").(*accessctx.ViewerAccess)
 	return v
@@ -117,10 +113,25 @@ func (h *CommentHandler) List(c *fiber.Ctx) error {
 		return c.Status(status).JSON(dto.ErrorResponse{Error: repoErr.Error()})
 	}
 
+	viewerID, _ := middleware.UIDObjectID(c)
+	anyLiked := false
+	if !viewerID.IsZero() {
+		// Use likes collection to check if viewer liked any of the returned comments
+		likesCol := h.Repo.Client.Database("unicom").Collection("like")
+		for _, cm := range items {
+			ok, err := repository.CheckIsLiked(c.Context(), likesCol, viewerID, cm.ID, "comment")
+			if err == nil && ok {
+				anyLiked = true
+				break
+			}
+		}
+	}
+
 	resp := dto.ListCommentsResp{
 		Comments:   items,
 		NextCursor: next,
 		HasMore:    next != nil,
+		IsLiked:    anyLiked,
 	}
 	return c.JSON(resp)
 }
@@ -146,25 +157,25 @@ func (h *CommentHandler) Update(c *fiber.Ctx) error {
 
 	cid, err := bson.ObjectIDFromHex(c.Params("commentId"))
 	if err != nil {
-		return c.Status(http.StatusBadRequest).JSON(ErrorResponse{Error: "invalid comment id"})
+		return c.Status(http.StatusBadRequest).JSON(dto.ErrorResponse{Error: "invalid comment id"})
 	}
 
 	var body dto.CreateCommentReq
 	if err := c.BodyParser(&body); err != nil {
-		return c.Status(http.StatusBadRequest).JSON(ErrorResponse{Error: "invalid body"})
+		return c.Status(http.StatusBadRequest).JSON(dto.ErrorResponse{Error: "invalid body"})
 	}
 
 	txt := strings.TrimSpace(body.Text)
 	if txt == "" {
-		return c.Status(http.StatusBadRequest).JSON(ErrorResponse{Error: "text required"})
+		return c.Status(http.StatusBadRequest).JSON(dto.ErrorResponse{Error: "text required"})
 	}
 
 	updated, err := h.Repo.Update(c.Context(), cid, uid, txt)
 	if err != nil {
-		return c.Status(http.StatusInternalServerError).JSON(ErrorResponse{Error: err.Error()})
+		return c.Status(http.StatusInternalServerError).JSON(dto.ErrorResponse{Error: err.Error()})
 	}
 	if updated == nil {
-		return c.Status(http.StatusForbidden).JSON(ErrorResponse{Error: "forbidden"})
+		return c.Status(http.StatusForbidden).JSON(dto.ErrorResponse{Error: "forbidden"})
 	}
 	return c.JSON(updated)
 }

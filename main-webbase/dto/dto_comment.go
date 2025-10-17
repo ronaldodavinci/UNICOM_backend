@@ -14,4 +14,5 @@ type ListCommentsResp struct {
 	Comments   []models.Comment `json:"comments"`
 	NextCursor *string          `json:"next_cursor"`
 	HasMore    bool             `json:"has_more"`
+	IsLiked    bool             `json:"isLiked"`
 }
