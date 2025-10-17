@@ -24,6 +24,7 @@ type Post struct {
 	UpdatedAt    time.Time     `json:"updatedAt" bson:"updated_at"`
 	Status       string        `json:"status" bson:"status"` // active, deleted
 	Visibility   string        `json:"visibility" bson:"visibility"`
+	Isliked      bool          `json:"is_liked" bson:"is_liked"`
 }
 
 type QueryOptions struct {

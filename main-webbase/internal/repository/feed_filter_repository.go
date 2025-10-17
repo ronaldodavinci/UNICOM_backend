@@ -99,7 +99,23 @@ func buildCommonPipeline(baseMatch bson.D, lim int64, opts models.QueryOptions, 
 			"foreignField": "post_id",
 			"as":           "comments",
 		}}},
-		
+
+		{{Key: "$lookup", Value: bson.M{
+			"from": "like",
+			"let":  bson.M{"pid": "$_id", "viewer": opts.ViewerID},
+			"pipeline": mongo.Pipeline{
+				bson.D{{Key: "$match", Value: bson.M{
+					"$expr": bson.M{"$and": bson.A{
+						bson.M{"$eq": bson.A{"$post_id", "$$pid"}},
+						bson.M{"$eq": bson.A{"$user_id", "$$viewer"}},
+					}},
+				}}},
+				bson.D{{Key: "$project", Value: bson.M{"_id": 1}}}, // เลือกเฉพาะที่ต้องใช้
+				bson.D{{Key: "$limit", Value: 1}},                  // เจออันแรกพอ
+			},
+			"as": "likedByMe", // <— เปลี่ยนชื่อให้สื่อว่าเป็น array ชั่วคราว
+		}}},
+			
 	}
 
 	// ===== Text search =====
@@ -207,6 +223,17 @@ func buildCommonPipeline(baseMatch bson.D, lim int64, opts models.QueryOptions, 
 			{"isOwner": true},
 		}}}},
 	)
+
+	pipe = append(pipe,
+		bson.D{{Key: "$addFields", Value: bson.M{
+			"is_liked": bson.M{
+				"$gt": bson.A{
+					bson.M{"$size": bson.M{"$ifNull": bson.A{"$likedByMe", bson.A{}}}},
+					0,
+				},
+			},
+		}}},
+	)
 	// ===== Projection =====
 	pipe = append(pipe,
 		bson.D{{Key: "$project", Value: bson.M{
@@ -236,7 +263,7 @@ func buildCommonPipeline(baseMatch bson.D, lim int64, opts models.QueryOptions, 
 			"comment_count": 1,
 			"created_at": 1,
 			"updated_at": 1,
-			"status":       bson.M{"$ifNull": bson.A{"$status", "active"}},
+			"status": bson.M{"$ifNull": bson.A{"$status", "active"}},
 			"visibility": bson.M{
 				"$cond": bson.A{
 					"$hasVisibility",  // ถ้ามีบันทึก visibility แปลว่า "private"
@@ -244,6 +271,7 @@ func buildCommonPipeline(baseMatch bson.D, lim int64, opts models.QueryOptions, 
 					"public",
 				},
 			},
+			"is_liked": bson.M{"$ifNull": bson.A{"$is_liked", false}},
 		}}},
 	)
 
