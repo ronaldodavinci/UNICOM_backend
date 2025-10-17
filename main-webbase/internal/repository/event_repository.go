@@ -8,6 +8,7 @@ import (
 	"main-webbase/internal/models"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
+	"go.mongodb.org/mongo-driver/v2/mongo"
 )
 
 // Use in CreateEventWithSchedules
@@ -124,3 +125,43 @@ func GetTotalParticipant(ctx context.Context, eventID bson.ObjectID) (int, error
 
 	return int(count), nil
 }
+
+
+func FindAcceptedParticipants(ctx context.Context, eventID bson.ObjectID) ([]bson.ObjectID, error) {
+	collection := database.DB.Collection("event_form_response")
+
+	pipeline := mongo.Pipeline{
+		{{Key: "$match", Value: bson.M{
+			"event_id": eventID,
+			"status":   "accept",
+		}}},
+		{{Key: "$project", Value: bson.M{
+			"participant_id": 1,
+			"_id":            0,
+		}}},
+	}
+
+	cursor, err := collection.Aggregate(ctx, pipeline)
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+
+	var participantIDs []bson.ObjectID
+	for cursor.Next(ctx) {
+		var doc struct {
+			ParticipantID bson.ObjectID `bson:"participant_id"`
+		}
+		if err := cursor.Decode(&doc); err != nil {
+			return nil, err
+		}
+		participantIDs = append(participantIDs, doc.ParticipantID)
+	}
+
+	if err := cursor.Err(); err != nil {
+		return nil, err
+	}
+
+	return participantIDs, nil
+}
+

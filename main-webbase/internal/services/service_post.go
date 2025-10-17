@@ -136,7 +136,7 @@ func CreatePostWithMeta(client *mongo.Client, UserID string, body dto.CreatePost
 	return resp, nil
 }
 
-func GetPostDetail(ctx context.Context, db *mongo.Database, postID bson.ObjectID) (dto.PostResponse, error) {
+func GetPostDetail(ctx context.Context, db *mongo.Database, loginUserID bson.ObjectID, postID bson.ObjectID) (dto.PostResponse, error) {
 	var out dto.PostResponse
 
 	colPosts := db.Collection("posts")
@@ -145,6 +145,7 @@ func GetPostDetail(ctx context.Context, db *mongo.Database, postID bson.ObjectID
 	colOrgNodes := db.Collection("org_units")
 	colPostRoleVis := db.Collection("post_role_visibility")
 	colCats := db.Collection("post_categories")
+	colLikes := db.Collection("like")
 
 	// 1) post
 	post, err := repo.FindPostByID(colPosts, postID, ctx)
@@ -193,6 +194,8 @@ func GetPostDetail(ctx context.Context, db *mongo.Database, postID bson.ObjectID
 	if err != nil {
 		return out, fmt.Errorf("fetch categories: %w", err)
 	}
+	// 7) is_like
+	isLiked, err := repo.CheckIsLiked(ctx, colLikes, loginUserID, post.ID, "post")
 
 	// 8) map -> response
 	out = dto.PostResponse{
@@ -215,6 +218,7 @@ func GetPostDetail(ctx context.Context, db *mongo.Database, postID bson.ObjectID
 		CreatedAt:    post.CreatedAt.UTC().Format(time.RFC3339),
 		UpdatedAt:    post.UpdatedAt.UTC().Format(time.RFC3339),
 		Status:       post.Status,
+		Isliked:   isLiked,
 	}
 	return out, nil
 }

@@ -149,7 +149,10 @@ func GetIndividualPostHandler(client *mongo.Client) fiber.Handler {
 	const dbName = "unicom"
 
 	return func(c *fiber.Ctx) error {
+
 		postIDHex := c.Params("post_id")
+		userID, _ := mid.UIDObjectID(c)
+
 		if postIDHex == "" {
 			return fiber.NewError(fiber.StatusBadRequest, "missing post_id in route")
 		}
@@ -164,7 +167,7 @@ func GetIndividualPostHandler(client *mongo.Client) fiber.Handler {
 
 		db := client.Database(dbName)
 
-		resp, err := services.GetPostDetail(ctx, db, postID)
+		resp, err := services.GetPostDetail(ctx, db, userID,postID)
 		if err != nil {
 			// ถ้าถูก wrap ด้วย %w จาก service จะเช็ค ErrNoDocuments ได้
 			if errors.Is(err, mongo.ErrNoDocuments) {
@@ -281,7 +284,7 @@ func UpdatePostHandler(client *mongo.Client) fiber.Handler {
 			}
 		}
 
-		resp, err := services.GetPostDetail(ctx, client.Database("unicom"), postID)
+		resp, err := services.GetPostDetail(ctx, client.Database("unicom"), uid, postID)
 		if err != nil {
 			return c.Status(500).JSON(dto.ErrorResponse{Error: err.Error()})
 		}

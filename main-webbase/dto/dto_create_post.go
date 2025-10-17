@@ -74,6 +74,7 @@ type PostResponse struct {
 	CreatedAt    string     `json:"createdAt"     example:"2025-09-07T13:47:47Z"`
 	UpdatedAt    string     `json:"updatedAt"     example:"2025-09-07T13:47:47Z"`
 	Status       string     `json:"status" example:"active"`
+	Isliked       bool       `json:"is_liked" example:"false"`
 }
 
 // // ===== Error Response =====

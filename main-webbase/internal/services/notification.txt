@@ -1,0 +1,100 @@
+package services
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"time"
+
+	"go.mongodb.org/mongo-driver/v2/mongo"
+	"go.mongodb.org/mongo-driver/v2/mongo/options"
+	"go.mongodb.org/mongo-driver/v2/bson"
+	m "main-webbase/internal/models"
+)
+
+
+
+const (
+	NotiAuditionApproved m.NotiType = "AUDITION_APPROVED"
+	NotiEventUpdated     m.NotiType = "EVENT_UPDATED"
+	NotiEventDeleted     m.NotiType = "EVENT_DELETED"
+	NotiEventReminder    m.NotiType = "EVENT_REMINDER"
+	NotiQAAnswered       m.NotiType = "QA_ANSWERED"
+)
+
+
+func BuildTitleBody(t m.NotiType, p m.NotiParams) (title, body string, err error) {
+	switch t {
+	// delete
+	case NotiEventDeleted:
+		if p.EventTitle == "" {
+			return "", "", errors.New("missing EventTitle")
+		}
+		return fmt.Sprintf("%s is deleted", p.EventTitle),
+			fmt.Sprintf("%s is deleted.", p.EventTitle), nil
+
+	case NotiEventUpdated:
+		if p.EventTitle == "" {
+			return "", "", errors.New("missing EventTitle")
+		}
+		return fmt.Sprintf("%s has been updated", p.EventTitle),
+			fmt.Sprintf("%s has been updated. Please check the details.", p.EventTitle), nil
+
+	case NotiAuditionApproved:
+		if p.EventTitle == "" {
+			return "", "", errors.New("missing EventTitle")
+		}
+		return "Audition approved 🎉",
+			fmt.Sprintf("You are approved for %s. Please check the details.", p.EventTitle), nil
+
+	case NotiEventReminder:
+		if p.EventTitle == "" || p.StartTime == nil {
+			return "", "", errors.New("missing EventTitle/StartTime")
+		}
+		return "Event reminder",
+			fmt.Sprintf("%s is coming up. Please check the details.", p.EventTitle), nil
+
+	case NotiQAAnswered:
+		if p.EventTitle == "" {
+			return "", "", errors.New("missing EventTitle")
+		}
+		return "Your question has a new answer",
+			fmt.Sprintf("Your question on %s has been answered.", p.EventTitle), nil
+	}
+	return "", "", fmt.Errorf("unknown noti type: %s", t)
+}
+
+// ---- 2) ตัวช่วยยิง noti (One/Many) ใช้ฟังก์ชันกลางด้านบน ----
+func NotifyOne(ctx context.Context, col *mongo.Collection,
+	userID bson.ObjectID, typ m.NotiType, ref m.Ref, p m.NotiParams) error {
+
+	title, body, err := BuildTitleBody(typ, p)
+	if err != nil { return err }
+	_, err = col.InsertOne(ctx, bson.M{
+		"user_id":    userID,
+		"type":       typ,
+		"title":      title,
+		"body":       body,
+		"ref":        m.ref,
+		"created_at": time.Now().UTC(),
+	})
+	return err
+}
+
+func NotifyMany(ctx context.Context, col *mongo.Collection,
+	userIDs []bson.ObjectID, typ m.NotiType, ref m.Ref, p m.NotiParams) error {
+
+	if len(userIDs) == 0 { return nil }
+	title, body, err := BuildTitleBody(typ, p)
+	if err != nil { return err }
+
+	now := time.Now().UTC()
+	writes := make([]mongo.WriteModel, 0, len(userIDs))
+	for _, uid := range userIDs {
+		writes = append(writes, &mongo.InsertOneModel{Document: bson.M{
+			"user_id": uid, "type": typ, "title": title, "body": body, "m.ref": m.ref, "created_at": now,
+		}})
+	}
+	_, err = col.BulkWrite(ctx, writes, options.BulkWrite().SetOrdered(false))
+	return err
+}

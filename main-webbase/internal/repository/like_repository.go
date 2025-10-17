@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"errors"
+	"fmt"
 	"main-webbase/internal/models"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
@@ -52,4 +53,36 @@ func CountLikes(ctx context.Context, likesCol *mongo.Collection, targetID bson.O
 		filter = bson.M{"comment_id": targetID}
 	}
 	return likesCol.CountDocuments(ctx, filter)
+}
+
+func CheckIsLiked(
+    ctx context.Context,
+    col *mongo.Collection,
+    userID bson.ObjectID,
+    targetID bson.ObjectID,
+    targetType string,
+) (bool, error) {
+    var filter bson.M
+
+    switch targetType {
+    case "post":
+        filter = bson.M{
+            "user_id": userID,
+            "post_id": targetID,
+        }
+    case "comment":
+        filter = bson.M{
+            "user_id":    userID,
+            "comment_id": targetID,
+        }
+    default:
+        return false, fmt.Errorf("invalid targetType: must be 'post' or 'comment'")
+    }
+
+    count, err := col.CountDocuments(ctx, filter)
+    if err != nil {
+        return false, fmt.Errorf("failed to check like: %w", err)
+    }
+
+    return count > 0, nil
 }
