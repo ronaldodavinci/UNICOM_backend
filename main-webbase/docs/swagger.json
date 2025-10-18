@@ -175,80 +175,6 @@
                         }
                     }
                 }
-            },
-            "post": {
-                "description": "Create an event with optional image upload",
-                "consumes": [
-                    "multipart/form-data"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "events"
-                ],
-                "summary": "Create new event",
-                "parameters": [
-                    {
-                        "type": "file",
-                        "description": "Upload event image",
-                        "name": "file",
-                        "in": "formData"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Node ID",
-                        "name": "NodeID",
-                        "in": "formData",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "Organization path",
-                        "name": "postedAs.org_path",
-                        "in": "formData",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "Position key",
-                        "name": "postedAs.position_key",
-                        "in": "formData",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "201": {
-                        "description": "Created",
-                        "schema": {
-                            "$ref": "#/definitions/dto.EventCreateResult"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    },
-                    "403": {
-                        "description": "Forbidden",
-                        "schema": {
-                            "$ref": "#/definitions/dto.ErrorResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    }
-                }
             }
         },
         "/event/participant/mystatus/{eventId}": {
@@ -853,6 +779,58 @@
                             "additionalProperties": {
                                 "type": "string"
                             }
+                        }
+                    }
+                }
+            }
+        },
+        "/events": {
+            "post": {
+                "description": "Create an event with schedules, optional form, and visibility settings",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "events"
+                ],
+                "summary": "Create a new event",
+                "parameters": [
+                    {
+                        "description": "Event request data",
+                        "name": "data",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/dto.EventRequestDTO"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created event",
+                        "schema": {
+                            "$ref": "#/definitions/dto.EventCreateResult"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
                         }
                     }
                 }
@@ -2222,6 +2200,86 @@
                 }
             }
         },
+        "dto.EventRequestDTO": {
+            "type": "object",
+            "required": [
+                "node_id",
+                "topic"
+            ],
+            "properties": {
+                "description": {
+                    "type": "string",
+                    "example": "A workshop on AI applications"
+                },
+                "have_form": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "max_participation": {
+                    "type": "integer",
+                    "example": 50
+                },
+                "node_id": {
+                    "type": "string",
+                    "example": "66ffa43e9a7c39b1d87f6401"
+                },
+                "org_of_content": {
+                    "type": "string",
+                    "example": "/fac/eng/com"
+                },
+                "picture_url": {
+                    "type": "string",
+                    "example": "http://45.144.166.252:46602/uploads/cat.png"
+                },
+                "posted_as": {
+                    "$ref": "#/definitions/models.PostedAs"
+                },
+                "schedules": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "date": {
+                                "type": "string",
+                                "example": "2025-10-15T00:00:00Z"
+                            },
+                            "description": {
+                                "type": "string",
+                                "example": "Morning session"
+                            },
+                            "location": {
+                                "type": "string",
+                                "example": "Innovation Building Room 301"
+                            },
+                            "time_end": {
+                                "type": "string",
+                                "example": "2025-10-15T12:00:00Z"
+                            },
+                            "time_start": {
+                                "type": "string",
+                                "example": "2025-10-15T09:00:00Z"
+                            }
+                        }
+                    }
+                },
+                "status": {
+                    "type": "string",
+                    "enum": [
+                        "active",
+                        "draft",
+                        "inactive"
+                    ],
+                    "example": "draft"
+                },
+                "topic": {
+                    "type": "string",
+                    "example": "AI Workshop"
+                },
+                "visibility": {
+                    "$ref": "#/definitions/models.Visibility"
+                }
+            }
+        },
         "dto.FormMatrixResponseDTO": {
             "type": "object",
             "properties": {
@@ -2280,6 +2338,9 @@
                     }
                 },
                 "has_more": {
+                    "type": "boolean"
+                },
+                "isLiked": {
                     "type": "boolean"
                 },
                 "next_cursor": {
@@ -2467,6 +2528,10 @@
                     "items": {
                         "type": "string"
                     }
+                },
+                "is_liked": {
+                    "type": "boolean",
+                    "example": false
                 },
                 "likeCount": {
                     "type": "integer",
@@ -3025,6 +3090,9 @@
                 "id": {
                     "type": "string"
                 },
+                "is_liked": {
+                    "type": "boolean"
+                },
                 "likeCount": {
                     "type": "integer"
                 },
@@ -3095,6 +3163,9 @@
                     "type": "string"
                 },
                 "lastname": {
+                    "type": "string"
+                },
+                "organize_path": {
                     "type": "string"
                 },
                 "password": {

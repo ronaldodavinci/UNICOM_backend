@@ -26,7 +26,7 @@ func CreateEventWithSchedules(body dto.EventRequestDTO, ctx context.Context) (dt
 		NodeID:           nodeID,
 		Topic:            body.Topic,
 		Description:      body.Description,
-		PictureURL:       &body.PictureURL,
+		PictureURL:       body.PictureURL,
 		MaxParticipation: body.MaxParticipation,
 		PostedAs:         body.PostedAs,
 		Visibility:       body.Visibility,
