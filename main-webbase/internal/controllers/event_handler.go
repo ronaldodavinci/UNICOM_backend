@@ -2,8 +2,11 @@ package controllers
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"log"
 	"path/filepath"
+	"strconv"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
@@ -12,29 +15,83 @@ import (
 	"main-webbase/database"
 	"main-webbase/dto"
 	"main-webbase/internal/middleware"
-	"main-webbase/internal/services"
 	"main-webbase/internal/models"
+	"main-webbase/internal/services"
 )
 
 // CreateEventHandler godoc
-// @Summary Create a new event
-// @Description Create an event with schedules, optional form, and visibility settings
+// @Summary Create new event
+// @Description Create an event with optional image upload
 // @Tags events
-// @Accept json
+// @Accept multipart/form-data
 // @Produce json
-// @Param data body dto.EventRequestDTO true "Event request data"
-// @Success 201 {object} dto.EventCreateResult "Created event"
-// @Failure 400 {object} dto.ErrorResponse "Bad request"
-// @Failure 403 {object} dto.ErrorResponse "Forbidden"
-// @Failure 500 {object} dto.ErrorResponse "Internal server error"
-// @Router /events [post]
+// @Param file formData file false "Upload event image"
+// @Param NodeID formData string true "Node ID"
+// @Param postedAs.org_path formData string true "Organization path"
+// @Param postedAs.position_key formData string true "Position key"
+// @Success 201 {object} dto.EventCreateResult
+// @Failure 400 {object} map[string]string
+// @Failure 403 {object} dto.ErrorResponse
+// @Failure 500 {object} map[string]string
+// @Router /event [post]
 func CreateEventHandler() fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		var body dto.EventRequestDTO
 
-		if err := c.BodyParser(&body); err != nil {
-			return c.Status(fiber.StatusBadRequest).
-				JSON(fiber.Map{"error": "invalid request body"})
+		// Initialize nested pointers first to avoid nil deref
+		if body.PostedAs == nil {
+			body.PostedAs = &models.PostedAs{}
+		}
+
+		// Parse minimal required form fields
+		body.NodeID = c.FormValue("NodeID")
+		body.PostedAs.OrgPath = c.FormValue("postedAs.org_path")
+		body.PostedAs.PositionKey = c.FormValue("postedAs.position_key")
+
+		// Optional basic fields
+		if v := c.FormValue("topic"); v != "" {
+			body.Topic = v
+		}
+		if v := c.FormValue("description"); v != "" {
+			body.Description = v
+		}
+		if v := c.FormValue("org_of_content"); v != "" {
+			body.OrgOfContent = v
+		}
+		if v := c.FormValue("status"); v != "" {
+			body.Status = v
+		}
+		if v := c.FormValue("max_participation"); v != "" {
+			if n, err := strconv.Atoi(v); err == nil {
+				body.MaxParticipation = n
+			}
+		}
+		if v := c.FormValue("have_form"); v != "" {
+			switch v {
+			case "1", "true", "TRUE", "True", "yes", "YES", "Yes":
+				body.Have_form = true
+			default:
+				body.Have_form = false
+			}
+		}
+
+		// Visibility (JSON string in multipart form)
+		if v := c.FormValue("visibility"); v != "" {
+			var vis models.Visibility
+			if err := json.Unmarshal([]byte(v), &vis); err == nil {
+				body.Visibility = &vis
+			}
+		}
+		// Safe default to avoid nil visibility panics in service layer
+		if body.Visibility == nil {
+			body.Visibility = &models.Visibility{Access: "public"}
+		}
+
+		if body.NodeID == "" {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "NodeID is required"})
+		}
+		if body.PostedAs.OrgPath == "" || body.PostedAs.PositionKey == "" {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "postedAs.org_path and postedAs.position_key are required"})
 		}
 
 		// --- optional file upload ---
@@ -51,37 +108,27 @@ func CreateEventHandler() fiber.Handler {
 			}
 
 			publicURL := fmt.Sprintf("http://%s/uploads/%s", serverIP, filename)
-			body.PictureURL = &publicURL
+
+			// Persist uploaded image URL into request DTO so it is stored with the event
+			body.PictureURL = publicURL
+			// Also keep in locals for convenience in response
+			c.Locals("event_image_url", publicURL)
 		}
 
-		if body.NodeID == "" {
-			return c.Status(fiber.StatusBadRequest).
-				JSON(fiber.Map{"error": "node_id is required"})
-		}
-		if body.PostedAs == nil {
-			return c.Status(fiber.StatusBadRequest).
-				JSON(fiber.Map{"error": "posted_as is required"})
-		}
-		if body.Visibility == nil {
-			body.Visibility = &models.Visibility{
-				Access: "public",
-			}
-		} else if body.Visibility.Access == "" {
-			body.Visibility.Access = "public"
-		}
-
+		// --- permission check ---
 		if !canPostAs(viewerFrom(c), body.PostedAs.OrgPath, body.PostedAs.PositionKey) {
 			return c.Status(fiber.StatusForbidden).
 				JSON(dto.ErrorResponse{Error: "forbidden: you cannot post as this role"})
 		}
 
+		// --- create event ---
 		result, err := services.CreateEventWithSchedules(body, c.Context())
 		if err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 		}
 
 		// Optionally append image URL in response
-		if imgURL := body.PictureURL; imgURL != nil {
+		if imgURL := c.Locals("event_image_url"); imgURL != nil {
 			return c.Status(fiber.StatusCreated).JSON(fiber.Map{
 				"result":    result,
 				"image_url": imgURL,
@@ -110,10 +157,13 @@ func GetAllVisibleEventHandler() fiber.Handler {
 		if err != nil {
 			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Unauthorized"})
 		}
+		log.Printf("[DEBUG] viewerID=%s", viewerID.Hex())
+
 		orgSets, err := services.AllUserOrg(viewerID)
 		if err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to get user orgs"})
 		}
+		log.Printf("[DEBUG] orgSets=%+v", orgSets)
 
 		events, err := services.GetVisibleEvents(viewerID, ctx, orgSets)
 		if err != nil {
