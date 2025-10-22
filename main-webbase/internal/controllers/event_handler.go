@@ -48,60 +48,9 @@ func CreateEventHandler() fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		var body dto.EventRequestDTO
 
-		// Initialize nested pointers first to avoid nil deref
-		if body.PostedAs == nil {
-			body.PostedAs = &models.PostedAs{}
-		}
-
-		// Parse minimal required form fields
-		body.NodeID = c.FormValue("NodeID")
-		body.PostedAs.OrgPath = c.FormValue("postedAs.org_path")
-		body.PostedAs.PositionKey = c.FormValue("postedAs.position_key")
-
-		// Optional basic fields
-		if v := c.FormValue("topic"); v != "" {
-			body.Topic = v
-		}
-		if v := c.FormValue("description"); v != "" {
-			body.Description = v
-		}
-		if v := c.FormValue("org_of_content"); v != "" {
-			body.OrgOfContent = v
-		}
-		if v := c.FormValue("status"); v != "" {
-			body.Status = v
-		}
-		if v := c.FormValue("max_participation"); v != "" {
-			if n, err := strconv.Atoi(v); err == nil {
-				body.MaxParticipation = n
-			}
-		}
-		if v := c.FormValue("have_form"); v != "" {
-			switch v {
-			case "1", "true", "TRUE", "True", "yes", "YES", "Yes":
-				body.Have_form = true
-			default:
-				body.Have_form = false
-			}
-		}
-
-		// Visibility (JSON string in multipart form)
-		if v := c.FormValue("visibility"); v != "" {
-			var vis models.Visibility
-			if err := json.Unmarshal([]byte(v), &vis); err == nil {
-				body.Visibility = &vis
-			}
-		}
-		// Safe default to avoid nil visibility panics in service layer
-		if body.Visibility == nil {
-			body.Visibility = &models.Visibility{Access: "public"}
-		}
-
-		if body.NodeID == "" {
-			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "NodeID is required"})
-		}
-		if body.PostedAs.OrgPath == "" || body.PostedAs.PositionKey == "" {
-			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "postedAs.org_path and postedAs.position_key are required"})
+		if err := c.BodyParser(&body); err != nil {
+			return c.Status(fiber.StatusBadRequest).
+				JSON(fiber.Map{"error": "invalid request body"})
 		}
 
 		// --- optional file upload ---
@@ -127,6 +76,22 @@ func CreateEventHandler() fiber.Handler {
 		if !canPostAs(viewerFrom(c), body.PostedAs.OrgPath, body.PostedAs.PositionKey) {
 			return c.Status(fiber.StatusForbidden).
 				JSON(dto.ErrorResponse{Error: "forbidden: you cannot post as this role"})
+		}
+
+		if body.NodeID == "" {
+			return c.Status(fiber.StatusBadRequest).
+				JSON(fiber.Map{"error": "node_id is required"})
+		}
+		if body.PostedAs == nil {
+			return c.Status(fiber.StatusBadRequest).
+				JSON(fiber.Map{"error": "posted_as is required"})
+		}
+		if body.Visibility == nil {
+			body.Visibility = &models.Visibility{
+				Access: "public",
+			}
+		} else if body.Visibility.Access == "" {
+			body.Visibility.Access = "public"
 		}
 
 		// --- create event ---
@@ -332,6 +297,12 @@ func DeleteEventHandler() fiber.Handler {
 // 			}
 // 		} else if req.Visibility.Access == "" {
 // 			req.Visibility.Access = "public"
+// 		}
+
+// 		if !canPostAs(viewerFrom(c), body.PostedAs.OrgPath, body.PostedAs.PositionKey) {
+// 			return c.Status(fiber.StatusForbidden).
+// 				JSON(dto.ErrorResponse{Error: "forbidden: you cannot post as this role"})
+// 		}
 
 // 		// Convert DTO to map for MongoDB $set
 // 		update := bson.M{
