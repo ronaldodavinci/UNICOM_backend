@@ -108,7 +108,7 @@ func CreateEventWithSchedules(body dto.EventRequestDTO, ctx context.Context) (dt
 }
 
 // Use in GetAllVisibleEventHandler
-func GetVisibleEvents(viewerID bson.ObjectID, ctx context.Context, orgSets []string) ([]map[string]interface{}, error) {
+func GetVisibleEvents(viewerID bson.ObjectID, ctx context.Context, orgSets []string) ([]dto.EventFeed, error) {
 	// Get all event
 	events, err := repo.GetEvent(ctx)
 	if err != nil {
@@ -116,9 +116,11 @@ func GetVisibleEvents(viewerID bson.ObjectID, ctx context.Context, orgSets []str
 	}
 
 	// Get ID of Visible Event
+	var visibleEvents []models.Event
 	var eventIDlist []bson.ObjectID
 	for _, ev := range events {
-		if CheckVisibleEvent(&ev, orgSets) {
+		if CheckVisibleEvent(ctx, &ev, orgSets, viewerID) {
+			visibleEvents = append(visibleEvents, ev)
 			eventIDlist = append(eventIDlist, ev.ID)
 		}
 	}
@@ -135,96 +137,128 @@ func GetVisibleEvents(viewerID bson.ObjectID, ctx context.Context, orgSets []str
 		schedMap[s.EventID] = append(schedMap[s.EventID], s)
 	}
 
-	var result []map[string]interface{}
-	for _, ev := range events {
-		if !CheckVisibleEvent(&ev, orgSets) {
-			continue
+	// Get every event participant count
+	participantCounts, err := repo.GetAllEventParticipant(ctx, eventIDlist)
+	if err != nil {
+		participantCounts = make(map[bson.ObjectID]int)
+	}
+
+	var result []dto.EventFeed
+	for _, ev := range visibleEvents {
+
+		eventDetail := dto.EventFeed{
+			EventID:              ev.ID.Hex(),
+			OrgPath:              ev.OrgOfContent,
+			Topic:                ev.Topic,
+			Description:          ev.Description,
+			PictureURL:           ev.PictureURL,
+			MaxParticipation:     ev.MaxParticipation,
+			CurrentParticipation: participantCounts[ev.ID],
+			PostedAs:             ev.PostedAs,
+			Visibility:           ev.Visibility,
+			Status:               ev.Status,
+			Have_form:            ev.Have_form,
+			Schedules:            schedMap[ev.ID],
 		}
-		result = append(result, map[string]interface{}{
-			"event":     ev,
-			"schedules": schedMap[ev.ID],
-		})
+
+		result = append(result, eventDetail)
 	}
 
 	return result, nil
 }
 
-func CheckVisibleEvent(event *models.Event, userOrgs []string) bool {
+func CheckVisibleEvent(ctx context.Context, event *models.Event, userOrgs []string, userID bson.ObjectID) bool {
 	if event.Status == "inactive" {
 		return false
 	}
-	if event.Status == "draft" {
-		subtreeSet := map[string]struct{}{}
-		for _, s := range userOrgs {
-			subtreeSet[s] = struct{}{}
-		}
 
-		if _, ok := subtreeSet[event.OrgOfContent]; ok {
-			return true
-		}
-		return false
-	}
-
-	v := event.Visibility
-	switch v.Access {
-	// 1. Access = public
-	case "public":
-		return true
-
-	// 2. Access = Selected path only
-	case "org":
-		if len(v.Audience) == 0 {
+	if event.Status == "active" {
+		v := event.Visibility
+		if v == nil {
 			return false
 		}
+		switch v.Access {
+		// 1. Access = public
+		case "public":
+			return true
 
-		subtreeSet := map[string]struct{}{}
-		for _, s := range userOrgs {
-			subtreeSet[s] = struct{}{}
+		// 2. Access = Selected path only
+		case "org":
+			if len(v.Audience) == 0 {
+				return false
+			}
+
+			subtreeSet := map[string]struct{}{}
+			for _, s := range userOrgs {
+				subtreeSet[s] = struct{}{}
+			}
+
+			for _, a := range v.Audience {
+				if _, ok := subtreeSet[a.OrgPath]; ok {
+					return true
+				}
+			}
+			return false
 		}
+	}
 
-		for _, a := range v.Audience {
-			if _, ok := subtreeSet[a.OrgPath]; ok {
+	if event.Status == "draft" {
+		subtreeSet := map[string]struct{}{} 
+		for _, s := range userOrgs { 
+			subtreeSet[s] = struct{}{} 
+		} 
+		if _, ok := subtreeSet[event.OrgOfContent]; ok { 
+			userStatus, err := GetParticipantStatus(ctx, userID.Hex(), event.ID.Hex())
+			if err != nil {
+				return false
+			}
+			if userStatus.Role == "organizer" {
 				return true
 			}
 		}
 		return false
 	}
+
 	return false
 }
 
 func GetEventDetail(eventID string, ctx context.Context) (dto.EventDetail, error) {
+	// Convert string ID to BSON ObjectID
 	EventID, err := bson.ObjectIDFromHex(eventID)
 	if err != nil {
 		return dto.EventDetail{}, fmt.Errorf("invalid EventID: %w", err)
 	}
 
+	// Fetch event
 	event, err := repo.GetEventByID(ctx, EventID)
 	if err != nil {
 		return dto.EventDetail{}, fmt.Errorf("failed to get event: %w", err)
 	}
 
+	// Fetch schedules
 	schedules, err := repo.GetEventScheduleByID(ctx, EventID)
 	if err != nil {
 		return dto.EventDetail{}, fmt.Errorf("failed to get schedules: %w", err)
 	}
 
+	// Fetch current participant count
 	current_participant, err := repo.GetTotalParticipant(ctx, EventID)
 	if err != nil {
 		return dto.EventDetail{}, fmt.Errorf("failed to get participants: %w", err)
 	}
 
-	var formID string
+	var formMatrix dto.FormMatrixResponseDTO
+
 	if event.Have_form {
-		form, err := repo.FindEventForm(ctx, EventID)
+		// Fetch all form responses
+		formMatrix, err = GetAllResponse(ctx, eventID)
 		if err != nil {
-			return dto.EventDetail{}, fmt.Errorf("failed to find event form: %w", err)
+			return dto.EventDetail{}, fmt.Errorf("failed to get form responses: %w", err)
 		}
-		formID = form.ID.Hex()
 	}
 
 	eventDetail := dto.EventDetail{
 		EventID:              event.ID.Hex(),
-		FormID:               formID,
 		OrgPath:              event.OrgOfContent,
 		Topic:                event.Topic,
 		Description:          event.Description,
@@ -236,10 +270,12 @@ func GetEventDetail(eventID string, ctx context.Context) (dto.EventDetail, error
 		Status:               event.Status,
 		Have_form:            event.Have_form,
 		Schedules:            schedules,
+		FormMatrixResponse:   formMatrix,
 	}
 
 	return eventDetail, nil
 }
+
 
 func ParticipateEvent(eventID string, uid string, ctx context.Context) error {
 	now := time.Now().UTC()

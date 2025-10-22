@@ -175,6 +175,133 @@
                         }
                     }
                 }
+            },
+            "post": {
+                "description": "Create an event with optional image upload and schedule creation",
+                "consumes": [
+                    "multipart/form-data"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "events"
+                ],
+                "summary": "Create a new event",
+                "parameters": [
+                    {
+                        "type": "file",
+                        "description": "Upload event image",
+                        "name": "file",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Node ID",
+                        "name": "NodeID",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Event topic",
+                        "name": "topic",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Event description",
+                        "name": "description",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Organization responsible for content (e.g. /fac/eng/com)",
+                        "name": "org_of_content",
+                        "in": "formData"
+                    },
+                    {
+                        "enum": [
+                            "active",
+                            "draft",
+                            "inactive"
+                        ],
+                        "type": "string",
+                        "description": "Event status",
+                        "name": "status",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Maximum number of participants",
+                        "name": "max_participation",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Whether this event has an associated form (true/false)",
+                        "name": "have_form",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Organization path of the posting role",
+                        "name": "postedAs.org_path",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Position key of the posting role",
+                        "name": "postedAs.position_key",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Visibility settings (as JSON string). Example: {\\",
+                        "name": "visibility",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Schedules as JSON array (optional). Example: [{\\",
+                        "name": "schedules",
+                        "in": "formData"
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Event created successfully",
+                        "schema": {
+                            "$ref": "#/definitions/dto.EventCreateResult"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden: You cannot post as this role",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
             }
         },
         "/event/participant/mystatus/{eventId}": {
@@ -779,58 +906,6 @@
                             "additionalProperties": {
                                 "type": "string"
                             }
-                        }
-                    }
-                }
-            }
-        },
-        "/events": {
-            "post": {
-                "description": "Create an event with schedules, optional form, and visibility settings",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "events"
-                ],
-                "summary": "Create a new event",
-                "parameters": [
-                    {
-                        "description": "Event request data",
-                        "name": "data",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/dto.EventRequestDTO"
-                        }
-                    }
-                ],
-                "responses": {
-                    "201": {
-                        "description": "Created event",
-                        "schema": {
-                            "$ref": "#/definitions/dto.EventCreateResult"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad request",
-                        "schema": {
-                            "$ref": "#/definitions/dto.ErrorResponse"
-                        }
-                    },
-                    "403": {
-                        "description": "Forbidden",
-                        "schema": {
-                            "$ref": "#/definitions/dto.ErrorResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal server error",
-                        "schema": {
-                            "$ref": "#/definitions/dto.ErrorResponse"
                         }
                     }
                 }
@@ -2165,8 +2240,8 @@
                 "event_id": {
                     "type": "string"
                 },
-                "form_id": {
-                    "type": "string"
+                "form_matrix_response": {
+                    "$ref": "#/definitions/dto.FormMatrixResponseDTO"
                 },
                 "have_form": {
                     "type": "boolean"
@@ -2194,86 +2269,6 @@
                 },
                 "topic": {
                     "type": "string"
-                },
-                "visibility": {
-                    "$ref": "#/definitions/models.Visibility"
-                }
-            }
-        },
-        "dto.EventRequestDTO": {
-            "type": "object",
-            "required": [
-                "node_id",
-                "topic"
-            ],
-            "properties": {
-                "description": {
-                    "type": "string",
-                    "example": "A workshop on AI applications"
-                },
-                "have_form": {
-                    "type": "boolean",
-                    "example": true
-                },
-                "max_participation": {
-                    "type": "integer",
-                    "example": 50
-                },
-                "node_id": {
-                    "type": "string",
-                    "example": "66ffa43e9a7c39b1d87f6401"
-                },
-                "org_of_content": {
-                    "type": "string",
-                    "example": "/fac/eng/com"
-                },
-                "picture_url": {
-                    "type": "string",
-                    "example": "http://45.144.166.252:46602/uploads/cat.png"
-                },
-                "posted_as": {
-                    "$ref": "#/definitions/models.PostedAs"
-                },
-                "schedules": {
-                    "type": "array",
-                    "items": {
-                        "type": "object",
-                        "properties": {
-                            "date": {
-                                "type": "string",
-                                "example": "2025-10-15T00:00:00Z"
-                            },
-                            "description": {
-                                "type": "string",
-                                "example": "Morning session"
-                            },
-                            "location": {
-                                "type": "string",
-                                "example": "Innovation Building Room 301"
-                            },
-                            "time_end": {
-                                "type": "string",
-                                "example": "2025-10-15T12:00:00Z"
-                            },
-                            "time_start": {
-                                "type": "string",
-                                "example": "2025-10-15T09:00:00Z"
-                            }
-                        }
-                    }
-                },
-                "status": {
-                    "type": "string",
-                    "enum": [
-                        "active",
-                        "draft",
-                        "inactive"
-                    ],
-                    "example": "draft"
-                },
-                "topic": {
-                    "type": "string",
-                    "example": "AI Workshop"
                 },
                 "visibility": {
                     "$ref": "#/definitions/models.Visibility"
@@ -2838,7 +2833,7 @@
                 "org_of_content": {
                     "type": "string"
                 },
-                "pictureURL": {
+                "picture_url": {
                     "type": "string"
                 },
                 "posted_as": {

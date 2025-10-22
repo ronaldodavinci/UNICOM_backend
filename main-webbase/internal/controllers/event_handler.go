@@ -20,19 +20,29 @@ import (
 )
 
 // CreateEventHandler godoc
-// @Summary Create new event
-// @Description Create an event with optional image upload
+// @Summary Create a new event
+// @Description Create an event with optional image upload and schedule creation
 // @Tags events
 // @Accept multipart/form-data
 // @Produce json
+//
 // @Param file formData file false "Upload event image"
 // @Param NodeID formData string true "Node ID"
-// @Param postedAs.org_path formData string true "Organization path"
-// @Param postedAs.position_key formData string true "Position key"
-// @Success 201 {object} dto.EventCreateResult
-// @Failure 400 {object} map[string]string
-// @Failure 403 {object} dto.ErrorResponse
-// @Failure 500 {object} map[string]string
+// @Param topic formData string false "Event topic"
+// @Param description formData string false "Event description"
+// @Param org_of_content formData string false "Organization responsible for content (e.g. /fac/eng/com)"
+// @Param status formData string false "Event status" Enums(active, draft, inactive)
+// @Param max_participation formData int false "Maximum number of participants"
+// @Param have_form formData bool false "Whether this event has an associated form (true/false)"
+// @Param postedAs.org_path formData string true "Organization path of the posting role"
+// @Param postedAs.position_key formData string true "Position key of the posting role"
+// @Param visibility formData string false "Visibility settings (as JSON string). Example: {\"access\":\"public\"}"
+// @Param schedules formData string false "Schedules as JSON array (optional). Example: [{\"date\":\"2025-10-15T00:00:00Z\",\"time_start\":\"2025-10-15T09:00:00Z\",\"time_end\":\"2025-10-15T12:00:00Z\",\"location\":\"Innovation Building Room 301\",\"description\":\"Morning session\"}]"
+//
+// @Success 201 {object} dto.EventCreateResult "Event created successfully"
+// @Failure 400 {object} map[string]string "Bad Request"
+// @Failure 403 {object} dto.ErrorResponse "Forbidden: You cannot post as this role"
+// @Failure 500 {object} map[string]string "Internal Server Error"
 // @Router /event [post]
 func CreateEventHandler() fiber.Handler {
 	return func(c *fiber.Ctx) error {
@@ -244,25 +254,27 @@ func ParticipateEventWithNoFormHandler() fiber.Handler {
 // @Failure 400 {object} map[string]string
 // @Failure 500 {object} map[string]string
 // @Router /event/{id} [delete]
-func DeleteEventHandler(c *fiber.Ctx) error {
-	collection_event := database.DB.Collection("event")
+func DeleteEventHandler() fiber.Handler {
+	return func(c *fiber.Ctx) error {
+		collection_event := database.DB.Collection("event")
 
-	idHex := c.Params("event_id")
-	event_id, err := bson.ObjectIDFromHex(idHex)
-	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid ID"})
+		idHex := c.Params("event_id")
+		event_id, err := bson.ObjectIDFromHex(idHex)
+		if err != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid ID"})
+		}
+
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+
+		_, err = collection_event.UpdateOne(ctx, bson.M{"_id": event_id},
+			bson.M{"$set": bson.M{"status": "inactive", "updated_at": time.Now()}})
+		if err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to delete event"})
+		}
+
+		return c.JSON(fiber.Map{"message": "Event deleted (soft)"})
 	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	_, err = collection_event.UpdateOne(ctx, bson.M{"_id": event_id},
-		bson.M{"$set": bson.M{"status": "inactive", "updated_at": time.Now()}})
-	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to delete event"})
-	}
-
-	return c.JSON(fiber.Map{"message": "Event deleted (soft)"})
 }
 
 // ยังไม่เสร็จ

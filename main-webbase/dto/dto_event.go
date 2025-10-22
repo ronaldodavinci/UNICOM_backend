@@ -35,10 +35,9 @@ type EventCreateResult struct {
 	OrganizerCnt int                    `json:"organizer_count"`
 }
 
-// Event Detail
-type EventDetail struct {
+// Event Feed Detail each one
+type EventFeed struct {
 	EventID              string             `json:"event_id"`
-	FormID               string             `json:"form_id,omitempty"`
 	OrgPath              string             `json:"orgpath"`
 	Topic                string             `json:"topic"`
 	Description          string             `json:"description"`
@@ -51,4 +50,22 @@ type EventDetail struct {
 	Have_form            bool               `json:"have_form,omitempty"`
 
 	Schedules []models.EventSchedule `json:"schedules"`
+}
+
+// Event Detail
+type EventDetail struct {
+	EventID              string             `json:"event_id"`
+	OrgPath              string             `json:"orgpath"`
+	Topic                string             `json:"topic"`
+	Description          string             `json:"description"`
+	PictureURL           *string            `json:"picture_url,omitempty"`
+	MaxParticipation     int                `json:"max_participation"`
+	CurrentParticipation int                `json:"current_participation"`
+	PostedAs             *models.PostedAs   `json:"posted_as,omitempty"`
+	Visibility           *models.Visibility `json:"visibility,omitempty"`
+	Status               string             `json:"status,omitempty"`
+	Have_form            bool               `json:"have_form,omitempty"`
+
+	Schedules 			[]models.EventSchedule 	`json:"schedules"`
+	FormMatrixResponse 	FormMatrixResponseDTO 	`json:"form_matrix_response,omitempty"`
 }

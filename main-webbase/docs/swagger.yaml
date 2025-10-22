@@ -48,8 +48,8 @@ definitions:
         type: string
       event_id:
         type: string
-      form_id:
-        type: string
+      form_matrix_response:
+        $ref: '#/definitions/dto.FormMatrixResponseDTO'
       have_form:
         type: boolean
       max_participation:
@@ -70,64 +70,6 @@ definitions:
         type: string
       visibility:
         $ref: '#/definitions/models.Visibility'
-    type: object
-  dto.EventRequestDTO:
-    properties:
-      description:
-        example: A workshop on AI applications
-        type: string
-      have_form:
-        example: true
-        type: boolean
-      max_participation:
-        example: 50
-        type: integer
-      node_id:
-        example: 66ffa43e9a7c39b1d87f6401
-        type: string
-      org_of_content:
-        example: /fac/eng/com
-        type: string
-      picture_url:
-        example: http://45.144.166.252:46602/uploads/cat.png
-        type: string
-      posted_as:
-        $ref: '#/definitions/models.PostedAs'
-      schedules:
-        items:
-          properties:
-            date:
-              example: "2025-10-15T00:00:00Z"
-              type: string
-            description:
-              example: Morning session
-              type: string
-            location:
-              example: Innovation Building Room 301
-              type: string
-            time_end:
-              example: "2025-10-15T12:00:00Z"
-              type: string
-            time_start:
-              example: "2025-10-15T09:00:00Z"
-              type: string
-          type: object
-        type: array
-      status:
-        enum:
-        - active
-        - draft
-        - inactive
-        example: draft
-        type: string
-      topic:
-        example: AI Workshop
-        type: string
-      visibility:
-        $ref: '#/definitions/models.Visibility'
-    required:
-    - node_id
-    - topic
     type: object
   dto.FormMatrixResponseDTO:
     properties:
@@ -500,7 +442,7 @@ definitions:
         type: string
       org_of_content:
         type: string
-      pictureURL:
+      picture_url:
         type: string
       posted_as:
         $ref: '#/definitions/models.PostedAs'
@@ -874,6 +816,92 @@ paths:
               type: string
             type: object
       summary: Get all visible events
+      tags:
+      - events
+    post:
+      consumes:
+      - multipart/form-data
+      description: Create an event with optional image upload and schedule creation
+      parameters:
+      - description: Upload event image
+        in: formData
+        name: file
+        type: file
+      - description: Node ID
+        in: formData
+        name: NodeID
+        required: true
+        type: string
+      - description: Event topic
+        in: formData
+        name: topic
+        type: string
+      - description: Event description
+        in: formData
+        name: description
+        type: string
+      - description: Organization responsible for content (e.g. /fac/eng/com)
+        in: formData
+        name: org_of_content
+        type: string
+      - description: Event status
+        enum:
+        - active
+        - draft
+        - inactive
+        in: formData
+        name: status
+        type: string
+      - description: Maximum number of participants
+        in: formData
+        name: max_participation
+        type: integer
+      - description: Whether this event has an associated form (true/false)
+        in: formData
+        name: have_form
+        type: boolean
+      - description: Organization path of the posting role
+        in: formData
+        name: postedAs.org_path
+        required: true
+        type: string
+      - description: Position key of the posting role
+        in: formData
+        name: postedAs.position_key
+        required: true
+        type: string
+      - description: 'Visibility settings (as JSON string). Example: {\'
+        in: formData
+        name: visibility
+        type: string
+      - description: 'Schedules as JSON array (optional). Example: [{\'
+        in: formData
+        name: schedules
+        type: string
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Event created successfully
+          schema:
+            $ref: '#/definitions/dto.EventCreateResult'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "403":
+          description: 'Forbidden: You cannot post as this role'
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Create a new event
       tags:
       - events
   /event/{eventId}:
@@ -1279,40 +1307,6 @@ paths:
               type: string
             type: object
       summary: Participate in an event (no form required)
-      tags:
-      - events
-  /events:
-    post:
-      consumes:
-      - application/json
-      description: Create an event with schedules, optional form, and visibility settings
-      parameters:
-      - description: Event request data
-        in: body
-        name: data
-        required: true
-        schema:
-          $ref: '#/definitions/dto.EventRequestDTO'
-      produces:
-      - application/json
-      responses:
-        "201":
-          description: Created event
-          schema:
-            $ref: '#/definitions/dto.EventCreateResult'
-        "400":
-          description: Bad request
-          schema:
-            $ref: '#/definitions/dto.ErrorResponse'
-        "403":
-          description: Forbidden
-          schema:
-            $ref: '#/definitions/dto.ErrorResponse'
-        "500":
-          description: Internal server error
-          schema:
-            $ref: '#/definitions/dto.ErrorResponse'
-      summary: Create a new event
       tags:
       - events
   /login:

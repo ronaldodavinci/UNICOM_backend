@@ -200,6 +200,40 @@ func CheckParticipantExists(ctx context.Context, eventID bson.ObjectID, userID b
 	return count > 0, nil
 }
 
+func GetAllEventParticipant(ctx context.Context, eventIDs []bson.ObjectID) (map[bson.ObjectID]int, error) {
+    pipeline := mongo.Pipeline{
+        {{Key: "$match", Value: bson.M{
+            "event_id": bson.M{"$in": eventIDs},
+            "status":   "accept",
+            "role":     "participant",
+        }}},
+        {{Key: "$group", Value: bson.M{
+            "_id":   "$event_id",
+            "count": bson.M{"$sum": 1},
+        }}},
+    }
+
+    cursor, err := database.DB.Collection("event_participant").Aggregate(ctx, pipeline)
+    if err != nil {
+        return nil, err
+    }
+    defer cursor.Close(ctx)
+
+    counts := make(map[bson.ObjectID]int)
+    for cursor.Next(ctx) {
+        var result struct {
+            ID    bson.ObjectID `bson:"_id"`
+            Count int           `bson:"count"`
+        }
+        if err := cursor.Decode(&result); err != nil {
+            return nil, err
+        }
+        counts[result.ID] = result.Count
+    }
+
+    return counts, nil
+}
+
 func FindFormByEventID(ctx context.Context, eventID string) (*models.Event_form, error) {
 	objectID, err := bson.ObjectIDFromHex(eventID)
 	if err != nil {
