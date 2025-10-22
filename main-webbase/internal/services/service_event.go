@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
+	"go.mongodb.org/mongo-driver/v2/mongo"
 
 	"main-webbase/dto"
 	"main-webbase/internal/models"
@@ -137,6 +138,27 @@ func GetVisibleEvents(viewerID bson.ObjectID, ctx context.Context, orgSets []str
 		schedMap[s.EventID] = append(schedMap[s.EventID], s)
 	}
 
+	// update date event
+	now := time.Now().UTC()
+	for eventID, evSchedules := range schedMap {
+		var lastTime time.Time
+		for _, s := range evSchedules {
+			if s.Time_end.After(lastTime) {
+				lastTime = s.Time_end
+			}
+		}
+
+		// If event has ended
+		if lastTime.Before(now) {
+			_ = repo.UpdateEvent(ctx, eventID, bson.M{
+				"status":     "inactive",
+				"updated_at": now,
+			})
+
+			delete(schedMap, eventID)
+		}
+	}
+
 	// Get every event participant count
 	participantCounts, err := repo.GetAllEventParticipant(ctx, eventIDlist)
 	if err != nil {
@@ -145,6 +167,9 @@ func GetVisibleEvents(viewerID bson.ObjectID, ctx context.Context, orgSets []str
 
 	var result []dto.EventFeed
 	for _, ev := range visibleEvents {
+		if _, ok := schedMap[ev.ID]; !ok {
+			continue 
+		}
 
 		eventDetail := dto.EventFeed{
 			EventID:              ev.ID.Hex(),
@@ -321,4 +346,76 @@ func ParticipateEvent(eventID string, uid string, ctx context.Context) error {
 
 	return nil
 }
-// func
+
+func UpdateEventWithSchedules(eventID bson.ObjectID, body dto.EventRequestDTO, ctx context.Context) (dto.EventRequestDTO, error) {
+	now := time.Now().UTC()
+
+	nodeID, err := bson.ObjectIDFromHex(body.NodeID)
+	if err != nil {
+		return dto.EventRequestDTO{}, fmt.Errorf("invalid NodeID: %w", err)
+	}
+
+	eventUpdates := bson.M{
+		"node_id":           nodeID,
+		"topic":             body.Topic,
+		"description":       body.Description,
+		"picture_url":       body.PictureURL,
+		"max_participation": body.MaxParticipation,
+		"posted_as":         body.PostedAs,
+		"visibility":        body.Visibility,
+		"org_of_content":    body.OrgOfContent,
+		"status":            body.Status,
+		"have_form":         body.Have_form,
+		"updated_at":        now,
+	}
+
+	if err := repo.UpdateEvent(ctx, eventID, eventUpdates); err != nil {
+		return dto.EventRequestDTO{}, fmt.Errorf("failed to update event: %w", err)
+	}
+
+	// Delete old schedules
+	if err := repo.DeleteEventScheduleByID(ctx, eventID); err != nil {
+		return dto.EventRequestDTO{}, fmt.Errorf("failed to delete old schedules: %w", err)
+	}
+
+	// Prepare schedules
+	var schedules []models.EventSchedule
+	for _, s := range body.Schedules {
+		schedules = append(schedules, models.EventSchedule{
+			ID:          bson.NewObjectID(),
+			EventID:     eventID,
+			Date:        s.Date,
+			Time_start:  s.TimeStart,
+			Time_end:    s.TimeEnd,
+			Location:    &s.Location,
+			Description: &s.Description,
+		})
+	}
+
+	if len(schedules) > 0 {
+		if err := repo.InsertSchedules(ctx, schedules); err != nil {
+			return dto.EventRequestDTO{}, fmt.Errorf("failed to insert schedules: %w", err)
+		}
+	}
+
+	if body.Have_form {
+		form, err := repo.FindFormByEventID(ctx, eventID.Hex())
+		if err != nil && err != mongo.ErrNoDocuments {
+			return dto.EventRequestDTO{}, fmt.Errorf("failed to fetch form: %w", err)
+		}
+
+		if form == nil {
+			newForm := models.Event_form{
+				ID:        bson.NewObjectID(),
+				Event_ID:  eventID,
+				CreatedAt: &now,
+				UpdatedAt: &now,
+			}
+			if err := repo.InitializeForm(ctx, newForm); err != nil {
+				return dto.EventRequestDTO{}, fmt.Errorf("failed to initialize form: %w", err)
+			}
+		}
+	}
+
+	return body, err
+}

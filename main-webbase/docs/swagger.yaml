@@ -71,6 +71,64 @@ definitions:
       visibility:
         $ref: '#/definitions/models.Visibility'
     type: object
+  dto.EventRequestDTO:
+    properties:
+      description:
+        example: A workshop on AI applications
+        type: string
+      have_form:
+        example: true
+        type: boolean
+      max_participation:
+        example: 50
+        type: integer
+      node_id:
+        example: 66ffa43e9a7c39b1d87f6401
+        type: string
+      org_of_content:
+        example: /fac/eng/com
+        type: string
+      picture_url:
+        example: http://45.144.166.252:46602/uploads/cat.png
+        type: string
+      posted_as:
+        $ref: '#/definitions/models.PostedAs'
+      schedules:
+        items:
+          properties:
+            date:
+              example: "2025-10-15T00:00:00Z"
+              type: string
+            description:
+              example: Morning session
+              type: string
+            location:
+              example: Innovation Building Room 301
+              type: string
+            time_end:
+              example: "2025-10-15T12:00:00Z"
+              type: string
+            time_start:
+              example: "2025-10-15T09:00:00Z"
+              type: string
+          type: object
+        type: array
+      status:
+        enum:
+        - active
+        - draft
+        - inactive
+        example: draft
+        type: string
+      topic:
+        example: AI Workshop
+        type: string
+      visibility:
+        $ref: '#/definitions/models.Visibility'
+    required:
+    - node_id
+    - topic
+    type: object
   dto.FormMatrixResponseDTO:
     properties:
       form_id:
@@ -792,12 +850,12 @@ paths:
       - comments
   /event:
     get:
-      description: Return all events that the current user can see
+      description: Retrieve all events that the current user can see
       produces:
       - application/json
       responses:
         "200":
-          description: OK
+          description: Array of visible events
           schema:
             items:
               additionalProperties: true
@@ -810,7 +868,7 @@ paths:
               type: string
             type: object
         "500":
-          description: Internal Server Error
+          description: Internal server error
           schema:
             additionalProperties:
               type: string
@@ -823,7 +881,7 @@ paths:
       - multipart/form-data
       description: Create an event with optional image upload and schedule creation
       parameters:
-      - description: Upload event image
+      - description: Event image file upload
         in: formData
         name: file
         type: file
@@ -852,11 +910,11 @@ paths:
         in: formData
         name: status
         type: string
-      - description: Maximum number of participants
+      - description: Maximum participants
         in: formData
         name: max_participation
         type: integer
-      - description: Whether this event has an associated form (true/false)
+      - description: Whether event has a form (true/false)
         in: formData
         name: have_form
         type: boolean
@@ -870,11 +928,11 @@ paths:
         name: postedAs.position_key
         required: true
         type: string
-      - description: 'Visibility settings (as JSON string). Example: {\'
+      - description: Visibility JSON string, e.g., {\
         in: formData
         name: visibility
         type: string
-      - description: 'Schedules as JSON array (optional). Example: [{\'
+      - description: Schedules JSON array, e.g., [{\
         in: formData
         name: schedules
         type: string
@@ -886,17 +944,17 @@ paths:
           schema:
             $ref: '#/definitions/dto.EventCreateResult'
         "400":
-          description: Bad Request
+          description: Bad request (invalid input)
           schema:
             additionalProperties:
               type: string
             type: object
         "403":
-          description: 'Forbidden: You cannot post as this role'
+          description: 'Forbidden: Cannot post as this role'
           schema:
             $ref: '#/definitions/dto.ErrorResponse'
         "500":
-          description: Internal Server Error
+          description: Internal server error
           schema:
             additionalProperties:
               type: string
@@ -904,9 +962,40 @@ paths:
       summary: Create a new event
       tags:
       - events
-  /event/{eventId}:
+  /event/{event_id}:
+    delete:
+      description: Mark event as hidden (status=inactive)
+      parameters:
+      - description: Event ID
+        in: path
+        name: event_id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: Event deleted successfully
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Invalid ID
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Soft delete an event
+      tags:
+      - events
     get:
-      description: Get full event detail including schedules and form ID (if any)
+      description: Retrieve full details of an event including schedules and form
+        ID
       parameters:
       - description: Event ID
         in: path
@@ -921,18 +1010,65 @@ paths:
           schema:
             $ref: '#/definitions/dto.EventDetail'
         "400":
-          description: Bad Request
+          description: Invalid request
           schema:
             additionalProperties:
               type: string
             type: object
         "500":
-          description: Internal Server Error
+          description: Internal server error
           schema:
             additionalProperties:
               type: string
             type: object
-      summary: Get individule event detail
+      summary: Get event detail
+      tags:
+      - events
+    patch:
+      consumes:
+      - application/json
+      - multipart/form-data
+      description: Update any field of an event, including image and schedules
+      parameters:
+      - description: Event ID
+        in: path
+        name: event_id
+        required: true
+        type: string
+      - description: Event fields to update (JSON)
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/dto.EventRequestDTO'
+      - description: Optional event image file
+        in: formData
+        name: file
+        type: file
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Event updated successfully
+          schema:
+            $ref: '#/definitions/dto.EventRequestDTO'
+        "400":
+          description: Bad request (invalid event_id or request body)
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "403":
+          description: 'Forbidden: Cannot post as this role'
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Update an event
       tags:
       - events
   /event/{eventId}/form/answers:
@@ -1167,37 +1303,6 @@ paths:
       summary: Create or replace form questions
       tags:
       - forms
-  /event/{id}:
-    delete:
-      description: Mark event as hidden
-      parameters:
-      - description: Event ID
-        in: path
-        name: event_id
-        required: true
-        type: string
-      responses:
-        "200":
-          description: OK
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-        "400":
-          description: Bad Request
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-        "500":
-          description: Internal Server Error
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-      summary: Soft delete event
-      tags:
-      - events
   /event/participant/mystatus/{eventId}:
     get:
       consumes:
@@ -1270,9 +1375,9 @@ paths:
       summary: Update participant status
       tags:
       - participants
-  /event/participate/{eventId}:
+  /event/participate/{event_id}:
     post:
-      description: Join an event directly if the event does not require a form submission
+      description: Join an event directly if it does not require a form
       parameters:
       - description: Event ID
         in: path
@@ -1283,13 +1388,13 @@ paths:
       - application/json
       responses:
         "200":
-          description: OK
+          description: Participation successful
           schema:
             additionalProperties:
               type: string
             type: object
         "400":
-          description: Bad Request
+          description: Bad request
           schema:
             additionalProperties:
               type: string
@@ -1301,7 +1406,7 @@ paths:
               type: string
             type: object
         "500":
-          description: Internal Server Error
+          description: Internal server error
           schema:
             additionalProperties:
               type: string

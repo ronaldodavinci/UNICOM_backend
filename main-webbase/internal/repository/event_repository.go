@@ -72,23 +72,6 @@ func GetEventByID(ctx context.Context, EventID bson.ObjectID) (*models.Event, er
 	return &event, nil
 }
 
-// Update Event
-func UpdateEvent(ctx context.Context, eventID bson.ObjectID, updates bson.M) error {
-	collection := database.DB.Collection("events")
-
-	if updates == nil {
-		updates = bson.M{}
-	}
-	updates["updated_at"] = time.Now().UTC()
-
-	update := bson.M{
-		"$set": updates,
-	}
-
-	_, err := collection.UpdateOne(ctx, bson.M{"_id": eventID}, update)
-	return err
-}
-
 func GetEventScheduleByID(ctx context.Context, EventID bson.ObjectID) ([]models.EventSchedule, error) {
 	collection := database.DB.Collection("event_schedules")
 
@@ -165,3 +148,17 @@ func FindAcceptedParticipants(ctx context.Context, eventID bson.ObjectID) ([]bso
 	return participantIDs, nil
 }
 
+
+func DeleteEventScheduleByID(ctx context.Context, eventID bson.ObjectID) error {
+	collection := database.DB.Collection("event_schedules")
+	_, err := collection.DeleteMany(ctx, bson.M{"event_id": eventID})
+	return err
+}
+
+func UpdateEvent(ctx context.Context, eventID bson.ObjectID, updates bson.M) error {
+	collection := database.DB.Collection("events")
+	updates["updated_at"] = time.Now().UTC()
+
+	_, err := collection.UpdateOne(ctx, bson.M{"_id": eventID}, bson.M{"$set": updates})
+	return err
+}
