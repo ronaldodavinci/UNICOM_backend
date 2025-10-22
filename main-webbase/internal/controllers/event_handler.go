@@ -120,9 +120,7 @@ func CreateEventHandler() fiber.Handler {
 			publicURL := fmt.Sprintf("http://%s/uploads/%s", serverIP, filename)
 
 			// Persist uploaded image URL into request DTO so it is stored with the event
-			body.PictureURL = publicURL
-			// Also keep in locals for convenience in response
-			c.Locals("event_image_url", publicURL)
+			body.PictureURL = &publicURL
 		}
 
 		// --- permission check ---
@@ -138,7 +136,7 @@ func CreateEventHandler() fiber.Handler {
 		}
 
 		// Optionally append image URL in response
-		if imgURL := c.Locals("event_image_url"); imgURL != nil {
+		if imgURL := body.PictureURL; imgURL != nil {
 			return c.Status(fiber.StatusCreated).JSON(fiber.Map{
 				"result":    result,
 				"image_url": imgURL,
@@ -253,13 +251,13 @@ func ParticipateEventWithNoFormHandler() fiber.Handler {
 // @Success 200 {object} map[string]string
 // @Failure 400 {object} map[string]string
 // @Failure 500 {object} map[string]string
-// @Router /event/{id} [delete]
+// @Router /event/{event_id} [delete]
 func DeleteEventHandler() fiber.Handler {
 	return func(c *fiber.Ctx) error {
-		collection_event := database.DB.Collection("event")
+		collection_event := database.DB.Collection("events")
 
 		idHex := c.Params("event_id")
-		event_id, err := bson.ObjectIDFromHex(idHex)
+		eventID, err := bson.ObjectIDFromHex(idHex)
 		if err != nil {
 			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid ID"})
 		}
@@ -267,7 +265,7 @@ func DeleteEventHandler() fiber.Handler {
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 
-		_, err = collection_event.UpdateOne(ctx, bson.M{"_id": event_id},
+		_, err = collection_event.UpdateOne(ctx, bson.M{"_id": eventID},
 			bson.M{"$set": bson.M{"status": "inactive", "updated_at": time.Now()}})
 		if err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to delete event"})
@@ -277,32 +275,96 @@ func DeleteEventHandler() fiber.Handler {
 	}
 }
 
-// ยังไม่เสร็จ
-// func UpdateEventHandler(c *fiber.Ctx) error {
-// 	collection_event := client.Database("big_workspace").Collection("event")
+// UpdateEventHandler godoc
+// @Summary Update an event
+// @Description Update any field of an event
+// @Tags events
+// @Accept json
+// @Produce json
+// @Param event_id path string true "Event ID"
+// @Param body body map[string]interface{} true "Fields to update"
+// @Success 200 {object} map[string]string
+// @Failure 400 {object} map[string]string
+// @Failure 500 {object} map[string]string
+// @Router /event/{event_id} [patch]
+// func UpdateEventHandler() fiber.Handler {
+// 	return func(c *fiber.Ctx) error {
+// 		eventIDHex := c.Params("event_id")
+// 		eventID, err := bson.ObjectIDFromHex(eventIDHex)
+// 		if err != nil {
+// 			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid Event ID"})
+// 		}
 
-// 	idHex := c.Params("id")
-// 	eventID, err := bson.ObjectIDFromHex(idHex)
-//     if err != nil {
-//         return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid ID"})
-//     }
+// 		var req dto.EventRequestDTO
+// 		if err := c.BodyParser(&req); err != nil {
+// 			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid request body"})
+// 		}
 
-//     var req map[string]interface{}
-//     if err := c.BodyParser(&req); err != nil {
-//         return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
-//     }
+// 		file, err := c.FormFile("file")
+// 		if err == nil && file != nil {
+// 			timestamp := time.Now().UnixNano() / 1e6
+// 			ext := filepath.Ext(file.Filename)
+// 			filename := fmt.Sprintf("event_%d%s", timestamp, ext)
+// 			savePath := filepath.Join("/var/www/html/uploads", filename)
 
-//     req["updated_at"] = time.Now()
+// 			if err := c.SaveFile(file, savePath); err != nil {
+// 				return c.Status(fiber.StatusInternalServerError).
+// 					JSON(fiber.Map{"error": "failed to save file"})
+// 			}
 
-//     ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-//     defer cancel()
+// 			publicURL := fmt.Sprintf("http://%s/uploads/%s", serverIP, filename)
 
-//     _, err = collection_event.UpdateOne(ctx,
-//         bson.M{"_id": eventID},
-//         bson.M{"$set": req})
-//     if err != nil {
-//         return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to update event"})
-//     }
+// 			// Persist uploaded image URL into request DTO so it is stored with the event
+// 			req.PictureURL = &publicURL
+// 		}
 
-//     return c.JSON(fiber.Map{"message": "Event updated"})
+// 		if req.NodeID == "" {
+// 			return c.Status(fiber.StatusBadRequest).
+// 				JSON(fiber.Map{"error": "node_id is required"})
+// 		}
+// 		if req.PostedAs == nil {
+// 			return c.Status(fiber.StatusBadRequest).
+// 				JSON(fiber.Map{"error": "posted_as is required"})
+// 		}
+// 		if req.Visibility == nil {
+// 			req.Visibility = &models.Visibility{
+// 				Access: "public",
+// 			}
+// 		} else if req.Visibility.Access == "" {
+// 			req.Visibility.Access = "public"
+
+// 		// Convert DTO to map for MongoDB $set
+// 		update := bson.M{
+// 			"node_id":           req.NodeID,
+// 			"topic":             req.Topic,
+// 			"description":       req.Description,
+// 			"picture_url":       req.PictureURL,
+// 			"max_participation": req.MaxParticipation,
+// 			"posted_as":         req.PostedAs,
+// 			"visibility":        req.Visibility,
+// 			"org_of_content":    req.OrgOfContent,
+// 			"status":            req.Status,
+// 			"have_form":         req.Have_form,
+// 			"schedules":         req.Schedules,
+// 			"updated_at":        time.Now(),
+// 		}
+
+// 		collection := database.DB.Collection("event")
+// 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+// 		defer cancel()
+
+// 		res, err := collection.UpdateOne(ctx,
+// 			bson.M{"_id": eventID},
+// 			bson.M{"$set": update},
+// 		)
+// 		if err != nil {
+// 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to update event"})
+// 		}
+// 		if res.MatchedCount == 0 {
+// 			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Event not found"})
+// 		}
+
+// 		return c.JSON(fiber.Map{"message": "Event updated successfully"})
+// 	}
+// }
 // }

@@ -9,7 +9,7 @@ import (
 type EventRequestDTO struct {
 	NodeID           string             `json:"node_id" example:"66ffa43e9a7c39b1d87f6401" validate:"required"`
 	Topic            string             `json:"topic" example:"AI Workshop" validate:"required"`
-	PictureURL       string             `json:"picture_url,omitempty" example:"http://45.144.166.252:46602/uploads/cat.png"`
+	PictureURL       *string             `json:"picture_url,omitempty" example:"http://45.144.166.252:46602/uploads/cat.png"`
 	Description      string             `json:"description" example:"A workshop on AI applications"`
 	MaxParticipation int                `json:"max_participation" example:"50"`
 	PostedAs         *models.PostedAs   `json:"posted_as,omitempty"`
