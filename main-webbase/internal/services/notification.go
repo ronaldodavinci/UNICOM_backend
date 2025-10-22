@@ -64,7 +64,9 @@ func BuildTitleBody(t m.NotiType, p m.NotiParams) (title, body string, err error
 	return "", "", fmt.Errorf("unknown noti type: %s", t)
 }
 
-// ---- 2) ตัวช่วยยิง noti (One/Many) ใช้ฟังก์ชันกลางด้านบน ----
+// ตัวช่วยยิง noti (One/Many)
+
+// สร้าง notification ให้ user คนเดียว
 func NotifyOne(ctx context.Context, col *mongo.Collection,
 	userID bson.ObjectID, typ m.NotiType, ref m.Ref, p m.NotiParams) error {
 
@@ -75,12 +77,14 @@ func NotifyOne(ctx context.Context, col *mongo.Collection,
 		"type":       typ,
 		"title":      title,
 		"body":       body,
-		"ref":        m.ref,
+		"ref":        ref,
+		"read":       false,
 		"created_at": time.Now().UTC(),
 	})
 	return err
 }
 
+// สร้าง notification ให้หลาย user พร้อมกัน -->  delete, update, reminder
 func NotifyMany(ctx context.Context, col *mongo.Collection,
 	userIDs []bson.ObjectID, typ m.NotiType, ref m.Ref, p m.NotiParams) error {
 
@@ -92,7 +96,13 @@ func NotifyMany(ctx context.Context, col *mongo.Collection,
 	writes := make([]mongo.WriteModel, 0, len(userIDs))
 	for _, uid := range userIDs {
 		writes = append(writes, &mongo.InsertOneModel{Document: bson.M{
-			"user_id": uid, "type": typ, "title": title, "body": body, "m.ref": m.ref, "created_at": now,
+			"user_id": uid, 
+			"type": typ, 
+			"title": title, 
+			"body": body, 
+			"ref": ref, 
+			"created_at": now, 
+			"read": false,
 		}})
 	}
 	_, err = col.BulkWrite(ctx, writes, options.BulkWrite().SetOrdered(false))

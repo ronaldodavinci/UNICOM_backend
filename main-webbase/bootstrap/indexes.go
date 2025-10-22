@@ -39,3 +39,17 @@ func EnsureEventParticipantIndexes(db *mongo.Database) error {
     )
     return err
 }
+
+func EnsureNotiQueueIndexes(ctx context.Context, queueCol *mongo.Collection) error {
+	_, err := queueCol.Indexes().CreateMany(ctx, []mongo.IndexModel{
+		{
+			Keys:    bson.D{{Key: "due_at", Value: 1}, {Key: "status", Value: 1}},
+			Options: options.Index().SetName("due_at_status"),
+		},
+		{
+			Keys:    bson.D{{Key: "dedup_key", Value: 1}},
+			Options: options.Index().SetUnique(true).SetName("uniq_dedup_key"),
+		},
+	})
+	return err
+}

@@ -39,5 +39,5 @@ func SetupRoutesEvent(app *fiber.App, client *mongo.Client) {
     participant.Get("/mystatus/:eventId", controllers.GetMyParticipantStatusHandler())
 
     // Q&A answer (global path to match mobile client)
-    app.Patch("/qa/:qaId/answer", controllers.AnswerEventQAHandler(client))
+    event.Patch("/qa/:qaId/answer", controllers.AnswerEventQAHandler(client))
 }

@@ -14,6 +14,7 @@ import (
     m "main-webbase/internal/middleware"
     "main-webbase/internal/models"
     repo "main-webbase/internal/repository"
+    s "main-webbase/internal/services"
 )
 
 func CreateEventQAHandler(client *mongo.Client) fiber.Handler {
@@ -137,6 +138,35 @@ func AnswerEventQAHandler(client *mongo.Client) fiber.Handler {
         if err := res.Decode(&out); err != nil {
             return fiber.NewError(fiber.StatusForbidden, "cannot answer")
         }
+
+        // parameter for notification
+        ref := models.Ref{
+            ID: qaID,
+            Entity: "qa",
+        }
+        
+        colEvent := database.DB.Collection("events")
+        colNoti := database.DB.Collection("notification")
+        var result struct {
+            Title string `bson:"topic"`
+        }
+        err = colEvent.FindOne(c.Context(), bson.M{"_id": qa.EventID}).Decode(&result)
+        if err != nil {
+            return fiber.NewError(fiber.StatusInternalServerError, "failed to fetch event title: " + err.Error())
+        }
+
+        notiParam := models.NotiParams{
+            EventTitle: result.Title,
+            EventID: qa.EventID,
+        }
+        if err := s.NotifyOne(c.Context(), 
+            colNoti, 
+            uid, 
+            s.NotiQAAnswered, 
+            ref,
+            notiParam); err != nil { 
+            return fiber.NewError(fiber.StatusInternalServerError, "failed to send notification")
+            }
 
         return c.JSON(dto.EventQAResponse{
             ID:                out.ID.Hex(),

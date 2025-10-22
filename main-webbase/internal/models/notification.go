@@ -20,6 +20,7 @@ type Notification struct {
 	Body      string             `bson:"body"          json:"body"`
 	Ref       Ref                `bson:"ref"           json:"ref"`
 	CreatedAt time.Time          `bson:"created_at"    json:"createdAt"`
+	Read bool			   `bson:"read"          json:"read"`
 }
 
 // ---- 1) ฟังก์ชันกลางสร้าง title/body จาก type + params ----

@@ -296,6 +296,36 @@ func UpdateParticipantStatusHandler() fiber.Handler {
         if err := services.UpdateParticipantStatus(c.Context(), body); err != nil {
             return fiber.NewError(fiber.StatusInternalServerError, "failed to update user status")
         }
+
+        // parameter for notification
+        ref := models.Ref{
+            ID: eventObjID,
+            Entity: "event",
+        }
+        
+        colEvent := database.DB.Collection("events")
+        colNoti := database.DB.Collection("notification")
+        var result struct {
+            Title string `bson:"topic"`
+        }
+        err = colEvent.FindOne(c.Context(), bson.M{"_id": eventObjID}).Decode(&result)
+        if err != nil {
+            return fiber.NewError(fiber.StatusInternalServerError, "failed to fetch event title: " + err.Error())
+        }
+
+        notiParam := models.NotiParams{
+            EventTitle: result.Title,
+            EventID: eventObjID,
+        }
+        if err := services.NotifyOne(c.Context(), 
+            colNoti, 
+            userObjID, 
+            services.NotiAuditionApproved, 
+            ref,
+            notiParam); err != nil { 
+            return fiber.NewError(fiber.StatusInternalServerError, "failed to send notification")
+            }
+
         return c.Status(fiber.StatusCreated).JSON(fiber.Map{
             "message": "Update User Status Success",
             "data":    body.Status,
