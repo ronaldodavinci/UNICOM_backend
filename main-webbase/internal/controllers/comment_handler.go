@@ -6,6 +6,7 @@ import (
 	"main-webbase/internal/accessctx"
 	"main-webbase/internal/middleware"
 	"main-webbase/internal/repository"
+	"main-webbase/internal/utils"
 	"net/http"
 	"strings"
 
@@ -46,7 +47,7 @@ func isRootByPath(v *accessctx.ViewerAccess) bool {
 // @Security     BearerAuth
 // @Param        postId  path     string                   true  "Post ID (hex ObjectID)"
 // @Param        body    body     dto.CreateCommentReq     true  "Comment payload (Text)"
-// @Success      201     {object} models.Comment
+// @Success      201     {object} dto.CommentResp
 // @Failure      400     {object} dto.ErrorResponse
 // @Failure      401     {object} dto.ErrorResponse
 // @Failure      500     {object} dto.ErrorResponse
@@ -73,7 +74,20 @@ func (h *CommentHandler) Create(c *fiber.Ctx) error {
 	if err != nil {
 		return c.Status(http.StatusInternalServerError).JSON(dto.ErrorResponse{Error: err.Error()})
 	}
-	return c.Status(http.StatusCreated).JSON(com)
+	cens := com.CensoredText
+	if cens == "" {
+		cens = utils.MaskProfanity(com.Text)
+	}
+	resp := dto.CommentResp{
+		ID:           com.ID,
+		PostID:       com.PostID,
+		UserID:       com.UserID,
+		CensoredText: cens,
+		CreatedAt:    com.CreatedAt,
+		UpdatedAt:    com.UpdatedAt,
+		LikeCount:    com.LikeCount,
+	}
+	return c.Status(http.StatusCreated).JSON(resp)
 }
 
 // GET /posts/:postId/comments?limit=20&cursor=...
@@ -127,8 +141,25 @@ func (h *CommentHandler) List(c *fiber.Ctx) error {
 		}
 	}
 
+	// Map to DTO with filtered text
+	out := make([]dto.CommentResp, 0, len(items))
+	for _, cm := range items {
+		cens := cm.CensoredText
+		if cens == "" {
+			cens = utils.MaskProfanity(cm.Text)
+		}
+		out = append(out, dto.CommentResp{
+			ID:           cm.ID,
+			PostID:       cm.PostID,
+			UserID:       cm.UserID,
+			CensoredText: cens,
+			CreatedAt:    cm.CreatedAt,
+			UpdatedAt:    cm.UpdatedAt,
+			LikeCount:    cm.LikeCount,
+		})
+	}
 	resp := dto.ListCommentsResp{
-		Comments:   items,
+		Comments:   out,
 		NextCursor: next,
 		HasMore:    next != nil,
 		IsLiked:    anyLiked,
@@ -146,7 +177,7 @@ func (h *CommentHandler) List(c *fiber.Ctx) error {
 // @Security     BearerAuth
 // @Param        commentId  path     string                true  "Comment ID (hex ObjectID)"
 // @Param        body       body     dto.CreateCommentReq  true  "Fields to update (Text)"
-// @Success      200        {object} models.Comment
+// @Success      200        {object} dto.CommentResp
 // @Failure      400        {object} dto.ErrorResponse
 // @Failure      401        {object} dto.ErrorResponse
 // @Failure      403        {object} dto.ErrorResponse
@@ -177,7 +208,20 @@ func (h *CommentHandler) Update(c *fiber.Ctx) error {
 	if updated == nil {
 		return c.Status(http.StatusForbidden).JSON(dto.ErrorResponse{Error: "forbidden"})
 	}
-	return c.JSON(updated)
+	cens := updated.CensoredText
+	if cens == "" {
+		cens = utils.MaskProfanity(updated.Text)
+	}
+	resp := dto.CommentResp{
+		ID:           updated.ID,
+		PostID:       updated.PostID,
+		UserID:       updated.UserID,
+		CensoredText: cens,
+		CreatedAt:    updated.CreatedAt,
+		UpdatedAt:    updated.UpdatedAt,
+		LikeCount:    updated.LikeCount,
+	}
+	return c.JSON(resp)
 }
 
 // DELETE /comments/:commentId

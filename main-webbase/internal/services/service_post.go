@@ -58,6 +58,7 @@ func CreatePostWithMeta(client *mongo.Client, UserID string, body dto.CreatePost
 		Hashtag:      tagsSlice,  // เก็บ string (เช่น "smo,eng,ku66")
 		Tags:         body.PostAs.Tag,
 		PostText:     body.PostText,
+		CensoredText: u.MaskProfanity(body.PostText),
 		Media:        body.Media,
 		CreatedAt:    now,
 		UpdatedAt:    now,
@@ -119,7 +120,7 @@ func CreatePostWithMeta(client *mongo.Client, UserID string, body dto.CreatePost
 		UserID:       UserID,
 		Name:         userInfo.FirstName, // แก้เป็น display name ที่ต้องการได้
 		Username:     userInfo.Username,
-		PostText:     post.PostText,
+		PostText:     u.MaskProfanity(post.PostText),
 		Hashtag:      post.Hashtag,
 		LikeCount:    post.LikeCount,
 		CommentCount: post.CommentCount,
@@ -202,7 +203,7 @@ func GetPostDetail(ctx context.Context, db *mongo.Database, loginUserID bson.Obj
 		UserID:       post.UserID.Hex(),
 		Name:         fullName,
 		Username:     user.Username,
-		PostText:     post.PostText,
+		PostText:     u.MaskProfanity(post.PostText),
 		Media:        post.Media,
 		Hashtag:      post.Hashtag,
 		LikeCount:    post.LikeCount,
@@ -222,3 +223,5 @@ func GetPostDetail(ctx context.Context, db *mongo.Database, loginUserID bson.Obj
 	}
 	return out, nil
 }
+
+

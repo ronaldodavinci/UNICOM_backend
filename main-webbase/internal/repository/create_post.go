@@ -315,14 +315,15 @@ func UpdatePostCore(
 	// fmt.Printf("[UpdatePost] post=%s user=%s admin=%v\n", postID.Hex(), userID.Hex(), isRoot)
 	// fmt.Printf("[UpdatePost] filter=%v\n", filter)
 	set := bson.M{
-		"post_text":   in.PostText,
-		"picture_url": in.PictureUrl,
-		"video_url":   in.VideoUrl,
-		"node_id":     rolePathID, // map จาก org_path
-		"position_id": positionID, // map จาก position_key
-		"tags":        in.PostAs.Tag,
-		"hashtag":     newHashtags,
-		"updated_at":  time.Now().UTC(),
+		"post_text":     in.PostText,
+		"censored_text": utils.MaskProfanity(in.PostText),
+		"picture_url":   in.PictureUrl,
+		"video_url":     in.VideoUrl,
+		"node_id":       rolePathID, // map จาก org_path
+		"position_id":   positionID, // map จาก position_key
+		"tags":          in.PostAs.Tag,
+		"hashtag":       newHashtags,
+		"updated_at":    time.Now().UTC(),
 	}
 
 	// อนุญาตให้ admin เปลี่ยน status ได้เท่านั้น

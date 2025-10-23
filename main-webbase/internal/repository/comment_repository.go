@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"main-webbase/internal/cursor"
 	"main-webbase/internal/models"
+	"main-webbase/internal/utils"
 	"time"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
@@ -22,13 +23,14 @@ type CommentRepository struct {
 func (r *CommentRepository) Create(ctx context.Context, postID, userID bson.ObjectID, text string) (*models.Comment, error) {
 	now := time.Now().UTC()
 	doc := &models.Comment{
-		ID:        bson.NewObjectID(),
-		PostID:    postID,
-		UserID:    userID,
-		Text:      text,
-		CreatedAt: now,
-		UpdatedAt: now,
-		LikeCount: 0,
+		ID:           bson.NewObjectID(),
+		PostID:       postID,
+		UserID:       userID,
+		Text:         text,
+		CensoredText: utils.MaskProfanity(text),
+		CreatedAt:    now,
+		UpdatedAt:    now,
+		LikeCount:    0,
 	}
 
 	sess, err := r.Client.StartSession()
@@ -132,13 +134,14 @@ func (r *CommentRepository) Update(ctx context.Context, commentID, userID bson.O
 	now := time.Now().UTC()
 	_, err := r.ColComments.UpdateOne(ctx,
 		bson.M{"_id": commentID},
-		bson.M{"$set": bson.M{"text": newText, "updated_at": now}},
+		bson.M{"$set": bson.M{"text": newText, "censored_text": utils.MaskProfanity(newText), "updated_at": now}},
 	)
 	if err != nil {
 		return nil, err
 	}
 
 	c.Text = newText
+	c.CensoredText = utils.MaskProfanity(newText)
 	c.UpdatedAt = now
 	return &c, nil
 }

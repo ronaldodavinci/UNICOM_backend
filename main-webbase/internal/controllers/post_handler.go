@@ -71,6 +71,12 @@ func CreatePostHandler(client *mongo.Client) fiber.Handler {
 		// --- manually read nested postAs fields ---
 		postAsOrgPath := c.FormValue("postAs.org_path")
 		postAsPosition := c.FormValue("postAs.position_key")
+		if postAsOrgPath == "" {
+			postAsOrgPath = body.PostAs.OrgPath
+		}
+		if postAsPosition == "" {
+			postAsPosition = body.PostAs.PositionKey
+		}
 		if postAsOrgPath == "" || postAsPosition == "" {
 			return c.Status(fiber.StatusBadRequest).
 				JSON(dto.ErrorResponse{Error: "postAs.org_path and postAs.position_key are required"})
@@ -167,7 +173,7 @@ func GetIndividualPostHandler(client *mongo.Client) fiber.Handler {
 
 		db := client.Database(dbName)
 
-		resp, err := services.GetPostDetail(ctx, db, userID,postID)
+		resp, err := services.GetPostDetail(ctx, db, userID, postID)
 		if err != nil {
 			// ถ้าถูก wrap ด้วย %w จาก service จะเช็ค ErrNoDocuments ได้
 			if errors.Is(err, mongo.ErrNoDocuments) {
