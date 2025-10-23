@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"time"
+	"sort"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
@@ -12,6 +13,108 @@ import (
 	"main-webbase/internal/models"
 	repo "main-webbase/internal/repository"
 )
+
+// internal/services/event_service.go
+
+type VisibleEventQuery struct {
+    Roles    []string
+    Q        string
+}
+
+func GetVisibleEventsFiltered(viewerID bson.ObjectID, ctx context.Context, userOrgSets []string, q VisibleEventQuery) ([]map[string]interface{}, error) {
+    // ถ้ามีพารามิเตอร์ ให้ใช้ repo.FindEvents; ถ้าไม่มีเลย ใช้ของเดิมก็ได้
+    events, err := repo.GetEventsFilter(ctx, repo.EventFilter{
+        Roles:    q.Roles,
+        Q:        q.Q,
+    })
+    if err != nil {
+        return nil, err
+    }
+
+    // คัดเฉพาะที่ผู้ใช้เห็นได้จริง
+    var visible []models.Event
+    var eventIDs []bson.ObjectID
+    for _, ev := range events {
+        if CheckVisibleEvent(&ev, userOrgSets) {
+            visible = append(visible, ev)
+            eventIDs = append(eventIDs, ev.ID)
+        }
+    }
+
+    // ดึง schedules ของรายการที่มองเห็น
+    scheds, err := repo.GetSchedulesByEvent(ctx, eventIDs)
+    if err != nil {
+        return nil, err
+    }
+
+    schedMap := make(map[bson.ObjectID][]models.EventSchedule)
+    for _, s := range scheds {
+        schedMap[s.EventID] = append(schedMap[s.EventID], s)
+    }
+
+	now := time.Now().UTC()
+
+	type evWithNext struct {
+        ev     models.Event
+        next   time.Time
+        nextSch models.EventSchedule
+    }
+
+    bucket := make([]evWithNext, 0, len(visible))
+
+    for _, ev := range visible {
+        ss := schedMap[ev.ID]
+
+        var ok bool
+        var minNext time.Time
+        var nextRec models.EventSchedule
+
+        for _, s := range ss {
+            ts := s.Time_start // ต้องเป็น time.Time ใน model
+            if ts.IsZero() || ts.Before(now) { continue }
+            if !ok || ts.Before(minNext) {
+                ok = true
+                minNext = ts
+                nextRec = s
+            }
+        }
+        if ok {
+            bucket = append(bucket, evWithNext{ev: ev, next: minNext, nextSch: nextRec})
+        }
+    }
+
+    // เรียงตามเวลา next จากน้อยไปมาก (ใกล้สุดก่อน)
+    sort.Slice(bucket, func(i, j int) bool {
+        if bucket[i].next.Equal(bucket[j].next) {
+            // ไทเบรกเกอร์: created_at (เก่ากว่าก่อน) แล้วค่อย _id
+            var ti, tj time.Time
+            if bucket[i].ev.CreatedAt != nil { ti = *bucket[i].ev.CreatedAt }
+            if bucket[j].ev.CreatedAt != nil { tj = *bucket[j].ev.CreatedAt }
+            if !ti.Equal(tj) {return ti.Before(tj)}
+            return bucket[i].ev.ID.Hex() < bucket[j].ev.ID.Hex()
+        }
+        return bucket[i].next.Before(bucket[j].next)
+    })
+
+    // var out []map[string]interface{}
+    // for _, ev := range visible {
+    //     out = append(out, map[string]interface{}{
+    //         "event":     ev,
+    //         "schedules": schedMap[ev.ID],
+    //     })
+    // }
+	out := make([]map[string]interface{}, 0, len(bucket))
+    for _, it := range bucket {
+        // ถ้าอยากโชว์เฉพาะ “นัดถัดไป” ให้ส่งแค่ 1 รายการ
+        out = append(out, map[string]interface{}{
+            "event":     it.ev,
+            "schedules": []models.EventSchedule{it.nextSch},
+        })
+        // ถ้าอยากโชว์ทุก schedule ของอีเวนต์ ให้ใช้: "schedules": schedMap[it.ev.ID]
+    }
+
+    return out, nil
+}
 
 // Use in CreateEventHandler
 func CreateEventWithSchedules(body dto.EventRequestDTO, ctx context.Context) (dto.EventCreateResult, error) {

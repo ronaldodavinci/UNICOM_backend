@@ -3,6 +3,8 @@ package repository
 import (
 	"context"
 	"time"
+	"strings"
+	"regexp"
 
 	"main-webbase/database"
 	"main-webbase/internal/models"
@@ -10,6 +12,89 @@ import (
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
 )
+
+// internal/repository/event_repo.go
+
+type EventFilter struct {
+    Roles    []string
+    Q        string
+}
+
+func GetEventsFilter(ctx context.Context, f EventFilter) ([]models.Event, error) {
+    coll := database.DB.Collection("events")
+
+    and := []bson.M{
+        {"status": bson.M{"$ne": "inactive"}},
+    }
+
+	conds := make([]bson.M, 0, len(f.Roles)*2)
+
+	if len(f.Roles) > 0 {
+		for _, r := range f.Roles {
+			r = strings.TrimSpace(r)
+			if r == "" {
+				continue
+			}
+
+			if strings.HasPrefix(r, "/") {
+				// เป็น org path หรือ prefix
+				if strings.HasSuffix(r, "/*") {
+					// subtree prefix: ^\Qprefix\E(/|$)
+					prefix := strings.TrimSuffix(r, "/*")
+					re := "^" + regexp.QuoteMeta(prefix)
+					conds = append(conds, bson.M{
+						"org_of_content": bson.M{"$regex": re},
+					})
+				} else {
+					// exact path
+					conds = append(conds, bson.M{
+						"org_of_content": r,
+					})
+				}
+			} else {
+				// เป็นตำแหน่ง (postedas.position_key) — match แบบเต็มคำ ไม่สนตัวพิมพ์เล็กใหญ่
+				re := "^" + regexp.QuoteMeta(r) + "$"
+				conds = append(conds, bson.M{
+					"postedas.position_key": bson.M{"$regex": re, "$options": "i"},
+				})
+			}
+		}
+
+		if len(conds) == 1 {
+			and = append(and, conds[0])
+		} else if len(conds) > 1 {
+			and = append(and, bson.M{"$or": conds})
+		}
+	}
+
+    if f.Q != "" {
+        rx := bson.M{"$regex": f.Q, "$options": "i"}
+        and = append(and, bson.M{
+            "$or": []bson.M{
+                {"topic":       rx},
+                {"description": rx},
+            },
+        })
+    }
+
+    filter := bson.M{}
+    if len(and) > 0 {
+        filter = bson.M{"$and": and}
+    }
+
+    cur, err := coll.Find(ctx, filter)
+    if err != nil {
+        return nil, err
+    }
+    defer cur.Close(ctx)
+
+    var events []models.Event
+    if err := cur.All(ctx, &events); err != nil {
+        return nil, err
+    }
+    return events, nil
+}
+
 
 // Use in CreateEventWithSchedules
 func InsertEvent(ctx context.Context, event models.Event) error {
@@ -44,6 +129,10 @@ func GetSchedulesByEvent(ctx context.Context, eventIDlist []bson.ObjectID) ([]mo
 	collection := database.DB.Collection("event_schedules")
 
 	filter := bson.M{"event_id": bson.M{"$in": eventIDlist}}
+
+	if len(eventIDlist) == 0 {
+		return []models.EventSchedule{}, nil
+	}
 
 	cursor, err := collection.Find(ctx, filter)
 	if err != nil {

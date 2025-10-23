@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"time"
+	"strings"	
 
 	"github.com/gofiber/fiber/v2"
 	"go.mongodb.org/mongo-driver/v2/bson"
@@ -171,13 +172,42 @@ func GetAllVisibleEventHandler() fiber.Handler {
 		}
 		log.Printf("[DEBUG] orgSets=%+v", orgSets)
 
-		events, err := services.GetVisibleEvents(viewerID, ctx, orgSets)
+		// ---------- parse filters ----------
+        q := c.Query("q")
+		roles := splitCSVFilter(c.Query("role"))
+
+		// events, err := services.GetVisibleEvents(viewerID, ctx, orgSets)
+		events, err := services.GetVisibleEventsFiltered(
+            viewerID,
+            ctx,
+            orgSets,
+            services.VisibleEventQuery{
+                Roles:    roles,
+                Q:        q,
+            },
+        )
+
 		if err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 		}
 
 		return c.JSON(events)
 	}
+}
+
+func splitCSVFilter(s string) []string {
+	if s == "" {
+		return []string{} // อย่าคืน nil ถ้าจะใช้กับ $in
+	}
+	parts := strings.Split(s, ",")
+	out := make([]string, 0, len(parts))
+	for _, p := range parts {
+		p = strings.TrimSpace(p)
+		if p != "" {
+			out = append(out, p)
+		}
+	}
+	return out
 }
 
 // GetEventDetailHandler godoc
