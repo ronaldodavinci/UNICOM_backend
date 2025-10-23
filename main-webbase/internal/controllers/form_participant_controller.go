@@ -354,7 +354,6 @@ func ListManagedEventsHandler() fiber.Handler {
         }
         defer cur.Close(c.Context())
 
-        type OrgRow struct { EventID bson.ObjectID `bson:"event_id"` }
         seen := make(map[bson.ObjectID]struct{})
         eventIDs := make([]bson.ObjectID, 0, 8)
         for cur.Next(c.Context()) {

@@ -143,7 +143,7 @@ const docTemplate = `{
         },
         "/event": {
             "get": {
-                "description": "Return all events that the current user can see",
+                "description": "Retrieve all events that the current user can see",
                 "produces": [
                     "application/json"
                 ],
@@ -153,7 +153,7 @@ const docTemplate = `{
                 "summary": "Get all visible events",
                 "responses": {
                     "200": {
-                        "description": "OK",
+                        "description": "Array of visible events",
                         "schema": {
                             "type": "array",
                             "items": {
@@ -172,7 +172,134 @@ const docTemplate = `{
                         }
                     },
                     "500": {
-                        "description": "Internal Server Error",
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Create an event with optional image upload and schedule creation",
+                "consumes": [
+                    "multipart/form-data"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "events"
+                ],
+                "summary": "Create a new event",
+                "parameters": [
+                    {
+                        "type": "file",
+                        "description": "Event image file upload",
+                        "name": "file",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Node ID",
+                        "name": "NodeID",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Event topic",
+                        "name": "topic",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Event description",
+                        "name": "description",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Organization responsible for content (e.g. /fac/eng/com)",
+                        "name": "org_of_content",
+                        "in": "formData"
+                    },
+                    {
+                        "enum": [
+                            "active",
+                            "draft",
+                            "inactive"
+                        ],
+                        "type": "string",
+                        "description": "Event status",
+                        "name": "status",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Maximum participants",
+                        "name": "max_participation",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Whether event has a form (true/false)",
+                        "name": "have_form",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Organization path of the posting role",
+                        "name": "postedAs.org_path",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Position key of the posting role",
+                        "name": "postedAs.position_key",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Visibility JSON string, e.g., {\\",
+                        "name": "visibility",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Schedules JSON array, e.g., [{\\",
+                        "name": "schedules",
+                        "in": "formData"
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Event created successfully",
+                        "schema": {
+                            "$ref": "#/definitions/dto.EventCreateResult"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request (invalid input)",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden: Cannot post as this role",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -291,9 +418,9 @@ const docTemplate = `{
                 }
             }
         },
-        "/event/participate/{eventId}": {
+        "/event/participate/{event_id}": {
             "post": {
-                "description": "Join an event directly if the event does not require a form submission",
+                "description": "Join an event directly if it does not require a form",
                 "produces": [
                     "application/json"
                 ],
@@ -312,7 +439,7 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "OK",
+                        "description": "Participation successful",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -321,7 +448,7 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "Bad Request",
+                        "description": "Bad request",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -339,54 +466,7 @@ const docTemplate = `{
                         }
                     },
                     "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        "/event/{eventId}": {
-            "get": {
-                "description": "Get full event detail including schedules and form ID (if any)",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "events"
-                ],
-                "summary": "Get individule event detail",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Event ID",
-                        "name": "event_id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/dto.EventDetail"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
+                        "description": "Internal server error",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -743,13 +823,16 @@ const docTemplate = `{
                 }
             }
         },
-        "/event/{id}": {
-            "delete": {
-                "description": "Mark event as hidden",
+        "/event/{event_id}": {
+            "get": {
+                "description": "Retrieve full details of an event including schedules and form ID",
+                "produces": [
+                    "application/json"
+                ],
                 "tags": [
                     "events"
                 ],
-                "summary": "Soft delete event",
+                "summary": "Get event detail",
                 "parameters": [
                     {
                         "type": "string",
@@ -763,14 +846,11 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/dto.EventDetail"
                         }
                     },
                     "400": {
-                        "description": "Bad Request",
+                        "description": "Invalid request",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -779,7 +859,7 @@ const docTemplate = `{
                         }
                     },
                     "500": {
-                        "description": "Internal Server Error",
+                        "description": "Internal server error",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -788,13 +868,57 @@ const docTemplate = `{
                         }
                     }
                 }
-            }
-        },
-        "/events": {
-            "post": {
-                "description": "Create an event with schedules, optional form, and visibility settings",
+            },
+            "delete": {
+                "description": "Mark event as hidden (status=inactive)",
+                "tags": [
+                    "events"
+                ],
+                "summary": "Soft delete an event",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Event ID",
+                        "name": "event_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Event deleted successfully",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid ID",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "description": "Update any field of an event, including image and schedules",
                 "consumes": [
-                    "application/json"
+                    "application/json",
+                    "multipart/form-data"
                 ],
                 "produces": [
                     "application/json"
@@ -802,33 +926,49 @@ const docTemplate = `{
                 "tags": [
                     "events"
                 ],
-                "summary": "Create a new event",
+                "summary": "Update an event",
                 "parameters": [
                     {
-                        "description": "Event request data",
-                        "name": "data",
+                        "type": "string",
+                        "description": "Event ID",
+                        "name": "event_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Event fields to update (JSON)",
+                        "name": "body",
                         "in": "body",
                         "required": true,
                         "schema": {
                             "$ref": "#/definitions/dto.EventRequestDTO"
                         }
+                    },
+                    {
+                        "type": "file",
+                        "description": "Optional event image file",
+                        "name": "file",
+                        "in": "formData"
                     }
                 ],
                 "responses": {
-                    "201": {
-                        "description": "Created event",
+                    "200": {
+                        "description": "Event updated successfully",
                         "schema": {
-                            "$ref": "#/definitions/dto.EventCreateResult"
+                            "$ref": "#/definitions/dto.EventRequestDTO"
                         }
                     },
                     "400": {
-                        "description": "Bad request",
+                        "description": "Bad request (invalid event_id or request body)",
                         "schema": {
-                            "$ref": "#/definitions/dto.ErrorResponse"
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
                         }
                     },
                     "403": {
-                        "description": "Forbidden",
+                        "description": "Forbidden: Cannot post as this role",
                         "schema": {
                             "$ref": "#/definitions/dto.ErrorResponse"
                         }
@@ -836,7 +976,10 @@ const docTemplate = `{
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/dto.ErrorResponse"
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
                         }
                     }
                 }
@@ -2171,8 +2314,8 @@ const docTemplate = `{
                 "event_id": {
                     "type": "string"
                 },
-                "form_id": {
-                    "type": "string"
+                "form_matrix_response": {
+                    "$ref": "#/definitions/dto.FormMatrixResponseDTO"
                 },
                 "have_form": {
                     "type": "boolean"
@@ -2844,7 +2987,7 @@ const docTemplate = `{
                 "org_of_content": {
                     "type": "string"
                 },
-                "pictureURL": {
+                "picture_url": {
                     "type": "string"
                 },
                 "posted_as": {

@@ -9,16 +9,21 @@ import (
 func SetupRoutesEvent(app *fiber.App, client *mongo.Client) {
     event := app.Group("/event")
 
+    // Event CRUD
     event.Post("/", controllers.CreateEventHandler())                         
-    event.Get("/", controllers.GetAllVisibleEventHandler())                   
-    // Static subroutes should come before dynamic parameter routes
+    event.Get("/", controllers.GetAllVisibleEventHandler())
+
     // Event management (static path)
     event.Get("/manageable-orgs", controllers.ManageableOrgsHandler())
     event.Get("/managed", controllers.ListManagedEventsHandler())
-    event.Get("/:event_id", controllers.GetEventDetailHandler())                 
-    event.Delete("/:event_id", controllers.DeleteEventHandler)  
+
+    // Dynamic event routes
+    event.Get("/:event_id", controllers.GetEventDetailHandler())
+    event.Patch("/:event_id", controllers.UpdateEventHandler())
+    event.Delete("/:event_id", controllers.DeleteEventHandler())
     event.Post("/participate/:event_id", controllers.ParticipateEventWithNoFormHandler()) 
 
+    // Event Q&A
     event.Post("/:eventId/qa", controllers.CreateEventQAHandler(client))
     event.Get("/:eventId/qa", controllers.ListEventQAHandler(client))
 
