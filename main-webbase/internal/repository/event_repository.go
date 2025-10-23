@@ -8,6 +8,7 @@ import (
 
 	"main-webbase/database"
 	"main-webbase/internal/models"
+	"main-webbase/dto"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
@@ -242,4 +243,79 @@ func UpdateEvent(ctx context.Context, eventID bson.ObjectID, updates bson.M) err
 
 	_, err := collection.UpdateOne(ctx, bson.M{"_id": eventID}, bson.M{"$set": updates})
 	return err
+}
+
+func GetEventParticipantsWithDetails(ctx context.Context, eventID bson.ObjectID) ([]dto.UserParticipant, int, error) {
+	collection := database.DB.Collection("event_participant")
+
+	// MongoDB aggregation
+	pipeline := mongo.Pipeline{
+		// Match only accepted participants for the event
+		{{Key: "$match", Value: bson.M{"event_id": eventID, "status": "accept"}}},
+
+		// Lookup user details
+		{{
+			Key: "$lookup",
+			Value: bson.M{
+				"from":         "users",
+				"localField":   "user_id",
+				"foreignField": "_id",
+				"as":           "user",
+			},
+		}},
+
+		// Unwind the user array
+		{{Key: "$unwind", Value: "$user"}},
+
+		// Project only needed fields
+		{{
+			Key: "$project",
+			Value: bson.M{
+				"user_id":    "$user._id",
+				"first_name": "$user.firstname",
+				"last_name":  "$user.lastname",
+				"status": 	  "$role",
+			},
+		}},
+	}
+
+	cursor, err := collection.Aggregate(ctx, pipeline)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer cursor.Close(ctx)
+
+	var participants []dto.UserParticipant
+	count := 0
+
+	for cursor.Next(ctx) {
+		var p struct {
+			UserID    bson.ObjectID `bson:"user_id"`
+			FirstName string             `bson:"first_name"`
+			LastName  string             `bson:"last_name"`
+			Status    string             `bson:"status"`
+		}
+		if err := cursor.Decode(&p); err != nil {
+			return nil, 0, err
+		}
+
+		user := dto.UserParticipant{
+			UserID:    p.UserID.Hex(),
+			FirstName: p.FirstName,
+			LastName:  p.LastName,
+			Status:    p.Status,
+		}
+
+		if user.Status == "participant" {
+			count++
+		}
+
+		participants = append(participants, user)
+	}
+
+	if err := cursor.Err(); err != nil {
+		return nil, 0, err
+	}
+
+	return participants, count, nil
 }

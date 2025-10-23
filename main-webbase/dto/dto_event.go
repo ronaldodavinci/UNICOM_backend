@@ -67,5 +67,12 @@ type EventDetail struct {
 	Have_form            bool               `json:"have_form,omitempty"`
 
 	Schedules 			[]models.EventSchedule 	`json:"schedules"`
-	FormMatrixResponse 	FormMatrixResponseDTO 	`json:"form_matrix_response,omitempty"`
+	UserParticipants    []UserParticipant       `json:"user_participants,omitempty"`		
+}
+
+type UserParticipant struct {
+	UserID    string `json:"user_id"`
+	FirstName string `json:"first_name"`
+	LastName  string `json:"last_name"`
+	Status    string `json:"status"` //"participant/organizer"
 }

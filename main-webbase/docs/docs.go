@@ -2331,9 +2331,6 @@ const docTemplate = `{
                 "event_id": {
                     "type": "string"
                 },
-                "form_matrix_response": {
-                    "$ref": "#/definitions/dto.FormMatrixResponseDTO"
-                },
                 "have_form": {
                     "type": "boolean"
                 },
@@ -2360,6 +2357,12 @@ const docTemplate = `{
                 },
                 "topic": {
                     "type": "string"
+                },
+                "user_participants": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/dto.UserParticipant"
+                    }
                 },
                 "visibility": {
                     "$ref": "#/definitions/models.Visibility"
@@ -2875,6 +2878,24 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "status": {
+                    "type": "string"
+                },
+                "user_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "dto.UserParticipant": {
+            "type": "object",
+            "properties": {
+                "first_name": {
+                    "type": "string"
+                },
+                "last_name": {
+                    "type": "string"
+                },
+                "status": {
+                    "description": "\"participant/organizer\"",
                     "type": "string"
                 },
                 "user_id": {

@@ -336,20 +336,10 @@ func GetEventDetail(eventID string, ctx context.Context) (dto.EventDetail, error
 		return dto.EventDetail{}, fmt.Errorf("failed to get schedules: %w", err)
 	}
 
-	// Fetch current participant count
-	current_participant, err := repo.GetTotalParticipant(ctx, EventID)
+	// Fetch user details for each participant
+	userParticipants, participantCount, err := repo.GetEventParticipantsWithDetails(ctx, EventID)
 	if err != nil {
 		return dto.EventDetail{}, fmt.Errorf("failed to get participants: %w", err)
-	}
-
-	var formMatrix dto.FormMatrixResponseDTO
-
-	if event.Have_form {
-		// Fetch all form responses
-		formMatrix, err = GetAllResponse(ctx, eventID)
-		if err != nil {
-			return dto.EventDetail{}, fmt.Errorf("failed to get form responses: %w", err)
-		}
 	}
 
 	eventDetail := dto.EventDetail{
@@ -359,13 +349,13 @@ func GetEventDetail(eventID string, ctx context.Context) (dto.EventDetail, error
 		Description:          event.Description,
 		PictureURL:           event.PictureURL,
 		MaxParticipation:     event.MaxParticipation,
-		CurrentParticipation: current_participant,
+		CurrentParticipation: participantCount, 
 		PostedAs:             event.PostedAs,
 		Visibility:           event.Visibility,
 		Status:               event.Status,
 		Have_form:            event.Have_form,
 		Schedules:            schedules,
-		FormMatrixResponse:   formMatrix,
+		UserParticipants:     userParticipants,
 	}
 
 	return eventDetail, nil
