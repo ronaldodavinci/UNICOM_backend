@@ -20,4 +20,4 @@ jobs:
             cd ~/go-api/main-webbase
             git pull origin main
             go build -o app .
-            pm2 restart go-api
+            pm2 restart go-api2
