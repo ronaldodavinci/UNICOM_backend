@@ -143,7 +143,10 @@ const docTemplate = `{
         },
         "/event": {
             "get": {
-                "description": "Retrieve all events that the current user can see",
+                "description": "Retrieve all events that the current user can see. This endpoint returns events visible to the current authenticated user. You can optionally filter the events using query parameters: \\n - ` + "`" + `q` + "`" + ` (string): Search text that matches the event's topic or description (case-insensitive). \\n - ` + "`" + `role` + "`" + ` (string, comma-separated): Filter by user role or organization path. Each value can be: \\n - A position key, e.g., ` + "`" + `Lecturer` + "`" + ` (matches ` + "`" + `postedas.position_key` + "`" + `, case-insensitive exact match). \\n - An organization path, e.g., ` + "`" + `/fac/eng/com` + "`" + ` (matches ` + "`" + `org_of_content` + "`" + `). \\n - Subtree prefix is supported using ` + "`" + `/*` + "`" + `, e.g., ` + "`" + `/fac/eng/*` + "`" + ` matches ` + "`" + `/fac/eng/com` + "`" + ` or ` + "`" + `/fac/eng/math` + "`" + `. \\n If no filters are applied, all events that the user can see (based on visibility rules) are returned. \\n Visibility rules: \\n - ` + "`" + `public` + "`" + `: visible to everyone. \\n - ` + "`" + `org` + "`" + `: visible only to users whose organization is included in the audience. \\n - ` + "`" + `draft` + "`" + `: visible only to organizers within the same organization.",
+                "consumes": [
+                    "application/json"
+                ],
                 "produces": [
                     "application/json"
                 ],
@@ -151,9 +154,23 @@ const docTemplate = `{
                     "events"
                 ],
                 "summary": "Get all visible events",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Search text in topic or description",
+                        "name": "q",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Comma-separated list of roles or org paths to filter",
+                        "name": "role",
+                        "in": "query"
+                    }
+                ],
                 "responses": {
                     "200": {
-                        "description": "Array of visible events",
+                        "description": "Array of visible events with their next upcoming schedule",
                         "schema": {
                             "type": "array",
                             "items": {
@@ -163,7 +180,7 @@ const docTemplate = `{
                         }
                     },
                     "401": {
-                        "description": "Unauthorized",
+                        "description": "Unauthorized - user not authenticated",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {

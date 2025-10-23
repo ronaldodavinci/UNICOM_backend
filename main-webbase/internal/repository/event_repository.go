@@ -37,20 +37,12 @@ func GetEventsFilter(ctx context.Context, f EventFilter) ([]models.Event, error)
 			}
 
 			if strings.HasPrefix(r, "/") {
-				// เป็น org path หรือ prefix
-				if strings.HasSuffix(r, "/*") {
-					// subtree prefix: ^\Qprefix\E(/|$)
-					prefix := strings.TrimSuffix(r, "/*")
-					re := "^" + regexp.QuoteMeta(prefix)
-					conds = append(conds, bson.M{
-						"org_of_content": bson.M{"$regex": re},
-					})
-				} else {
-					// exact path
-					conds = append(conds, bson.M{
-						"org_of_content": r,
-					})
-				}
+				// Treat all org paths as prefix matches automatically
+				prefix := strings.TrimSuffix(r, "/*") // in case user added /*
+				re := "^" + regexp.QuoteMeta(prefix) + "(/|$)" // match exact or subtree
+				conds = append(conds, bson.M{
+					"org_of_content": bson.M{"$regex": re},
+				})
 			} else {
 				// เป็นตำแหน่ง (postedas.position_key) — match แบบเต็มคำ ไม่สนตัวพิมพ์เล็กใหญ่
 				re := "^" + regexp.QuoteMeta(r) + "$"

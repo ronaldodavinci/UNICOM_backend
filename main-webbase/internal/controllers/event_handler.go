@@ -148,11 +148,14 @@ func CreateEventHandler() fiber.Handler {
 
 // GetAllVisibleEventHandler godoc
 // @Summary Get all visible events
-// @Description Retrieve all events that the current user can see
+// @Description Retrieve all events that the current user can see. This endpoint returns events visible to the current authenticated user. You can optionally filter the events using query parameters: \n - `q` (string): Search text that matches the event's topic or description (case-insensitive). \n - `role` (string, comma-separated): Filter by user role or organization path. Each value can be: \n - A position key, e.g., `Lecturer` (matches `postedas.position_key`, case-insensitive exact match). \n - An organization path, e.g., `/fac/eng/com` (matches `org_of_content`). \n - Subtree prefix is supported using `/*`, e.g., `/fac/eng/*` matches `/fac/eng/com` or `/fac/eng/math`. \n If no filters are applied, all events that the user can see (based on visibility rules) are returned. \n Visibility rules: \n - `public`: visible to everyone. \n - `org`: visible only to users whose organization is included in the audience. \n - `draft`: visible only to organizers within the same organization.
 // @Tags events
+// @Accept json
 // @Produce json
-// @Success 200 {array} map[string]interface{} "Array of visible events"
-// @Failure 401 {object} map[string]string "Unauthorized"
+// @Param q query string false "Search text in topic or description"
+// @Param role query string false "Comma-separated list of roles or org paths to filter"
+// @Success 200 {array} map[string]interface{} "Array of visible events with their next upcoming schedule"
+// @Failure 401 {object} map[string]string "Unauthorized - user not authenticated"
 // @Failure 500 {object} map[string]string "Internal server error"
 // @Router /event [get]
 func GetAllVisibleEventHandler() fiber.Handler {
@@ -197,7 +200,7 @@ func GetAllVisibleEventHandler() fiber.Handler {
 
 func splitCSVFilter(s string) []string {
 	if s == "" {
-		return []string{} // อย่าคืน nil ถ้าจะใช้กับ $in
+		return []string{}
 	}
 	parts := strings.Split(s, ",")
 	out := make([]string, 0, len(parts))

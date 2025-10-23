@@ -14,108 +14,6 @@ import (
 	repo "main-webbase/internal/repository"
 )
 
-// internal/services/event_service.go
-
-type VisibleEventQuery struct {
-    Roles    []string
-    Q        string
-}
-
-func GetVisibleEventsFiltered(viewerID bson.ObjectID, ctx context.Context, userOrgSets []string, q VisibleEventQuery) ([]map[string]interface{}, error) {
-    // ถ้ามีพารามิเตอร์ ให้ใช้ repo.FindEvents; ถ้าไม่มีเลย ใช้ของเดิมก็ได้
-    events, err := repo.GetEventsFilter(ctx, repo.EventFilter{
-        Roles:    q.Roles,
-        Q:        q.Q,
-    })
-    if err != nil {
-        return nil, err
-    }
-
-    // คัดเฉพาะที่ผู้ใช้เห็นได้จริง
-    var visible []models.Event
-    var eventIDs []bson.ObjectID
-    for _, ev := range events {
-        if CheckVisibleEvent(&ev, userOrgSets) {
-            visible = append(visible, ev)
-            eventIDs = append(eventIDs, ev.ID)
-        }
-    }
-
-    // ดึง schedules ของรายการที่มองเห็น
-    scheds, err := repo.GetSchedulesByEvent(ctx, eventIDs)
-    if err != nil {
-        return nil, err
-    }
-
-    schedMap := make(map[bson.ObjectID][]models.EventSchedule)
-    for _, s := range scheds {
-        schedMap[s.EventID] = append(schedMap[s.EventID], s)
-    }
-
-	now := time.Now().UTC()
-
-	type evWithNext struct {
-        ev     models.Event
-        next   time.Time
-        nextSch models.EventSchedule
-    }
-
-    bucket := make([]evWithNext, 0, len(visible))
-
-    for _, ev := range visible {
-        ss := schedMap[ev.ID]
-
-        var ok bool
-        var minNext time.Time
-        var nextRec models.EventSchedule
-
-        for _, s := range ss {
-            ts := s.Time_start // ต้องเป็น time.Time ใน model
-            if ts.IsZero() || ts.Before(now) { continue }
-            if !ok || ts.Before(minNext) {
-                ok = true
-                minNext = ts
-                nextRec = s
-            }
-        }
-        if ok {
-            bucket = append(bucket, evWithNext{ev: ev, next: minNext, nextSch: nextRec})
-        }
-    }
-
-    // เรียงตามเวลา next จากน้อยไปมาก (ใกล้สุดก่อน)
-    sort.Slice(bucket, func(i, j int) bool {
-        if bucket[i].next.Equal(bucket[j].next) {
-            // ไทเบรกเกอร์: created_at (เก่ากว่าก่อน) แล้วค่อย _id
-            var ti, tj time.Time
-            if bucket[i].ev.CreatedAt != nil { ti = *bucket[i].ev.CreatedAt }
-            if bucket[j].ev.CreatedAt != nil { tj = *bucket[j].ev.CreatedAt }
-            if !ti.Equal(tj) {return ti.Before(tj)}
-            return bucket[i].ev.ID.Hex() < bucket[j].ev.ID.Hex()
-        }
-        return bucket[i].next.Before(bucket[j].next)
-    })
-
-    // var out []map[string]interface{}
-    // for _, ev := range visible {
-    //     out = append(out, map[string]interface{}{
-    //         "event":     ev,
-    //         "schedules": schedMap[ev.ID],
-    //     })
-    // }
-	out := make([]map[string]interface{}, 0, len(bucket))
-    for _, it := range bucket {
-        // ถ้าอยากโชว์เฉพาะ “นัดถัดไป” ให้ส่งแค่ 1 รายการ
-        out = append(out, map[string]interface{}{
-            "event":     it.ev,
-            "schedules": []models.EventSchedule{it.nextSch},
-        })
-        // ถ้าอยากโชว์ทุก schedule ของอีเวนต์ ให้ใช้: "schedules": schedMap[it.ev.ID]
-    }
-
-    return out, nil
-}
-
 // Use in CreateEventHandler
 func CreateEventWithSchedules(body dto.EventRequestDTO, ctx context.Context) (dto.EventCreateResult, error) {
 	now := time.Now().UTC()
@@ -212,36 +110,51 @@ func CreateEventWithSchedules(body dto.EventRequestDTO, ctx context.Context) (dt
 }
 
 // Use in GetAllVisibleEventHandler
-func GetVisibleEvents(viewerID bson.ObjectID, ctx context.Context, orgSets []string) ([]dto.EventFeed, error) {
-	// Get all event
-	events, err := repo.GetEvent(ctx)
+type VisibleEventQuery struct {
+    Roles    []string
+    Q        string
+}
+
+func GetVisibleEventsFiltered(viewerID bson.ObjectID, ctx context.Context, userOrgSets []string, q VisibleEventQuery,) ([]dto.EventFeed, error) {
+    
+	var events []models.Event
+	var err error
+	if q.Q != "" || len(q.Roles) > 0 {
+		events, err = repo.GetEventsFilter(ctx, repo.EventFilter{
+			Roles: q.Roles,
+			Q:     q.Q,
+		})
+	} else {
+		events, err = repo.GetEvent(ctx)
+	}
 	if err != nil {
 		return nil, err
 	}
 
-	// Get ID of Visible Event
-	var visibleEvents []models.Event
-	var eventIDlist []bson.ObjectID
+    // Filter visible events
+    var visibleEvents []models.Event
+	var eventIDs []bson.ObjectID
 	for _, ev := range events {
-		if CheckVisibleEvent(ctx, &ev, orgSets, viewerID) {
+		if CheckVisibleEvent(ctx, &ev, userOrgSets, viewerID) {
 			visibleEvents = append(visibleEvents, ev)
-			eventIDlist = append(eventIDlist, ev.ID)
+			eventIDs = append(eventIDs, ev.ID)
 		}
 	}
-
-	// Fetch schedule of visible event
-	schedules, err := repo.GetSchedulesByEvent(ctx, eventIDlist)
-	if err != nil {
-		return nil, err
+	if len(visibleEvents) == 0 {
+		return []dto.EventFeed{}, nil
 	}
 
-	//Group Then Send
-	schedMap := make(map[bson.ObjectID][]models.EventSchedule)
-	for _, s := range schedules {
-		schedMap[s.EventID] = append(schedMap[s.EventID], s)
-	}
+    // ดึง Fetch schedules
+    scheds, err := repo.GetSchedulesByEvent(ctx, eventIDs)
+    if err != nil {
+        return nil, err
+    }
+    schedMap := make(map[bson.ObjectID][]models.EventSchedule)
+    for _, s := range scheds {
+        schedMap[s.EventID] = append(schedMap[s.EventID], s)
+    }
 
-	// update date event
+	// Update expired events (inactive)
 	now := time.Now().UTC()
 	for eventID, evSchedules := range schedMap {
 		var lastTime time.Time
@@ -251,48 +164,102 @@ func GetVisibleEvents(viewerID bson.ObjectID, ctx context.Context, orgSets []str
 			}
 		}
 
-		// If event has ended
 		if lastTime.Before(now) {
-			_ = repo.UpdateEvent(ctx, eventID, bson.M{
+			err = repo.UpdateEvent(ctx, eventID, bson.M{
 				"status":     "inactive",
 				"updated_at": now,
 			})
-
+			if err != nil {
+				return nil, fmt.Errorf("failed to update event %s: %v", eventID.Hex(), err)
+			}
 			delete(schedMap, eventID)
 		}
 	}
 
-	// Get every event participant count
-	participantCounts, err := repo.GetAllEventParticipant(ctx, eventIDlist)
+	// Participant counts
+	participantCounts, err := repo.GetAllEventParticipant(ctx, eventIDs)
 	if err != nil {
 		participantCounts = make(map[bson.ObjectID]int)
 	}
 
-	var result []dto.EventFeed
+	// Find next upcoming schedule per event
+	type evWithNext struct {
+		ev      models.Event
+		next    time.Time
+		nextSch models.EventSchedule
+	}
+	bucket := []evWithNext{}
+
 	for _, ev := range visibleEvents {
-		if _, ok := schedMap[ev.ID]; !ok {
-			continue 
+		ss, ok := schedMap[ev.ID]
+		if !ok || len(ss) == 0 {
+			continue
 		}
 
-		eventDetail := dto.EventFeed{
-			EventID:              ev.ID.Hex(),
-			OrgPath:              ev.OrgOfContent,
-			Topic:                ev.Topic,
-			Description:          ev.Description,
-			PictureURL:           ev.PictureURL,
-			MaxParticipation:     ev.MaxParticipation,
-			CurrentParticipation: participantCounts[ev.ID],
-			PostedAs:             ev.PostedAs,
-			Visibility:           ev.Visibility,
-			Status:               ev.Status,
-			Have_form:            ev.Have_form,
-			Schedules:            schedMap[ev.ID],
+		var nextTime time.Time
+		var nextRec models.EventSchedule
+		var found bool
+
+		for _, s := range ss {
+			if s.Time_start.IsZero() || s.Time_start.Before(now) {
+				continue
+			}
+			if !found || s.Time_start.Before(nextTime) {
+				nextTime = s.Time_start
+				nextRec = s
+				found = true
+			}
 		}
 
-		result = append(result, eventDetail)
+		if found {
+			bucket = append(bucket, evWithNext{
+				ev:      ev,
+				next:    nextTime,
+				nextSch: nextRec,
+			})
+		}
 	}
 
-	return result, nil
+	// Sort by closest next schedule
+	sort.Slice(bucket, func(i, j int) bool {
+		if bucket[i].next.Equal(bucket[j].next) {
+			// Tie-breaker: created_at then ID
+			ti, tj := time.Time{}, time.Time{}
+			if bucket[i].ev.CreatedAt != nil {
+				ti = *bucket[i].ev.CreatedAt
+			}
+			if bucket[j].ev.CreatedAt != nil {
+				tj = *bucket[j].ev.CreatedAt
+			}
+			if !ti.Equal(tj) {
+				return ti.Before(tj)
+			}
+			return bucket[i].ev.ID.Hex() < bucket[j].ev.ID.Hex()
+		}
+		return bucket[i].next.Before(bucket[j].next)
+	})
+
+	// Build DTO for frontend
+	out := make([]dto.EventFeed, 0, len(bucket))
+	for _, it := range bucket {
+		feed := dto.EventFeed{
+			EventID:              it.ev.ID.Hex(),
+			OrgPath:              it.ev.OrgOfContent,
+			Topic:                it.ev.Topic,
+			Description:          it.ev.Description,
+			PictureURL:           it.ev.PictureURL,
+			MaxParticipation:     it.ev.MaxParticipation,
+			CurrentParticipation: participantCounts[it.ev.ID],
+			PostedAs:             it.ev.PostedAs,
+			Visibility:           it.ev.Visibility,
+			Status:               it.ev.Status,
+			Have_form:            it.ev.Have_form,
+			Schedules:            []models.EventSchedule{it.nextSch}, // only closest
+		}
+		out = append(out, feed)
+	}
+
+	return out, nil
 }
 
 func CheckVisibleEvent(ctx context.Context, event *models.Event, userOrgs []string, userID bson.ObjectID) bool {
