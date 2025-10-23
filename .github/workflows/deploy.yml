@@ -13,8 +13,9 @@ jobs:
       - name: 🚀 Deploy to Server
         uses: appleboy/ssh-action@v1.2.0
         with:
-          host: ${{ secrets.SERVER_HOST }}
-          username: ${{ secrets.SERVER_USER }}
+          host: 45.144.166.252
+          port: 46600
+          username: ubuntu
           key: ${{ secrets.SERVER_SSH_KEY }}
           script: |
             cd ~/go-api/main-webbase
