@@ -413,7 +413,7 @@ func (r *mongoHashtagTrendingRepo) ListPublicPostsByHashtag(
 					"in":   bson.M{"$ifNull": bson.A{"$$c.category_name", ""}},
 				},
 			},
-			"post_text":     1,
+			"post_text": bson.M{"$ifNull": bson.A{"$censored_text", "$post_text"}},
 			"media":         1,
 			"like_count":    1,
 			"comment_count": 1,

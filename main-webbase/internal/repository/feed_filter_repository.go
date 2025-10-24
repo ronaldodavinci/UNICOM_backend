@@ -120,8 +120,17 @@ func buildCommonPipeline(baseMatch bson.D, lim int64, opts models.QueryOptions, 
 
 	// ===== Text search =====
 	if opts.TextSearch != "" {
+		safe := regexp.QuoteMeta(opts.TextSearch)
 		pipe = append(pipe, bson.D{{Key: "$match", Value: bson.M{"$or": []bson.M{
-			{"post_text": bson.M{"$regex": opts.TextSearch, "$options": "i"}},
+			{ // <-- ตรงนี้คือ fallback: ถ้ามี censored_text ใช้อันนั้น ไม่งั้นใช้ post_text
+                "$expr": bson.M{
+                    "$regexMatch": bson.M{
+                        "input":   bson.M{"$ifNull": bson.A{"$censored_text", "$post_text"}},
+                        "regex":   safe,
+                        "options": "i",
+                    },
+                },
+            },
 			//{"u.username": bson.M{"$regex": opts.TextSearch, "$options": "i"}},
 			{"u.firstname": bson.M{"$regex": opts.TextSearch, "$options": "i"}},
 			{"u.lastname": bson.M{"$regex": opts.TextSearch, "$options": "i"}},
@@ -256,7 +265,8 @@ func buildCommonPipeline(baseMatch bson.D, lim int64, opts models.QueryOptions, 
 					"in":    bson.M{"$ifNull": bson.A{"$$c.category_name", ""}},
 				},
 			},
-			"post_text":     1,
+			"post_text": bson.M{"$ifNull": bson.A{"$censored_text", "$post_text"}},
+			// "censored_text": 0,
 			"media":        1,
 			"like_count":     1,
 			// "likedBy":   bson.A{},
