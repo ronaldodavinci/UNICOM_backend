@@ -1,5 +1,19 @@
 basePath: /
 definitions:
+  controllers.FeedCursorEnvelope:
+    properties:
+      has_more:
+        example: true
+        type: boolean
+      items:
+        items:
+          additionalProperties: {}
+          type: object
+        type: array
+      next_cursor:
+        example: eyJpZCI6IjY4ZTYzMDAyZGYyMjVjZDk1NTE3M2RiIn0=
+        type: string
+    type: object
   dto.AnswerSubmitItemDTO:
     properties:
       answer_value:
@@ -11,6 +25,23 @@ definitions:
         type: string
     required:
     - question_id
+    type: object
+  dto.CommentResp:
+    properties:
+      createdAt:
+        type: string
+      id:
+        type: string
+      likeCount:
+        type: integer
+      postId:
+        type: string
+      text:
+        type: string
+      updatedAt:
+        type: string
+      userId:
+        type: string
     type: object
   dto.CreateCommentReq:
     properties:
@@ -162,11 +193,19 @@ definitions:
     required:
     - answers
     type: object
+  dto.LikeRequestDTO:
+    properties:
+      targetId:
+        type: string
+      targetType:
+        description: '"post" | "comment"'
+        type: string
+    type: object
   dto.ListCommentsResp:
     properties:
       comments:
         items:
-          $ref: '#/definitions/models.Comment'
+          $ref: '#/definitions/dto.CommentResp'
         type: array
       has_more:
         type: boolean
@@ -476,23 +515,6 @@ definitions:
         description: '"exact" | "subtree"'
         type: string
     type: object
-  models.Comment:
-    properties:
-      createdAt:
-        type: string
-      id:
-        type: string
-      likeCount:
-        type: integer
-      postId:
-        type: string
-      text:
-        type: string
-      updatedAt:
-        type: string
-      userId:
-        type: string
-    type: object
   models.Constraints:
     properties:
       exclusive_per_org:
@@ -673,6 +695,8 @@ definitions:
         items:
           type: string
         type: array
+      censoredText:
+        type: string
       createdAt:
         type: string
       hashtag:
@@ -840,7 +864,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/models.Comment'
+            $ref: '#/definitions/dto.CommentResp'
         "400":
           description: Bad Request
           schema:
@@ -1451,6 +1475,44 @@ paths:
       summary: Participate in an event (no form required)
       tags:
       - events
+  /likes:
+    post:
+      consumes:
+      - application/json
+      description: Toggle like (หรือ unlike) ให้โพสต์หรือคอมเมนต์ตาม target ที่ส่งมา
+        โดยผูกกับผู้ใช้ที่ล็อกอินอยู่
+      parameters:
+      - description: ข้อมูล target ที่จะ like/unlike
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/dto.LikeRequestDTO'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: สถานะล่าสุดของ like พร้อมจำนวนยอดรวม
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: ข้อมูลไม่ถูกต้อง
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "401":
+          description: ไม่มีสิทธิ์ (ยังไม่ล็อกอิน)
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: เกิดข้อผิดพลาดระหว่างประมวลผล
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Toggle like on a target
+      tags:
+      - likes
   /login:
     post:
       consumes:
@@ -1594,6 +1656,64 @@ paths:
       summary: List memberships at an org with user details
       tags:
       - memberships
+  /notifications:
+    get:
+      description: Return all unread notifications and the total count for the authenticated
+        user.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Unread notification count and list
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Failed to fetch notifications
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: List unread notifications for the current user
+      tags:
+      - notifications
+  /notifications/{id}:
+    get:
+      description: Fetch a notification by ID for the authenticated user, mark it
+        as read, and return the updated document.
+      parameters:
+      - description: Notification ID (hex ObjectID)
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Updated notification document
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Notification not found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Failed to update notification
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get a notification and mark it as read
+      tags:
+      - notifications
   /org/units:
     get:
       consumes:
@@ -1859,6 +1979,41 @@ paths:
       tags:
       - Positions
   /posts:
+    get:
+      description: List posts that the viewer has permission to see, based on their
+        organizational unit and position.
+      parameters:
+      - default: 10
+        description: Max items per page
+        in: query
+        maximum: 20
+        minimum: 1
+        name: limit
+        type: integer
+      - description: Opaque next-page cursor (base64)
+        in: query
+        name: cursor
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controllers.FeedCursorEnvelope'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get posts visible to the viewer
+      tags:
+      - feed
     post:
       consumes:
       - multipart/form-data
@@ -2083,7 +2238,7 @@ paths:
         "201":
           description: Created
           schema:
-            $ref: '#/definitions/models.Comment'
+            $ref: '#/definitions/dto.CommentResp'
         "400":
           description: Bad Request
           schema:

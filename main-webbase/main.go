@@ -89,6 +89,7 @@ func main() {
 	routes.SetupRoutesTrending(app, client)
 	routes.CommentRoutes(app, client)
 	routes.LikeRoutes(app, client)
+	routes.NotificationRoutes(app, client)
 
 	// RUN SERVER
 	log.Fatal(app.Listen(":" + cfg.Port))

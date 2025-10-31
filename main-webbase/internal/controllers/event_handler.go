@@ -18,6 +18,7 @@ import (
 	"main-webbase/internal/middleware"
 	"main-webbase/internal/models"
 	"main-webbase/internal/services"
+	"main-webbase/internal/repository"
 )
 
 // CreateEventHandler godoc
@@ -302,6 +303,40 @@ func DeleteEventHandler() fiber.Handler {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to delete event"})
 		}
 
+		// Notify participants about event deletion
+		// parameter for notification
+		userIds, err := repository.FindAcceptedParticipants(ctx, eventID)
+		if err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to get participants"})
+		}
+		
+        ref := models.Ref{
+            ID: eventID,
+            Entity: "event",
+        }
+		colEvent := database.DB.Collection("events")
+		colNoti := database.DB.Collection("notification")
+        var result struct {
+            Title string `bson:"topic"`
+        }
+        err = colEvent.FindOne(c.Context(), bson.M{"_id": eventID}).Decode(&result)
+        if err != nil {
+            return fiber.NewError(fiber.StatusInternalServerError, "failed to fetch event title: " + err.Error())
+        }
+
+        notiParam := models.NotiParams{
+            EventTitle: result.Title,
+            EventID: eventID,
+        }
+        if err := services.NotifyMany(c.Context(), 
+            colNoti, 
+            userIds, 
+            services.NotiEventDeleted, 
+            ref,
+            notiParam); err != nil { 
+            return err
+            }
+
 		return c.JSON(fiber.Map{"message": "Event deleted (soft)"})
 	}
 }
@@ -397,9 +432,9 @@ func UpdateEventHandler() fiber.Handler {
 		if body.NodeID == "" {
 			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "NodeID is required"})
 		}
-		if body.PostedAs.OrgPath == "" || body.PostedAs.PositionKey == "" {
-			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "postedAs.org_path and postedAs.position_key are required"})
-		}
+		// if body.PostedAs.OrgPath == "" || body.PostedAs.PositionKey == "" {
+		// 	return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "postedAs.org_path and postedAs.position_key are required"})
+		// }
 
 		// --- permission check ---
 		if !canPostAs(viewerFrom(c), body.PostedAs.OrgPath, body.PostedAs.PositionKey) {
@@ -419,6 +454,40 @@ func UpdateEventHandler() fiber.Handler {
 				"image_url": imgURL,
 			})
 		}
+
+		// Notify participants about event update
+		// parameter for notification
+		userIds, err := repository.FindAcceptedParticipants(c.Context(), eventID)
+		if err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to get participants"})
+		}
+		
+        ref := models.Ref{
+            ID: eventID,
+            Entity: "event",
+        }
+		colEvent := database.DB.Collection("events")
+		colNoti := database.DB.Collection("notification")
+        var doc struct {
+            Title string `bson:"topic"`
+        }
+        err = colEvent.FindOne(c.Context(), bson.M{"_id": eventID}).Decode(&result)
+        if err != nil {
+            return fiber.NewError(fiber.StatusInternalServerError, "failed to fetch event title: " + err.Error())
+        }
+
+        notiParam := models.NotiParams{
+            EventTitle: doc.Title,
+            EventID: eventID,
+        }
+        if err := services.NotifyMany(c.Context(), 
+            colNoti, 
+            userIds, 
+            services.NotiEventUpdated, 
+            ref,
+            notiParam); err != nil { 
+            return fiber.NewError(fiber.StatusInternalServerError, "failed to send notification")
+            }
 
 		return c.Status(fiber.StatusOK).JSON(result)
 	}

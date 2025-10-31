@@ -193,7 +193,7 @@ func GetTotalParticipant(ctx context.Context, eventID bson.ObjectID) (int, error
 
 
 func FindAcceptedParticipants(ctx context.Context, eventID bson.ObjectID) ([]bson.ObjectID, error) {
-	collection := database.DB.Collection("event_form_response")
+	collection := database.DB.Collection("event_participant")
 
 	pipeline := mongo.Pipeline{
 		{{Key: "$match", Value: bson.M{
@@ -201,7 +201,7 @@ func FindAcceptedParticipants(ctx context.Context, eventID bson.ObjectID) ([]bso
 			"status":   "accept",
 		}}},
 		{{Key: "$project", Value: bson.M{
-			"participant_id": 1,
+			"user_id": 1,
 			"_id":            0,
 		}}},
 	}
@@ -215,7 +215,7 @@ func FindAcceptedParticipants(ctx context.Context, eventID bson.ObjectID) ([]bso
 	var participantIDs []bson.ObjectID
 	for cursor.Next(ctx) {
 		var doc struct {
-			ParticipantID bson.ObjectID `bson:"participant_id"`
+			ParticipantID bson.ObjectID `bson:"user_id"`
 		}
 		if err := cursor.Decode(&doc); err != nil {
 			return nil, err

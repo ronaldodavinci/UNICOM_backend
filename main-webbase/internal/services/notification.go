@@ -95,6 +95,9 @@ func NotifyMany(ctx context.Context, col *mongo.Collection,
 	now := time.Now().UTC()
 	writes := make([]mongo.WriteModel, 0, len(userIDs))
 	for _, uid := range userIDs {
+		if uid.IsZero() {
+			return fmt.Errorf("notifyMany: found zero userID in payload")
+		}
 		writes = append(writes, &mongo.InsertOneModel{Document: bson.M{
 			"user_id": uid, 
 			"type": typ, 

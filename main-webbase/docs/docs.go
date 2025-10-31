@@ -55,7 +55,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/models.Comment"
+                            "$ref": "#/definitions/dto.CommentResp"
                         }
                     },
                     "400": {
@@ -1002,6 +1002,64 @@ const docTemplate = `{
                 }
             }
         },
+        "/likes": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Toggle like (หรือ unlike) ให้โพสต์หรือคอมเมนต์ตาม target ที่ส่งมา โดยผูกกับผู้ใช้ที่ล็อกอินอยู่",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "likes"
+                ],
+                "summary": "Toggle like on a target",
+                "parameters": [
+                    {
+                        "description": "ข้อมูล target ที่จะ like/unlike",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/dto.LikeRequestDTO"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "สถานะล่าสุดของ like พร้อมจำนวนยอดรวม",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "ข้อมูลไม่ถูกต้อง",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "ไม่มีสิทธิ์ (ยังไม่ล็อกอิน)",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "เกิดข้อผิดพลาดระหว่างประมวลผล",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/login": {
             "post": {
                 "description": "Authenticate user and return JWT token",
@@ -1205,6 +1263,94 @@ const docTemplate = `{
                     },
                     "500": {
                         "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/notifications": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Return all unread notifications and the total count for the authenticated user.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "notifications"
+                ],
+                "summary": "List unread notifications for the current user",
+                "responses": {
+                    "200": {
+                        "description": "Unread notification count and list",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Failed to fetch notifications",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/notifications/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Fetch a notification by ID for the authenticated user, mark it as read, and return the updated document.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "notifications"
+                ],
+                "summary": "Get a notification and mark it as read",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Notification ID (hex ObjectID)",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Updated notification document",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Notification not found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Failed to update notification",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -1608,6 +1754,58 @@ const docTemplate = `{
             }
         },
         "/posts": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "List posts that the viewer has permission to see, based on their organizational unit and position.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "feed"
+                ],
+                "summary": "Get posts visible to the viewer",
+                "parameters": [
+                    {
+                        "maximum": 20,
+                        "minimum": 1,
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Max items per page",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Opaque next-page cursor (base64)",
+                        "name": "cursor",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.FeedCursorEnvelope"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    }
+                }
+            },
             "post": {
                 "description": "Create a new post; supports multipart form upload",
                 "consumes": [
@@ -1783,7 +1981,7 @@ const docTemplate = `{
                     "201": {
                         "description": "Created",
                         "schema": {
-                            "$ref": "#/definitions/models.Comment"
+                            "$ref": "#/definitions/dto.CommentResp"
                         }
                     },
                     "400": {
@@ -2259,6 +2457,26 @@ const docTemplate = `{
         }
     },
     "definitions": {
+        "controllers.FeedCursorEnvelope": {
+            "type": "object",
+            "properties": {
+                "has_more": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "additionalProperties": {}
+                    }
+                },
+                "next_cursor": {
+                    "type": "string",
+                    "example": "eyJpZCI6IjY4ZTYzMDAyZGYyMjVjZDk1NTE3M2RiIn0="
+                }
+            }
+        },
         "dto.AnswerSubmitItemDTO": {
             "type": "object",
             "required": [
@@ -2273,6 +2491,32 @@ const docTemplate = `{
                     "example": 1
                 },
                 "question_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "dto.CommentResp": {
+            "type": "object",
+            "properties": {
+                "createdAt": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "likeCount": {
+                    "type": "integer"
+                },
+                "postId": {
+                    "type": "string"
+                },
+                "text": {
+                    "type": "string"
+                },
+                "updatedAt": {
+                    "type": "string"
+                },
+                "userId": {
                     "type": "string"
                 }
             }
@@ -2497,13 +2741,25 @@ const docTemplate = `{
                 }
             }
         },
+        "dto.LikeRequestDTO": {
+            "type": "object",
+            "properties": {
+                "targetId": {
+                    "type": "string"
+                },
+                "targetType": {
+                    "description": "\"post\" | \"comment\"",
+                    "type": "string"
+                }
+            }
+        },
         "dto.ListCommentsResp": {
             "type": "object",
             "properties": {
                 "comments": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/models.Comment"
+                        "$ref": "#/definitions/dto.CommentResp"
                     }
                 },
                 "has_more": {
@@ -2967,32 +3223,6 @@ const docTemplate = `{
                 }
             }
         },
-        "models.Comment": {
-            "type": "object",
-            "properties": {
-                "createdAt": {
-                    "type": "string"
-                },
-                "id": {
-                    "type": "string"
-                },
-                "likeCount": {
-                    "type": "integer"
-                },
-                "postId": {
-                    "type": "string"
-                },
-                "text": {
-                    "type": "string"
-                },
-                "updatedAt": {
-                    "type": "string"
-                },
-                "userId": {
-                    "type": "string"
-                }
-            }
-        },
         "models.Constraints": {
             "type": "object",
             "properties": {
@@ -3264,6 +3494,9 @@ const docTemplate = `{
                     "items": {
                         "type": "string"
                     }
+                },
+                "censoredText": {
+                    "type": "string"
                 },
                 "createdAt": {
                     "type": "string"
