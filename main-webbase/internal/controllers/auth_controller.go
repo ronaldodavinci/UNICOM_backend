@@ -112,6 +112,8 @@ func Register(c *fiber.Ctx) error {
 		AdvisorID:    registerRequest.AdvisorID,
 		Email:        registerRequest.Email,
 		PasswordHash: string(hashedPassword),
+		Disease:      registerRequest.Disease,
+		Allergy:      registerRequest.Allergy,
 		OTP:          otp,                             // store OTP in DB
 		OTPExpiresAt: time.Now().Add(5 * time.Minute), // expires in 5 minutes
 		CreatedAt:    time.Now(),

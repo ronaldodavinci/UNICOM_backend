@@ -18,6 +18,8 @@ type User struct {
 	// profile_pic string        `bson:"profile_pic,omitempty" json:"profile_pic,omitempty"`
 
 	// ADD เพิ่ม
+	Disease      string    `bson:"disease,omitempty" json:"disease,omitempty"`
+	Allergy      string    `bson:"allergy,omitempty" json:"allergy,omitempty"`
 	Email        string    `bson:"email" json:"email"`
 	PasswordHash string    `bson:"password_hash,omitempty" json:"-"`
 	CreatedAt    time.Time `bson:"createdAt,omitempty" json:"createdAt,omitempty"`

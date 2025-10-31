@@ -16,4 +16,6 @@ type RegisterRequest struct {
 	Email      string `bson:"email" json:"email"`
 	Password   string `bson:"password" json:"password"`
 	OrgPath    string `bson:"organize_path" json:"organize_path"`
+	Disease    string `bson:"disease,omitempty" json:"disease,omitempty"`
+	Allergy    string `bson:"allergy,omitempty" json:"allergy,omitempty"`
 }
