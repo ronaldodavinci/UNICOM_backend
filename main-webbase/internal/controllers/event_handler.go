@@ -438,6 +438,16 @@ func UpdateEventHandler() fiber.Handler {
 			body.PictureURL = &publicURL
 		}
 
+		if v := c.FormValue("schedules"); v != "" {
+			var schedules []dto.ScheduleDTO
+			if err := json.Unmarshal([]byte(v), &schedules); err != nil {
+				return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+					"error": "invalid schedules format",
+				})
+			}
+			body.Schedules = schedules
+		}
+
 		// --- validation ---
 		if body.NodeID == "" {
 			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "NodeID is required"})
