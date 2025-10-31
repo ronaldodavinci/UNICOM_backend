@@ -9,6 +9,8 @@ package main
 import (
 	"log"
 	"os"
+	"time"
+	"context"
 
 	_ "main-webbase/docs"
 
@@ -21,7 +23,7 @@ import (
 	"main-webbase/database"
 	"main-webbase/internal/middleware"
 	"main-webbase/internal/routes"
-
+	"main-webbase/internal/services"
 	"github.com/gofiber/fiber/v2/middleware/cors"
 )
 
@@ -46,10 +48,32 @@ func main() {
 
 	db := client.Database("unicom")
 
+	
+
 	// Ensure that user can like only once per target
 	if err := bootstrap.EnsureLikeIndexes(db); err != nil {
 		log.Fatalf("ensure indexes failed: %v", err)
 	}
+
+	// Setup event reminder ticker
+	loc, _ := time.LoadLocation("Asia/Bangkok")
+
+	run := func() {
+		go func() {
+			if err := services.RunEventReminder(context.Background(), db, loc, 14); err != nil {
+				// log error ตามสะดวก
+			}
+		}()
+	}
+	// catch missing notification reminder while shutdown
+	run()
+	// check every hour for sending notification event reminders
+	ticker := time.NewTicker(1 * time.Hour)
+	go func() {
+		for range ticker.C {
+			run()
+		}
+	}()
 
 	// Fiber app
 	app := fiber.New()

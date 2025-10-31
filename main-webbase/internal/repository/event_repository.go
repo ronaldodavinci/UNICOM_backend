@@ -191,6 +191,45 @@ func GetTotalParticipant(ctx context.Context, eventID bson.ObjectID) (int, error
 	return int(count), nil
 }
 
+func FindOrganizer(ctx context.Context, eventID bson.ObjectID) ([]bson.ObjectID, error) {
+	collection := database.DB.Collection("event_participant")
+
+	pipeline := mongo.Pipeline{
+		{{Key: "$match", Value: bson.M{
+			"event_id": eventID,
+			"status":   "accept",
+			"role":     "organizer",
+		}}},
+		{{Key: "$project", Value: bson.M{
+			"user_id": 1,
+			"_id":            0,
+		}}},
+	}
+
+	cursor, err := collection.Aggregate(ctx, pipeline)
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+
+	var organizerIDs []bson.ObjectID
+	for cursor.Next(ctx) {
+		var doc struct {
+			OrganizerID bson.ObjectID `bson:"user_id"`
+		}
+		if err := cursor.Decode(&doc); err != nil {
+			return nil, err
+		}
+		organizerIDs = append(organizerIDs, doc.OrganizerID)
+	}
+
+	if err := cursor.Err(); err != nil {
+		return nil, err
+	}
+
+	return organizerIDs, nil
+}
+
 
 func FindAcceptedParticipants(ctx context.Context, eventID bson.ObjectID) ([]bson.ObjectID, error) {
 	collection := database.DB.Collection("event_participant")

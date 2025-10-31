@@ -56,7 +56,7 @@ func CreateEventQAHandler(client *mongo.Client) fiber.Handler {
 			}
 			return fiber.NewError(fiber.StatusInternalServerError, err.Error())
 		}
-
+        
 		doc := models.EventQA{
 			ID:                bson.NewObjectID(),
 			EventID:           eventID,
@@ -70,6 +70,40 @@ func CreateEventQAHandler(client *mongo.Client) fiber.Handler {
 		if _, err := colEventQA.InsertOne(c.Context(), doc); err != nil {
 			return fiber.NewError(fiber.StatusInternalServerError, err.Error())
 		}
+
+        // parameter for notification
+        ref := models.Ref{
+            ID: doc.ID,
+            Entity: "qa",
+        }
+        
+        colEvent := database.DB.Collection("events")
+        colNoti := database.DB.Collection("notification")
+        var result struct {
+            Title string `bson:"topic"`
+        }
+        err = colEvent.FindOne(c.Context(), bson.M{"_id": eventID}).Decode(&result)
+        if err != nil {
+            return fiber.NewError(fiber.StatusInternalServerError, "failed to fetch event title: " + err.Error())
+        }
+
+        notiParam := models.NotiParams{
+            EventTitle: result.Title,
+            EventID: eventID,
+        }
+        //find organizer to notify
+        organizerIDs, err := repo.FindOrganizer(c.Context(), eventID)
+        if err != nil {
+            return fiber.NewError(fiber.StatusInternalServerError, "failed to fetch organizer IDs: " + err.Error())
+        }
+        if err := s.NotifyMany(c.Context(), 
+            colNoti, 
+            organizerIDs, 
+            s.NotiQAQuestion, 
+            ref,
+            notiParam); err != nil { 
+            return fiber.NewError(fiber.StatusInternalServerError, "failed to send notification")
+            }
 
         return c.Status(fiber.StatusCreated).JSON(models.EventQA(doc))
     }
