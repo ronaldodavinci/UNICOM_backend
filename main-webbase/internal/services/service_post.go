@@ -58,7 +58,6 @@ func CreatePostWithMeta(client *mongo.Client, UserID string, body dto.CreatePost
 		Hashtag:      tagsSlice,  // เก็บ string (เช่น "smo,eng,ku66")
 		Tags:         body.PostAs.Tag,
 		PostText:     body.PostText,
-		PostAs:     dto.PostAs,
 		CensoredText: u.MaskProfanity(body.PostText),
 		Media:        body.Media,
 		CreatedAt:    now,
