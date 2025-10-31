@@ -15,7 +15,7 @@ type User struct {
 	TypePerson string        `bson:"type_person,omitempty" json:"type_person,omitempty"`
 	StudentID  string        `bson:"student_id,omitempty" json:"student_id,omitempty"`
 	AdvisorID  string        `bson:"advisor_id,omitempty" json:"advisor_id,omitempty"`
-	// profile_pic string        `bson:"profile_pic,omitempty" json:"profile_pic,omitempty"`
+	profile_pic string        `bson:"profile_pic,omitempty" json:"profile_pic,omitempty"`
 
 	// ADD เพิ่ม
 	Disease      string    `bson:"disease,omitempty" json:"disease,omitempty"`
