@@ -9,7 +9,7 @@ import (
 type EventRequestDTO struct {
 	NodeID           string             `json:"node_id" example:"66ffa43e9a7c39b1d87f6401" validate:"required"`
 	Topic            string             `json:"topic" example:"AI Workshop" validate:"required"`
-	PictureURL       *string             `json:"picture_url,omitempty" example:"http://45.144.166.252:46602/uploads/cat.png"`
+	PictureURL       *string            `json:"picture_url,omitempty" example:"http://45.144.166.252:46602/uploads/cat.png"`
 	Description      string             `json:"description" example:"A workshop on AI applications"`
 	MaxParticipation int                `json:"max_participation" example:"50"`
 	PostedAs         *models.PostedAs   `json:"posted_as,omitempty"`
@@ -18,13 +18,15 @@ type EventRequestDTO struct {
 	Status           string             `json:"status" example:"draft" enums:"active,draft,inactive"`
 	Have_form        bool               `json:"have_form,omitempty" example:"true"`
 
-	Schedules []struct {
-		Date        time.Time `json:"date" example:"2025-10-15T00:00:00Z"`
-		TimeStart   time.Time `json:"time_start" example:"2025-10-15T09:00:00Z"`
-		TimeEnd     time.Time `json:"time_end" example:"2025-10-15T12:00:00Z"`
-		Location    string    `json:"location" example:"Innovation Building Room 301"`
-		Description string    `json:"description" example:"Morning session"`
-	} `json:"schedules"`
+	Schedules []ScheduleDTO `json:"schedules"`
+}
+
+type ScheduleDTO struct {
+	Date        time.Time `json:"date"`
+	TimeStart   time.Time `json:"time_start"`
+	TimeEnd     time.Time `json:"time_end"`
+	Location    string    `json:"location"`
+	Description string    `json:"description"`
 }
 
 // Report DTO
@@ -66,8 +68,8 @@ type EventDetail struct {
 	Status               string             `json:"status,omitempty"`
 	Have_form            bool               `json:"have_form,omitempty"`
 
-	Schedules 			[]models.EventSchedule 	`json:"schedules"`
-	UserParticipants    []UserParticipant       `json:"user_participants,omitempty"`		
+	Schedules        []models.EventSchedule `json:"schedules"`
+	UserParticipants []UserParticipant      `json:"user_participants,omitempty"`
 }
 
 type UserParticipant struct {
