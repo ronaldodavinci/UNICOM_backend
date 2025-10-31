@@ -181,6 +181,7 @@ func GetAllUser() fiber.Handler {
                 "student_id":  u.StudentID,
                 "advisor_id":  u.AdvisorID,
                 "email":       u.Email,
+				"profile_pic": u.profile_pic,
                 "memberships": memByUser[u.ID.Hex()],
             })
         }
