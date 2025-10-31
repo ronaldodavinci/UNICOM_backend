@@ -4,6 +4,9 @@ import (
     "context"
     "time"
     "strings"
+    "fmt"
+	"path/filepath"
+	"golang.org/x/crypto/bcrypt"
 
 	"github.com/gofiber/fiber/v2"
 	"go.mongodb.org/mongo-driver/v2/bson"
@@ -86,8 +89,6 @@ func GetMyProfileHandler() fiber.Handler {
 	}
 }
 
-
-// UpdateMyProfileHandler allows the authenticated user to update their profile
 func UpdateMyProfileHandler() fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		// Get user ID from middleware
