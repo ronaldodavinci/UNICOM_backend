@@ -20,7 +20,9 @@ import (
 	"go.mongodb.org/mongo-driver/v2/mongo"
 )
 
-// GenerateOTP generates a numeric OTP of given length
+// -------------------- OTP GENERATION --------------------
+
+// GenerateOTP creates a numeric OTP of given length
 func GenerateOTP(length int) (string, error) {
 	const digits = "0123456789"
 	otp := make([]byte, length)
@@ -28,18 +30,18 @@ func GenerateOTP(length int) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	for i := 0; i < length; i++ {
+	for i := range otp {
 		otp[i] = digits[otp[i]%10]
 	}
 	return string(otp), nil
 }
 
-// SendOTPEmail sends an OTP email to the user
+// SendOTPEmail sends an OTP email
 func SendOTPEmail(toEmail, otp string) error {
 	smtpHost := "smtp.zoho.com"
 	smtpPort := "587"
-	fromEmail := "otp@kucom.art" // replace with your domain email
-	password := "tcq%ecM1"       // use environment variable in production
+	fromEmail := "otp@kucom.art"
+	password := "tcq%ecM1" // ⚠️ move to env var in production
 
 	subject := "Your Registration OTP"
 	body := fmt.Sprintf("Hello,\n\nYour OTP code is: %s\nThis code will expire in 5 minutes.\n\n", otp)
@@ -49,19 +51,22 @@ func SendOTPEmail(toEmail, otp string) error {
 	return smtp.SendMail(smtpHost+":"+smtpPort, auth, fromEmail, []string{toEmail}, []byte(message))
 }
 
+// -------------------- REGISTER --------------------
+
 // Register godoc
-// @Summary Register a new user
-// @Description Create a new user account with hashed password and send OTP
+// @Summary Request OTP for registration
+// @Description Send OTP to email before creating user
 // @Tags auth
 // @Accept json
 // @Produce json
 // @Param registerRequest body models.RegisterRequest true "Register Request"
-// @Success 201 {object} map[string]interface{} "User registered successfully, OTP sent"
-// @Failure 400 {object} map[string]interface{} "Invalid request body or email already exists"
-// @Failure 500 {object} map[string]interface{} "Failed to create user"
+// @Success 200 {object} map[string]interface{} "OTP sent successfully"
+// @Failure 400 {object} map[string]interface{}
+// @Failure 500 {object} map[string]interface{}
 // @Router /register [post]
 func Register(c *fiber.Ctx) error {
 	collection := database.DB.Collection("users")
+	otpCollection := database.DB.Collection("otp_requests")
 
 	var registerRequest models.RegisterRequest
 	if err := c.BodyParser(&registerRequest); err != nil {
@@ -75,17 +80,11 @@ func Register(c *fiber.Ctx) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	// Check if user exists
+	// Check existing user
 	var existUser models.User
 	err := collection.FindOne(ctx, bson.M{"email": registerRequest.Email}).Decode(&existUser)
 	if err == nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Email already exists"})
-	}
-
-	// Hash password
-	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(registerRequest.Password), bcrypt.DefaultCost)
-	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to hash password"})
 	}
 
 	// Generate OTP
@@ -97,52 +96,135 @@ func Register(c *fiber.Ctx) error {
 	// Send OTP email
 	if err := SendOTPEmail(registerRequest.Email, otp); err != nil {
 		log.Println("Failed to send OTP email:", err)
-		// Optional: continue registration even if email fails
 	}
 
-	// Add to DB
+	// Store OTP with expiry
+	otpCollection.DeleteOne(ctx, bson.M{"email": registerRequest.Email})
+	_, err = otpCollection.InsertOne(ctx, bson.M{
+		"email":      strings.ToLower(registerRequest.Email),
+		"otp":        otp,
+		"expires_at": time.Now().Add(10 * time.Minute),
+		"user_data":  registerRequest,
+	})
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to store OTP"})
+	}
+
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"message": "OTP sent to email.",
+	})
+}
+
+func VerifyOTP(c *fiber.Ctx) error {
+	var req struct {
+		Email string `json:"email"`
+		OTP   string `json:"otp"`
+	}
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request body"})
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	otpCollection := database.DB.Collection("otp_requests")
+	userCollection := database.DB.Collection("users")
+
+	// Delete expired OTPs automatically
+	_, _ = otpCollection.DeleteMany(ctx, bson.M{"expires_at": bson.M{"$lt": time.Now()}})
+
+	// Lookup OTP (case-insensitive email)
+	var otpRecord bson.M
+	if err := otpCollection.FindOne(ctx, bson.M{"email": strings.ToLower(req.Email)}).Decode(&otpRecord); err != nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "No OTP found for this email"})
+	}
+
+	// Check OTP match
+	storedOTP, ok := otpRecord["otp"].(string)
+	if !ok || storedOTP != req.OTP {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Invalid OTP"})
+	}
+
+	// ---- EXPIRY CHECK ----
+	rawExpiry := otpRecord["expires_at"]
+	log.Println("DEBUG: expires_at raw value:", rawExpiry, "type:", fmt.Sprintf("%T", rawExpiry))
+
+	var expiry time.Time
+	switch v := rawExpiry.(type) {
+	case bson.DateTime:
+		expiry = time.UnixMilli(int64(v))
+	case bson.RawValue:
+		t, ok := v.TimeOK()
+		if !ok {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Invalid expiry format"})
+		}
+		expiry = t
+	case time.Time:
+		expiry = v
+	case string:
+		t, err := time.Parse(time.RFC3339, v)
+		if err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Invalid expiry format"})
+		}
+		expiry = t
+	default:
+		log.Println("DEBUG: unknown expiry type:", fmt.Sprintf("%T", v), "value:", v)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Invalid expiry type"})
+	}
+
+	if time.Now().After(expiry) {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "OTP expired"})
+	}
+	// ------------------------------------------
+
+	// Convert user_data back to struct safely
+	var reg models.RegisterRequest
+	bsonBytes, err := bson.Marshal(otpRecord["user_data"])
+	if err != nil {
+		log.Println("DEBUG: failed to marshal user_data:", err, otpRecord["user_data"])
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "User data corrupted"})
+	}
+	if err := bson.Unmarshal(bsonBytes, &reg); err != nil {
+		log.Println("DEBUG: failed to unmarshal user_data:", err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "User data corrupted"})
+	}
+
+	// Hash password
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(reg.Password), bcrypt.DefaultCost)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to hash password"})
+	}
+
+	// Create user
 	user := models.User{
 		ID:           bson.NewObjectID(),
-		FirstName:    registerRequest.FirstName,
-		LastName:     registerRequest.LastName,
-		ThaiPrefix:   registerRequest.ThaiPrefix,
-		Gender:       registerRequest.Gender,
-		TypePerson:   registerRequest.TypePerson,
-		StudentID:    registerRequest.StudentID,
-		AdvisorID:    registerRequest.AdvisorID,
-		Email:        registerRequest.Email,
+		FirstName:    reg.FirstName,
+		LastName:     reg.LastName,
+		ThaiPrefix:   reg.ThaiPrefix,
+		Gender:       reg.Gender,
+		TypePerson:   reg.TypePerson,
+		StudentID:    reg.StudentID,
+		AdvisorID:    reg.AdvisorID,
+		Email:        reg.Email,
 		PasswordHash: string(hashedPassword),
-		Disease:      registerRequest.Disease,
-		Allergy:      registerRequest.Allergy,
-		OTP:          otp,                             // store OTP in DB
-		OTPExpiresAt: time.Now().Add(5 * time.Minute), // expires in 5 minutes
 		CreatedAt:    time.Now(),
 		UpdatedAt:    time.Now(),
 	}
 
-	_, err = collection.InsertOne(ctx, user)
-	if err != nil {
+	if _, err := userCollection.InsertOne(ctx, user); err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to create user"})
 	}
 
+	// Cleanup used OTP
+	otpCollection.DeleteOne(ctx, bson.M{"email": strings.ToLower(req.Email)})
+
 	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
-		"message": "User registered successfully. OTP sent to email.",
+		"message": "User created successfully.",
 		"user_id": user.ID.Hex(),
 	})
 }
 
-// Login godoc
-// @Summary Login user
-// @Description Authenticate user and return JWT token
-// @Tags auth
-// @Accept json
-// @Produce json
-// @Param loginRequest body models.LoginRequest true "Login Request"
-// @Success 200 {object} map[string]interface{} "User and access token"
-// @Failure 400 {object} map[string]interface{} "Invalid request body"
-// @Failure 401 {object} map[string]interface{} "Invalid credentials"
-// @Failure 500 {object} map[string]interface{} "Database or token error"
-// @Router /login [post]
+// -------------------- LOGIN --------------------
 func Login(c *fiber.Ctx) error {
 	var loginRequest models.LoginRequest
 	if err := c.BodyParser(&loginRequest); err != nil {
@@ -153,11 +235,9 @@ func Login(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Email must be a @ku.th address"})
 	}
 
-	// Find the user in the database by their username
 	collection := database.DB.Collection("users")
-
 	var user models.User
-	filter := bson.M{"email": loginRequest.Email}
+	filter := bson.M{"email": strings.ToLower(loginRequest.Email)}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
@@ -169,22 +249,17 @@ func Login(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Database query failed"})
 	}
 
-	// Compare password and hash
 	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(loginRequest.Password)); err != nil {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Invalid Password"})
 	}
 
-	// Create JWT Claims
 	claims := jwt.MapClaims{
 		"uid": user.ID.Hex(),
-		"sub": user.ID.Hex(), // ทำไว้ 2 ชั้น เป็นมาตรฐานเอาไว้ใช้ใน Middleware ด้วย
+		"sub": user.ID.Hex(),
 		"exp": time.Now().Add(time.Hour * 72).Unix(),
 	}
 
-	// Create token
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-
-	// Sign token with a secret key (use an environment variable!)
 	secret := os.Getenv("JWT_SECRET")
 	if secret == "" {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Missing JWT_SECRET"})
