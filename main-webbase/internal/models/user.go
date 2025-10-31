@@ -20,6 +20,7 @@ type User struct {
 	// ADD เพิ่ม
 	Disease      string    `bson:"disease,omitempty" json:"disease,omitempty"`
 	Allergy      string    `bson:"allergy,omitempty" json:"allergy,omitempty"`
+	Telephone    string    `bson:"telephone" json:"telephone"`
 	Email        string    `bson:"email" json:"email"`
 	PasswordHash string    `bson:"password_hash,omitempty" json:"-"`
 	CreatedAt    time.Time `bson:"createdAt,omitempty" json:"createdAt,omitempty"`
