@@ -53,6 +53,7 @@ func GetUserProfile(ctx context.Context, userID string) (*dto.UserProfileDTO, er
 		TypePerson:  user.TypePerson,
 		StudentID:   user.StudentID,
 		AdvisorID:   user.AdvisorID,
+		ProfilePic: user.ProfilePic,
 		Memberships: membershipDetails,
 	}
 

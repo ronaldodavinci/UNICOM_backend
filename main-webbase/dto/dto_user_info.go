@@ -15,6 +15,6 @@ type UserInfoResponse struct {
     AdvisorID  *string             `bson:"advisor_id" json:"advisor_id"`
     Gender     string             `bson:"gender" json:"gender"`
     TypePerson string             `bson:"type_person" json:"type_person"`
-    // ProfilePic string             `bson:"profile_pic,omitempty" json:"profile_pic,omitempty"`
+    ProfilePic string `json:"profile_pic,omitempty"`
     Status     string             `bson:"status" json:"status"`
 }

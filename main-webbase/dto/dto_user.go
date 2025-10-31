@@ -20,7 +20,9 @@ type UserProfileDTO struct {
 	Gender     string                   `json:"gender,omitempty"`
 	TypePerson string                   `json:"type_person,omitempty"`
 	StudentID  string                   `json:"student_id,omitempty"`
-	AdvisorID  string                   `json:"advisor_id,omitempty"`
+	AdvisorID  string                   `json:"advisor_id,omitempty"`	
+	ProfilePic string `json:"profile_pic,omitempty"`
+
 	Memberships []MembershipProfileDTO  `json:"memberships"`
 }
 
