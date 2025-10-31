@@ -6,6 +6,11 @@ import (
 	"go.mongodb.org/mongo-driver/v2/bson"
 )
 
+type PostAs struct {
+	OrgPath     string `bson:"org_path" json:"org_path"`
+	PositionKey string `bson:"position_key" json:"position_key"`
+}
+
 type Post struct {
 	ID     bson.ObjectID `json:"id" bson:"_id,omitempty"`
 	UserID bson.ObjectID `json:"userId" bson:"user_id"`
@@ -15,6 +20,7 @@ type Post struct {
 	PositionID   bson.ObjectID `json:"positionId"    bson:"position_id"`
 	Hashtag      []string      `json:"hashtag" bson:"hashtag"`
 	Tags         string        `json:"tags" bson:"tag"`
+	PostAs       PostAs             `bson:"postAs" json:"postAs"` 
 	Category     []string      `json:"category" bson:"category"`
 	PostText     string        `json:"postText" bson:"post_text"`
 	CensoredText string        `json:"censoredText,omitempty" bson:"censored_text,omitempty"`

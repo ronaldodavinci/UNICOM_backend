@@ -9,6 +9,7 @@ import (
 	repo "main-webbase/internal/repository"
 	u "main-webbase/internal/utils"
 	"time"
+	"strings" 
 
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
@@ -51,12 +52,31 @@ func CreatePostWithMeta(client *mongo.Client, UserID string, body dto.CreatePost
 		return resp, ErrUserIDInvalid
 	}
 	// 1) Insert post
+	// --- Generate tags string from org_path ---
+	orgPath := body.PostAs.OrgPath
+	var tags string
+	if orgPath != "" {
+		parts := strings.Split(orgPath, "/")
+		var cleanParts []string
+		for _, p := range parts {
+			if p != "" {
+				cleanParts = append(cleanParts, p)
+			}
+		}
+		tags = strings.Join(cleanParts, ",") // e.g. "fac,eng,com"
+	}
+
+	// --- Create Post object ---
 	post := models.Post{
 		UserID:       UserIDs,
-		RolePathID:   rolePathID, // เปลี่ยนจาก RolePath(string) → ObjectID
-		PositionID:   positionID, // เปลี่ยนจาก Position(string) → ObjectID
-		Hashtag:      tagsSlice,  // เก็บ string (เช่น "smo,eng,ku66")
-		Tags:         body.PostAs.Tag,
+		RolePathID:   rolePathID,
+		PositionID:   positionID,
+		Hashtag:      tagsSlice,
+		Tags:         tags,
+		PostAs: models.PostAs{   // ✅ proper type conversion
+			OrgPath:     body.PostAs.OrgPath,
+			PositionKey: body.PostAs.PositionKey,
+		},
 		PostText:     body.PostText,
 		CensoredText: u.MaskProfanity(body.PostText),
 		Media:        body.Media,
