@@ -280,13 +280,13 @@ func UpdateMyProfileHandler() fiber.Handler {
 
 		// Prepare update document
 		if req.FirstName != nil {
-			update["first_name"] = *req.FirstName
+			update["firstname"] = *req.FirstName
 		}
 		if req.LastName != nil {
-			update["last_name"] = *req.LastName
+			update["lastname"] = *req.LastName
 		}
 		if req.ThaiPrefix != nil {
-			update["thai_prefix"] = *req.ThaiPrefix
+			update["thaiprefix"] = *req.ThaiPrefix
 		}
 		if req.Gender != nil {
 			update["gender"] = *req.Gender
