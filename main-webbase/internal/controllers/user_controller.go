@@ -190,6 +190,155 @@ func GetAllUser() fiber.Handler {
     }
 }
 
+// UpdateMyProfileHandler allows the authenticated user to update their profile
+func UpdateMyProfileHandler() fiber.Handler {
+	return func(c *fiber.Ctx) error {
+		// Get user ID from middleware
+		userID, err := middleware.UIDFromLocals(c)
+		if err != nil {
+			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "unauthorized"})
+		}
+
+		update := bson.M{}
+
+		// Handle profile picture upload
+		file, err := c.FormFile("file")
+		if err == nil && file != nil {
+			timestamp := time.Now().UnixNano() / 1e6
+			ext := filepath.Ext(file.Filename)
+			filename := fmt.Sprintf("%s_%d%s", userID, timestamp, ext)
+			savePath := filepath.Join("/var/www/html/uploads", filename)
+
+			if err := c.SaveFile(file, savePath); err != nil {
+				return c.Status(fiber.StatusInternalServerError).
+					JSON(fiber.Map{"error": "failed to save file"})
+			}
+
+			// Update MongoDB with public URL
+			publicURL := fmt.Sprintf("http://localhost/uploads/%s", filename)
+			update["profile_pic"] = publicURL
+		}
+
+		// Handle other profile fields from form or JSON
+		req := struct {
+			FirstName   *string `json:"FirstName"`
+			LastName    *string `json:"LastName"`
+			ThaiPrefix  *string `json:"ThaiPrefix"`
+			Gender      *string `json:"Gender"`
+			TypePerson  *string `json:"TypePerson"`
+			StudentID   *string `json:"StudentID"`
+			AdvisorID   *string `json:"AdvisorID"`
+			Password    *string `json:"Password"`
+		}{}
+
+		// Attempt JSON parsing first
+		_ = c.BodyParser(&req)
+		// Fallback to form values if BodyParser didn't populate fields
+		if req.FirstName == nil {
+			if val := c.FormValue("FirstName"); val != "" {
+				req.FirstName = &val
+			}
+		}
+		if req.LastName == nil {
+			if val := c.FormValue("LastName"); val != "" {
+				req.LastName = &val
+			}
+		}
+		if req.ThaiPrefix == nil {
+			if val := c.FormValue("ThaiPrefix"); val != "" {
+				req.ThaiPrefix = &val
+			}
+		}
+		if req.Gender == nil {
+			if val := c.FormValue("Gender"); val != "" {
+				req.Gender = &val
+			}
+		}
+		if req.TypePerson == nil {
+			if val := c.FormValue("TypePerson"); val != "" {
+				req.TypePerson = &val
+			}
+		}
+		if req.StudentID == nil {
+			if val := c.FormValue("StudentID"); val != "" {
+				req.StudentID = &val
+			}
+		}
+		if req.AdvisorID == nil {
+			if val := c.FormValue("AdvisorID"); val != "" {
+				req.AdvisorID = &val
+			}
+		}
+		if req.Password == nil {
+			if val := c.FormValue("Password"); val != "" {
+				req.Password = &val
+			}
+		}
+
+		// Prepare update document
+		if req.FirstName != nil {
+			update["first_name"] = *req.FirstName
+		}
+		if req.LastName != nil {
+			update["last_name"] = *req.LastName
+		}
+		if req.ThaiPrefix != nil {
+			update["thai_prefix"] = *req.ThaiPrefix
+		}
+		if req.Gender != nil {
+			update["gender"] = *req.Gender
+		}
+		if req.TypePerson != nil {
+			update["type_person"] = *req.TypePerson
+		}
+		if req.StudentID != nil {
+			update["student_id"] = *req.StudentID
+		}
+		if req.AdvisorID != nil {
+			update["advisor_id"] = *req.AdvisorID
+		}
+        if req.Password != nil {
+            hashedPassword, err := bcrypt.GenerateFromPassword([]byte(*req.Password), bcrypt.DefaultCost)
+            if err != nil {
+                return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to hash password"})
+            }
+            update["password_hash"] = string(hashedPassword)
+        }
+
+
+		update["updated_at"] = time.Now()
+
+		if len(update) == 1 && update["updated_at"] != nil {
+			// Only updated_at is set -> nothing else to update
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "no fields to update"})
+		}
+
+		collection := database.DB.Collection("users")
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+
+		objID, err := bson.ObjectIDFromHex(userID)
+		if err != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid user ID"})
+		}
+
+		res, err := collection.UpdateOne(ctx, bson.M{"_id": objID}, bson.M{"$set": update})
+		if err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		}
+		if res.MatchedCount == 0 {
+			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "user not found"})
+		}
+
+		// Return updated profile
+		profile, err := services.GetUserProfile(c.Context(), userID)
+		if err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		}
+		return c.JSON(profile)
+	}
+}
+
 // GetUserBy godoc
 // @Summary Get user by field
 // @Description Get a user by ID, firstname, lastname, etc.
