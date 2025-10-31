@@ -7,8 +7,8 @@ import (
 	"log"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
-	"strings"	
 
 	"github.com/gofiber/fiber/v2"
 	"go.mongodb.org/mongo-driver/v2/bson"
@@ -17,8 +17,8 @@ import (
 	"main-webbase/dto"
 	"main-webbase/internal/middleware"
 	"main-webbase/internal/models"
-	"main-webbase/internal/services"
 	"main-webbase/internal/repository"
+	"main-webbase/internal/services"
 )
 
 // CreateEventHandler godoc
@@ -123,6 +123,16 @@ func CreateEventHandler() fiber.Handler {
 			body.PictureURL = &publicURL
 		}
 
+		if v := c.FormValue("schedules"); v != "" {
+			var schedules []dto.ScheduleDTO
+			if err := json.Unmarshal([]byte(v), &schedules); err != nil {
+				return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+					"error": "invalid schedules format",
+				})
+			}
+			body.Schedules = schedules
+		}
+
 		// --- permission check ---
 		if !canPostAs(viewerFrom(c), body.PostedAs.OrgPath, body.PostedAs.PositionKey) {
 			return c.Status(fiber.StatusForbidden).
@@ -177,19 +187,19 @@ func GetAllVisibleEventHandler() fiber.Handler {
 		log.Printf("[DEBUG] orgSets=%+v", orgSets)
 
 		// ---------- parse filters ----------
-        q := c.Query("q")
+		q := c.Query("q")
 		roles := splitCSVFilter(c.Query("role"))
 
 		// events, err := services.GetVisibleEvents(viewerID, ctx, orgSets)
 		events, err := services.GetVisibleEventsFiltered(
-            viewerID,
-            ctx,
-            orgSets,
-            services.VisibleEventQuery{
-                Roles:    roles,
-                Q:        q,
-            },
-        )
+			viewerID,
+			ctx,
+			orgSets,
+			services.VisibleEventQuery{
+				Roles: roles,
+				Q:     q,
+			},
+		)
 
 		if err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
@@ -309,33 +319,33 @@ func DeleteEventHandler() fiber.Handler {
 		if err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to get participants"})
 		}
-		
-        ref := models.Ref{
-            ID: eventID,
-            Entity: "event",
-        }
+
+		ref := models.Ref{
+			ID:     eventID,
+			Entity: "event",
+		}
 		colEvent := database.DB.Collection("events")
 		colNoti := database.DB.Collection("notification")
-        var result struct {
-            Title string `bson:"topic"`
-        }
-        err = colEvent.FindOne(c.Context(), bson.M{"_id": eventID}).Decode(&result)
-        if err != nil {
-            return fiber.NewError(fiber.StatusInternalServerError, "failed to fetch event title: " + err.Error())
-        }
+		var result struct {
+			Title string `bson:"topic"`
+		}
+		err = colEvent.FindOne(c.Context(), bson.M{"_id": eventID}).Decode(&result)
+		if err != nil {
+			return fiber.NewError(fiber.StatusInternalServerError, "failed to fetch event title: "+err.Error())
+		}
 
-        notiParam := models.NotiParams{
-            EventTitle: result.Title,
-            EventID: eventID,
-        }
-        if err := services.NotifyMany(c.Context(), 
-            colNoti, 
-            userIds, 
-            services.NotiEventDeleted, 
-            ref,
-            notiParam); err != nil { 
-            return err
-            }
+		notiParam := models.NotiParams{
+			EventTitle: result.Title,
+			EventID:    eventID,
+		}
+		if err := services.NotifyMany(c.Context(),
+			colNoti,
+			userIds,
+			services.NotiEventDeleted,
+			ref,
+			notiParam); err != nil {
+			return err
+		}
 
 		return c.JSON(fiber.Map{"message": "Event deleted (soft)"})
 	}
@@ -461,33 +471,33 @@ func UpdateEventHandler() fiber.Handler {
 		if err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to get participants"})
 		}
-		
-        ref := models.Ref{
-            ID: eventID,
-            Entity: "event",
-        }
+
+		ref := models.Ref{
+			ID:     eventID,
+			Entity: "event",
+		}
 		colEvent := database.DB.Collection("events")
 		colNoti := database.DB.Collection("notification")
-        var doc struct {
-            Title string `bson:"topic"`
-        }
-        err = colEvent.FindOne(c.Context(), bson.M{"_id": eventID}).Decode(&result)
-        if err != nil {
-            return fiber.NewError(fiber.StatusInternalServerError, "failed to fetch event title: " + err.Error())
-        }
+		var doc struct {
+			Title string `bson:"topic"`
+		}
+		err = colEvent.FindOne(c.Context(), bson.M{"_id": eventID}).Decode(&result)
+		if err != nil {
+			return fiber.NewError(fiber.StatusInternalServerError, "failed to fetch event title: "+err.Error())
+		}
 
-        notiParam := models.NotiParams{
-            EventTitle: doc.Title,
-            EventID: eventID,
-        }
-        if err := services.NotifyMany(c.Context(), 
-            colNoti, 
-            userIds, 
-            services.NotiEventUpdated, 
-            ref,
-            notiParam); err != nil { 
-            return fiber.NewError(fiber.StatusInternalServerError, "failed to send notification")
-            }
+		notiParam := models.NotiParams{
+			EventTitle: doc.Title,
+			EventID:    eventID,
+		}
+		if err := services.NotifyMany(c.Context(),
+			colNoti,
+			userIds,
+			services.NotiEventUpdated,
+			ref,
+			notiParam); err != nil {
+			return fiber.NewError(fiber.StatusInternalServerError, "failed to send notification")
+		}
 
 		return c.Status(fiber.StatusOK).JSON(result)
 	}
