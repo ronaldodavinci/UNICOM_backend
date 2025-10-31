@@ -218,7 +218,7 @@ func UpdateMyProfileHandler() fiber.Handler {
 			}
 
 			// Update MongoDB with public URL
-			publicURL := fmt.Sprintf("http://localhost/uploads/%s", filename)
+			publicURL := fmt.Sprintf("http://45.144.166.252:46603/uploads/%s", filename)
 			update["profile_pic"] = publicURL
 		}
 
