@@ -10,7 +10,7 @@ type PostAs struct {
 type Visibility struct {
 	Access   string   `json:"access"`
 	Audience []string `json:"audience"`
-}
+}]
 
 // ===== Request =====
 type CreatePostDTO struct {

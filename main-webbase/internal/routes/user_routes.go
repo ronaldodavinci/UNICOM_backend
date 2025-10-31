@@ -12,7 +12,7 @@ func SetupRoutesUser(app *fiber.App) {
     user.Get("/myprofile", controllers.GetMyProfileHandler())
     user.Get("/profile/:id", controllers.GetUserProfileHandler())
     user.Get("/profile", controllers.GetUserProfileByQuery())
-
+	user.post("/profile_update", controllers.GetUserProfileByQuery())
 	user.Get("/", controllers.GetAllUser())
 
 	// Query by field
