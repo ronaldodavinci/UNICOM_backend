@@ -18,6 +18,7 @@ type CreatePostDTO struct {
 	Media    []string `json:"media,omitempty"`
 
 	CategoryIDs []string `json:"categoryIds"`
+  
 
 	PostAs       PostAs     `json:"postAs" validate:"required"`     // เดิมคือ rolePath
 	Visibility   Visibility `json:"visibility" validate:"required"` // เดิมคือ roleIds
