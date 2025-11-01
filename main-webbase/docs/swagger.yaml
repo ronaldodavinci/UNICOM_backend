@@ -128,23 +128,7 @@ definitions:
         $ref: '#/definitions/models.PostedAs'
       schedules:
         items:
-          properties:
-            date:
-              example: "2025-10-15T00:00:00Z"
-              type: string
-            description:
-              example: Morning session
-              type: string
-            location:
-              example: Innovation Building Room 301
-              type: string
-            time_end:
-              example: "2025-10-15T12:00:00Z"
-              type: string
-            time_start:
-              example: "2025-10-15T09:00:00Z"
-              type: string
-          type: object
+          $ref: '#/definitions/dto.ScheduleDTO'
         type: array
       status:
         enum:
@@ -397,6 +381,19 @@ definitions:
     required:
     - question_text
     type: object
+  dto.ScheduleDTO:
+    properties:
+      date:
+        type: string
+      description:
+        type: string
+      location:
+        type: string
+      time_end:
+        type: string
+      time_start:
+        type: string
+    type: object
   dto.UpdateParticipantStatusDTO:
     properties:
       event_id:
@@ -491,6 +488,8 @@ definitions:
         items:
           $ref: '#/definitions/dto.MembershipProfileDTO'
         type: array
+      profile_pic:
+        type: string
       student_id:
         type: string
       thaiprefix:
@@ -718,6 +717,8 @@ definitions:
         type: string
       positionId:
         type: string
+      postAs:
+        $ref: '#/definitions/models.PostAs'
       postText:
         type: string
       rolePathId:
@@ -734,6 +735,13 @@ definitions:
       visibility:
         type: string
     type: object
+  models.PostAs:
+    properties:
+      org_path:
+        type: string
+      position_key:
+        type: string
+    type: object
   models.PostedAs:
     properties:
       label:
@@ -746,6 +754,10 @@ definitions:
   models.RegisterRequest:
     properties:
       advisor_id:
+        type: string
+      allergy:
+        type: string
+      disease:
         type: string
       email:
         type: string
@@ -760,6 +772,8 @@ definitions:
       password:
         type: string
       student_id:
+        type: string
+      telephone:
         type: string
       thaiprefix:
         type: string
@@ -1364,6 +1378,47 @@ paths:
       summary: Create or replace form questions
       tags:
       - forms
+  /event/activate/{event_id}:
+    patch:
+      consumes:
+      - application/json
+      description: Change the status of an event to "active"
+      parameters:
+      - description: Event ID to activate
+        in: path
+        name: event_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Event status updated successfully
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Invalid event ID
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Event not found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Activate an event
+      tags:
+      - events
   /event/participant/mystatus/{eventId}:
     get:
       consumes:

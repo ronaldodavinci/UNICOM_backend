@@ -3,8 +3,8 @@ package services
 import (
 	"context"
 	"fmt"
-	"time"
 	"sort"
+	"time"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
@@ -111,12 +111,12 @@ func CreateEventWithSchedules(body dto.EventRequestDTO, ctx context.Context) (dt
 
 // Use in GetAllVisibleEventHandler
 type VisibleEventQuery struct {
-    Roles    []string
-    Q        string
+	Roles []string
+	Q     string
 }
 
-func GetVisibleEventsFiltered(viewerID bson.ObjectID, ctx context.Context, userOrgSets []string, q VisibleEventQuery,) ([]dto.EventFeed, error) {
-    
+func GetVisibleEventsFiltered(viewerID bson.ObjectID, ctx context.Context, userOrgSets []string, q VisibleEventQuery) ([]dto.EventFeed, error) {
+
 	var events []models.Event
 	var err error
 	if q.Q != "" || len(q.Roles) > 0 {
@@ -131,8 +131,8 @@ func GetVisibleEventsFiltered(viewerID bson.ObjectID, ctx context.Context, userO
 		return nil, err
 	}
 
-    // Filter visible events
-    var visibleEvents []models.Event
+	// Filter visible events
+	var visibleEvents []models.Event
 	var eventIDs []bson.ObjectID
 	for _, ev := range events {
 		if CheckVisibleEvent(ctx, &ev, userOrgSets, viewerID) {
@@ -144,15 +144,15 @@ func GetVisibleEventsFiltered(viewerID bson.ObjectID, ctx context.Context, userO
 		return []dto.EventFeed{}, nil
 	}
 
-    // ดึง Fetch schedules
-    scheds, err := repo.GetSchedulesByEvent(ctx, eventIDs)
-    if err != nil {
-        return nil, err
-    }
-    schedMap := make(map[bson.ObjectID][]models.EventSchedule)
-    for _, s := range scheds {
-        schedMap[s.EventID] = append(schedMap[s.EventID], s)
-    }
+	// ดึง Fetch schedules
+	scheds, err := repo.GetSchedulesByEvent(ctx, eventIDs)
+	if err != nil {
+		return nil, err
+	}
+	schedMap := make(map[bson.ObjectID][]models.EventSchedule)
+	for _, s := range scheds {
+		schedMap[s.EventID] = append(schedMap[s.EventID], s)
+	}
 
 	// Update expired events (inactive)
 	now := time.Now().UTC()
@@ -267,6 +267,16 @@ func CheckVisibleEvent(ctx context.Context, event *models.Event, userOrgs []stri
 		return false
 	}
 
+	if event.Status == "pending" {
+		// Check if user has "/" in their org paths
+		for _, s := range userOrgs {
+			if s == "/" {
+				return true
+			}
+		}
+		return false
+	}
+
 	if event.Status == "active" {
 		v := event.Visibility
 		if v == nil {
@@ -298,11 +308,11 @@ func CheckVisibleEvent(ctx context.Context, event *models.Event, userOrgs []stri
 	}
 
 	if event.Status == "draft" {
-		subtreeSet := map[string]struct{}{} 
-		for _, s := range userOrgs { 
-			subtreeSet[s] = struct{}{} 
-		} 
-		if _, ok := subtreeSet[event.OrgOfContent]; ok { 
+		subtreeSet := map[string]struct{}{}
+		for _, s := range userOrgs {
+			subtreeSet[s] = struct{}{}
+		}
+		if _, ok := subtreeSet[event.OrgOfContent]; ok {
 			userStatus, err := GetParticipantStatus(ctx, userID.Hex(), event.ID.Hex())
 			if err != nil {
 				return false
@@ -349,7 +359,7 @@ func GetEventDetail(eventID string, ctx context.Context) (dto.EventDetail, error
 		Description:          event.Description,
 		PictureURL:           event.PictureURL,
 		MaxParticipation:     event.MaxParticipation,
-		CurrentParticipation: participantCount, 
+		CurrentParticipation: participantCount,
 		PostedAs:             event.PostedAs,
 		Visibility:           event.Visibility,
 		Status:               event.Status,
@@ -360,7 +370,6 @@ func GetEventDetail(eventID string, ctx context.Context) (dto.EventDetail, error
 
 	return eventDetail, nil
 }
-
 
 func ParticipateEvent(eventID string, uid string, ctx context.Context) error {
 	now := time.Now().UTC()

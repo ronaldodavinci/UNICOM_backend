@@ -512,3 +512,55 @@ func UpdateEventHandler() fiber.Handler {
 		return c.Status(fiber.StatusOK).JSON(result)
 	}
 }
+
+// ActivateEventHandler godoc
+// @Summary Activate an event
+// @Description Change the status of an event to "active"
+// @Tags events
+// @Accept json
+// @Produce json
+// @Param event_id path string true "Event ID to activate"
+// @Success 200 {object} map[string]string "Event status updated successfully"
+// @Failure 400 {object} map[string]string "Invalid event ID"
+// @Failure 404 {object} map[string]string "Event not found"
+// @Failure 500 {object} map[string]string "Internal server error"
+// @Router /event/activate/{event_id} [patch]
+func ActivateEventHandler() fiber.Handler {
+	return func(c *fiber.Ctx) error {
+		eventIDHex := c.Params("event_id")
+		eventID, err := bson.ObjectIDFromHex(eventIDHex)
+		if err != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"error": "Invalid event ID",
+			})
+		}
+
+		ctx, cancel := context.WithTimeout(c.Context(), 10*time.Second)
+		defer cancel()
+
+		collection := database.DB.Collection("events")
+
+		update := bson.M{
+			"status":     "active",
+			"updated_at": time.Now().UTC(),
+		}
+
+		result, err := collection.UpdateOne(ctx, bson.M{"_id": eventID}, bson.M{"$set": update})
+		if err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+				"error": "Failed to update event status",
+			})
+		}
+
+		if result.MatchedCount == 0 {
+			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+				"error": "Event not found",
+			})
+		}
+
+		return c.JSON(fiber.Map{
+			"message":  "Event status updated to active",
+			"event_id": eventIDHex,
+		})
+	}
+}

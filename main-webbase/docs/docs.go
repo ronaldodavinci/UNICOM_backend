@@ -327,6 +327,68 @@ const docTemplate = `{
                 }
             }
         },
+        "/event/activate/{event_id}": {
+            "patch": {
+                "description": "Change the status of an event to \"active\"",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "events"
+                ],
+                "summary": "Activate an event",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Event ID to activate",
+                        "name": "event_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Event status updated successfully",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid event ID",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Event not found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/event/participant/mystatus/{eventId}": {
             "get": {
                 "description": "Returns the status of the authenticated user for a specific event.",
@@ -2650,29 +2712,7 @@ const docTemplate = `{
                 "schedules": {
                     "type": "array",
                     "items": {
-                        "type": "object",
-                        "properties": {
-                            "date": {
-                                "type": "string",
-                                "example": "2025-10-15T00:00:00Z"
-                            },
-                            "description": {
-                                "type": "string",
-                                "example": "Morning session"
-                            },
-                            "location": {
-                                "type": "string",
-                                "example": "Innovation Building Room 301"
-                            },
-                            "time_end": {
-                                "type": "string",
-                                "example": "2025-10-15T12:00:00Z"
-                            },
-                            "time_start": {
-                                "type": "string",
-                                "example": "2025-10-15T09:00:00Z"
-                            }
-                        }
+                        "$ref": "#/definitions/dto.ScheduleDTO"
                     }
                 },
                 "status": {
@@ -3048,6 +3088,26 @@ const docTemplate = `{
                 }
             }
         },
+        "dto.ScheduleDTO": {
+            "type": "object",
+            "properties": {
+                "date": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "location": {
+                    "type": "string"
+                },
+                "time_end": {
+                    "type": "string"
+                },
+                "time_start": {
+                    "type": "string"
+                }
+            }
+        },
         "dto.UpdateParticipantStatusDTO": {
             "type": "object",
             "required": [
@@ -3185,6 +3245,9 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/dto.MembershipProfileDTO"
                     }
+                },
+                "profile_pic": {
+                    "type": "string"
                 },
                 "student_id": {
                     "type": "string"
@@ -3529,6 +3592,9 @@ const docTemplate = `{
                 "positionId": {
                     "type": "string"
                 },
+                "postAs": {
+                    "$ref": "#/definitions/models.PostAs"
+                },
                 "postText": {
                     "type": "string"
                 },
@@ -3553,6 +3619,17 @@ const docTemplate = `{
                 }
             }
         },
+        "models.PostAs": {
+            "type": "object",
+            "properties": {
+                "org_path": {
+                    "type": "string"
+                },
+                "position_key": {
+                    "type": "string"
+                }
+            }
+        },
         "models.PostedAs": {
             "type": "object",
             "properties": {
@@ -3571,6 +3648,12 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "advisor_id": {
+                    "type": "string"
+                },
+                "allergy": {
+                    "type": "string"
+                },
+                "disease": {
                     "type": "string"
                 },
                 "email": {
@@ -3592,6 +3675,9 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "student_id": {
+                    "type": "string"
+                },
+                "telephone": {
                     "type": "string"
                 },
                 "thaiprefix": {
