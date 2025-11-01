@@ -347,6 +347,12 @@ func DeleteEventHandler() fiber.Handler {
 			return err
 		}
 
+		colParticipant := database.DB.Collection("event_participants")
+		_, err = colParticipant.DeleteMany(ctx, bson.M{"event_id": eventID})
+		if err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to delete participants"})
+		}
+
 		return c.JSON(fiber.Map{"message": "Event deleted (soft)"})
 	}
 }

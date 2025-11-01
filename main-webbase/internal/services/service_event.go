@@ -9,6 +9,7 @@ import (
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
 
+	"main-webbase/database"
 	"main-webbase/dto"
 	"main-webbase/internal/models"
 	repo "main-webbase/internal/repository"
@@ -172,6 +173,8 @@ func GetVisibleEventsFiltered(viewerID bson.ObjectID, ctx context.Context, userO
 			if err != nil {
 				return nil, fmt.Errorf("failed to update event %s: %v", eventID.Hex(), err)
 			}
+			colParticipant := database.DB.Collection("event_participants")
+			_, _ = colParticipant.DeleteMany(ctx, bson.M{"event_id": eventID})
 			delete(schedMap, eventID)
 		}
 	}
