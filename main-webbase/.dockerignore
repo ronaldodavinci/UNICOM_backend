@@ -1,0 +1,10 @@
+.git
+.gitignore
+.env
+.vscode
+.idea
+node_modules
+tmp
+bin
+coverage.out
+README.md
