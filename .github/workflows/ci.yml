@@ -19,13 +19,17 @@ jobs:
           go-version: "1.24.5"
 
       - name: Download modules
+        working-directory: main-webbase
         run: go mod download
 
       - name: Run tests
+        working-directory: main-webbase
         run: go test ./... -race
 
       - name: Build API binary
+        working-directory: main-webbase
         run: go build ./cmd/api
 
       - name: Docker build
+        working-directory: main-webbase
         run: docker build -t fiber-api-ci .
