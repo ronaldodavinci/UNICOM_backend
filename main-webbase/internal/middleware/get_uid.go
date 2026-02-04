@@ -13,7 +13,7 @@ func UIDFromLocals(c *fiber.Ctx) (string, error) {
 	if uid == "" {
 		return "", fiber.ErrUnauthorized
 	}
-	fmt.Println("UIDFromLocals: uid=%s\n", uid)
+	fmt.Printf("UIDFromLocals: uid=%s\n", uid)
 	return uid, nil
 }
 
